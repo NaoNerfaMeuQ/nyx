@@ -4406,7 +4406,7 @@ local function triggerDogfightAttack(targetPid, count)
                 return
             end
 
-            -- Remove esquadrão anterior antes de iniciar o novo
+            -- Remove esquadrao anterior suavemente
             if #ChaosState.activeDogfightJets > 0 then
                 clearActiveDogfightJets()
                 script.yield(150)
@@ -4437,13 +4437,11 @@ local function triggerDogfightAttack(targetPid, count)
             ChaosState.dogfightAttackRunning = true
 
             for i = 1, jetCount do
-                if not ChaosState.dogfightAttackRunning then break end
-
                 local angle = ((i - 1) / jetCount) * (math.pi * 2) + (math.random() * 0.4)
-                local dist = 160.0 + (i * 35.0)
+                local dist = 120.0 + (i * 30.0)
                 local sx = targetCoords.x + math.cos(angle) * dist
                 local sy = targetCoords.y + math.sin(angle) * dist
-                local sz = targetCoords.z + 280.0 + (i * 25.0)
+                local sz = targetCoords.z + 280.0 + (i * 20.0)
                 local heading = math.deg(math.atan2(-(targetCoords.x - sx), targetCoords.y - sy))
 
                 local jet = nil
@@ -4459,7 +4457,7 @@ local function triggerDogfightAttack(targetPid, count)
                         ENTITY.SET_ENTITY_AS_MISSION_ENTITY(jet, true, true)
                         ENTITY.SET_ENTITY_COLLISION(jet, true, true)
                         VEHICLE.SET_VEHICLE_ENGINE_ON(jet, true, true, false)
-                        VEHICLE.SET_VEHICLE_FORWARD_SPEED(jet, 80.0)
+                        VEHICLE.SET_VEHICLE_FORWARD_SPEED(jet, 85.0)
                         if VEHICLE.CONTROL_LANDING_GEAR then
                             VEHICLE.CONTROL_LANDING_GEAR(jet, 3)
                         end
@@ -4507,6 +4505,7 @@ local function triggerDogfightAttack(targetPid, count)
                             PED.SET_RELATIONSHIP_BETWEEN_GROUPS(5, enemyGroup, playerGroup)
                             PED.SET_RELATIONSHIP_BETWEEN_GROUPS(5, playerGroup, enemyGroup)
                             
+                            -- Atributos de combate aereo e dogfight nativo
                             PED.SET_PED_COMBAT_ATTRIBUTES(pilot, 1, true)
                             PED.SET_PED_COMBAT_ATTRIBUTES(pilot, 2, true)
                             PED.SET_PED_COMBAT_ATTRIBUTES(pilot, 3, false)
@@ -4532,64 +4531,77 @@ local function triggerDogfightAttack(targetPid, count)
                             end
                         end)
                     end
-                end
-                script.yield(350)
-            end
 
-            STREAMING.SET_MODEL_AS_NO_LONGER_NEEDED(jetHash)
-            STREAMING.SET_MODEL_AS_NO_LONGER_NEEDED(pilotHash)
-            ChaosState.isDogfightSpawning = false
+                    -- Loop assíncrono: rajadas de canhão de 20mm + perseguição contínua
+                    script.run_in_callback(function()
+                        local lastAssignedPed = targetPed
+                        local shootCooldown = 0
 
-            -- Supervisor estável em segundo plano (atualiza alvo vivo e remove blips de caças abatidos)
-            script.run_in_callback(function()
-                local lastAssignedPed = targetPed
-                while ChaosState.dogfightAttackRunning and #ChaosState.activeDogfightJets > 0 do
-                    local curPed = (actualPid == myLocalPid) and getLocalPed() or getPlayerPed(actualPid)
-                    local aliveCount = 0
+                        while isValidEntity(jet) and isValidEntity(pilot) and not PED.IS_PED_INJURED(pilot) and ChaosState.dogfightAttackRunning do
+                            local curPed = (actualPid == myLocalPid) and getLocalPed() or getPlayerPed(actualPid)
 
-                    for idx = #ChaosState.activeDogfightJets, 1, -1 do
-                        local item = ChaosState.activeDogfightJets[idx]
-                        local jetValid = isValidEntity(item.jet)
-                        local pilotValid = isValidEntity(item.pilot) and not PED.IS_PED_INJURED(item.pilot)
-
-                        if not jetValid or not pilotValid then
-                            pcall(function()
-                                if item.blip and HUD and HUD.DOES_BLIP_EXIST and HUD.DOES_BLIP_EXIST(item.blip) then
-                                    HUD.REMOVE_BLIP(item.blip)
-                                end
-                            end)
-                            table.remove(ChaosState.activeDogfightJets, idx)
-                        else
-                            aliveCount = aliveCount + 1
                             if isValidEntity(curPed) and curPed ~= lastAssignedPed and not PED.IS_PED_INJURED(curPed) then
+                                lastAssignedPed = curPed
                                 pcall(function()
                                     local pGroup = PED.GET_PED_RELATIONSHIP_GROUP_HASH(curPed)
                                     local eGroup = getHash("HATES_PLAYER")
                                     PED.SET_RELATIONSHIP_BETWEEN_GROUPS(5, eGroup, pGroup)
                                     PED.SET_RELATIONSHIP_BETWEEN_GROUPS(5, pGroup, eGroup)
-                                    TASK.TASK_COMBAT_PED(item.pilot, curPed, 0, 16)
+                                    TASK.TASK_COMBAT_PED(pilot, curPed, 0, 16)
                                     if TASK.TASK_PLANE_MISSION then
-                                        TASK.TASK_PLANE_MISSION(item.pilot, item.jet, 0, curPed, 0.0, 0.0, 0.0, 6, 110.0, 0.0, 90.0, 0, 100.0)
+                                        TASK.TASK_PLANE_MISSION(pilot, jet, 0, curPed, 0.0, 0.0, 0.0, 6, 110.0, 0.0, 90.0, 0, 100.0)
                                     elseif TASK.TASK_PLANE_CHASE then
-                                        TASK.TASK_PLANE_CHASE(item.pilot, curPed, 0.0, 0.0, 50.0)
+                                        TASK.TASK_PLANE_CHASE(pilot, curPed, 0.0, 0.0, 50.0)
                                     end
                                 end)
                             end
+
+                            -- Disparo de canhões explosivos quando alinhado com o alvo
+                            shootCooldown = shootCooldown + 1
+                            if shootCooldown >= 3 and isValidEntity(curPed) then
+                                pcall(function()
+                                    local jCoords = ENTITY.GET_ENTITY_COORDS(jet, true)
+                                    local pCoords = ENTITY.GET_ENTITY_COORDS(curPed, true)
+                                    local dx = pCoords.x - jCoords.x
+                                    local dy = pCoords.y - jCoords.y
+                                    local dz = pCoords.z - jCoords.z
+                                    local dist = math.sqrt(dx * dx + dy * dy + dz * dz)
+
+                                    if dist < 480.0 and dist > 12.0 then
+                                        local fwd = ENTITY.GET_ENTITY_FORWARD_VECTOR(jet)
+                                        local toX, toY, toZ = dx / dist, dy / dist, dz / dist
+                                        local dot = fwd.x * toX + fwd.y * toY + fwd.z * toZ
+
+                                        if dot > 0.65 then
+                                            local leftMuzzle = ENTITY.GET_OFFSET_FROM_ENTITY_IN_WORLD_COORDS(jet, -1.8, 4.0, -0.2)
+                                            local rightMuzzle = ENTITY.GET_OFFSET_FROM_ENTITY_IN_WORLD_COORDS(jet, 1.8, 4.0, -0.2)
+                                            local laserHash = getHash("VEHICLE_WEAPON_PLAYER_LAZER")
+                                            if laserHash == 0 then laserHash = getHash("WEAPON_EXPLOSION") end
+
+                                            MISC.SHOOT_SINGLE_BULLET_BETWEEN_COORDS(leftMuzzle.x, leftMuzzle.y, leftMuzzle.z, pCoords.x, pCoords.y, pCoords.z + 0.4, 250, true, laserHash, pilot, true, false, 950.0)
+                                            MISC.SHOOT_SINGLE_BULLET_BETWEEN_COORDS(rightMuzzle.x, rightMuzzle.y, rightMuzzle.z, pCoords.x, pCoords.y, pCoords.z + 0.4, 250, true, laserHash, pilot, true, false, 950.0)
+                                            shootCooldown = 0
+                                        end
+                                    end
+                                end)
+                            end
+
+                            script.yield(40)
                         end
-                    end
 
-                    if isValidEntity(curPed) and curPed ~= lastAssignedPed and not PED.IS_PED_INJURED(curPed) then
-                        lastAssignedPed = curPed
-                    end
-
-                    if aliveCount == 0 then
-                        ChaosState.dogfightAttackRunning = false
-                        break
-                    end
-
-                    script.yield(500)
+                        pcall(function()
+                            if blip and HUD and HUD.DOES_BLIP_EXIST and HUD.DOES_BLIP_EXIST(blip) then
+                                HUD.REMOVE_BLIP(blip)
+                            end
+                        end)
+                    end)
                 end
-            end)
+                script.yield(150)
+            end
+
+            STREAMING.SET_MODEL_AS_NO_LONGER_NEEDED(jetHash)
+            STREAMING.SET_MODEL_AS_NO_LONGER_NEEDED(pilotHash)
+            ChaosState.isDogfightSpawning = false
         end)
         ChaosState.isDogfightSpawning = false
     end)
