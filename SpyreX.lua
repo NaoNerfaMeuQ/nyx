@@ -4459,7 +4459,7 @@ local function getTargetPlayerDisplayName(pid)
     end
     local name = getPlayerName(pid)
     local isNyx = (nyx_detected_users[pid] == true)
-    return string.format("[%02d]%s %s", pid, isNyx and " [🌙 NYX]" or "", name)
+    return string.format("[%02d]%s %s", pid, isNyx and " [NYX USER]" or "", name)
 end
 
 local function triggerDogfightAttack(targetPid, jetCount)
@@ -4676,7 +4676,7 @@ local function buildDogfightTargetMenu()
             local isSel = (selectedDogfightPid == pid)
             local isNyx = (nyx_detected_users[pid] == true)
             local name = getPlayerName(pid)
-            local label = string.format("%s[%02d]%s %s", isSel and "[X] " or "[  ] ", pid, isNyx and " [🌙 NYX]" or "", name)
+            local label = string.format("%s[%02d]%s %s", isSel and "[X] " or "[  ] ", pid, isNyx and " [NYX USER]" or "", name)
             local savedPid = pid
             table.insert(items, actionItem(label, function()
                 selectedDogfightPid = savedPid
@@ -4699,7 +4699,7 @@ local function buildEarRapeTargetMenu()
             local isSel = (selectedEarRapePid == pid)
             local isNyx = (nyx_detected_users[pid] == true)
             local name = getPlayerName(pid)
-            local label = string.format("%s[%02d]%s %s", isSel and "[X] " or "[  ] ", pid, isNyx and " [🌙 NYX]" or "", name)
+            local label = string.format("%s[%02d]%s %s", isSel and "[X] " or "[  ] ", pid, isNyx and " [NYX USER]" or "", name)
             local savedPid = pid
             table.insert(items, actionItem(label, function()
                 selectedEarRapePid = savedPid
@@ -4756,44 +4756,44 @@ end
 
 local function buildDogfightSubmenu()
     return {
-        submenuItem("🎯 Escolher Alvo: " .. getTargetPlayerDisplayName(selectedDogfightPid), buildDogfightTargetMenu),
+        submenuItem("Escolher Alvo: " .. getTargetPlayerDisplayName(selectedDogfightPid), buildDogfightTargetMenu),
         actionItem("Quantidade: 3 Cacas Lazer", function() dogfightJetCount = 3; showFeedNotification("3 Cacas selecionados") end),
         actionItem("Quantidade: 5 Cacas (Enxame)", function() dogfightJetCount = 5; showFeedNotification("5 Cacas selecionados") end),
-        actionItem("► ENVIAR ATAQUE AEREO AGORA", function() triggerDogfightAttack(selectedDogfightPid, dogfightJetCount) end)
+        actionItem("> ENVIAR ATAQUE AEREO AGORA", function() triggerDogfightAttack(selectedDogfightPid, dogfightJetCount) end)
     }
 end
 
 local function buildEarRapeSubmenu()
     return {
-        submenuItem("🎯 Escolher Alvo: " .. getTargetPlayerDisplayName(selectedEarRapePid), buildEarRapeTargetMenu),
+        submenuItem("Escolher Alvo: " .. getTargetPlayerDisplayName(selectedEarRapePid), buildEarRapeTargetMenu),
         toggleItem("Relampagos & Trovoes Cegantes", function() return trollLightning end, function() trollLightning = not trollLightning end),
         toggleItem("Flashbang & Efeito Psicodelico", function() return trollFlashbang end, function() trollFlashbang = not trollFlashbang end),
-        actionItem("► Disparo Rapido (5 Segundos)", function() triggerEarRapeTremor(selectedEarRapePid, 5) end),
-        actionItem("► Disparo Longo (10 Segundos)", function() triggerEarRapeTremor(selectedEarRapePid, 10) end),
-        actionItem("■ Parar Todos os Efeitos", stopTrollAudioHarassment)
+        actionItem("> Disparo Rapido (5 Segundos)", function() triggerEarRapeTremor(selectedEarRapePid, 5) end),
+        actionItem("> Disparo Longo (10 Segundos)", function() triggerEarRapeTremor(selectedEarRapePid, 10) end),
+        actionItem("* Parar Todos os Efeitos", stopTrollAudioHarassment)
     }
 end
 
 local function buildSessionAttacksMenu()
     return {
-        submenuItem("🛩️ Esquadrao de Cacas 20mm", buildDogfightSubmenu),
-        submenuItem("🔊 Troll Pesado (Ear Rape & Terremoto)", buildEarRapeSubmenu)
+        submenuItem("Esquadrao de Cacas 20mm", buildDogfightSubmenu),
+        submenuItem("Troll Pesado (Ear Rape & Terremoto)", buildEarRapeSubmenu)
     }
 end
 
 local function buildAirdropConfigSubmenu()
     return {
-        submenuItem("🎯 Destinatario / Local: " .. (airdropLocationMode == 1 and "Na Sua Frente (15m)" or getTargetPlayerDisplayName(selectedAirdropPid)), buildAirdropTargetMenu),
-        toggleItem("🛡️ Saude & Colete 100%", function() return airdropDropType == 1 end, function() airdropDropType = 1 end),
-        toggleItem("🚗 Insurgent Custom .50cal", function() return airdropDropType == 2 end, function() airdropDropType = 2 end),
-        toggleItem("💣 Caixa Armadilha (Trap)", function() return airdropDropType == 3 end, function() airdropDropType = 3 end),
-        actionItem("► SOLICITAR AIRDROP AGORA", function() triggerAirdropDrop(airdropDropType, selectedAirdropPid, airdropLocationMode) end)
+        submenuItem("Destinatario / Local: " .. (airdropLocationMode == 1 and "Na Sua Frente (15m)" or getTargetPlayerDisplayName(selectedAirdropPid)), buildAirdropTargetMenu),
+        toggleItem("Saude & Colete 100%", function() return airdropDropType == 1 end, function() airdropDropType = 1 end),
+        toggleItem("Insurgent Custom .50cal", function() return airdropDropType == 2 end, function() airdropDropType = 2 end),
+        toggleItem("Caixa Armadilha (Trap)", function() return airdropDropType == 3 end, function() airdropDropType = 3 end),
+        actionItem("> SOLICITAR AIRDROP AGORA", function() triggerAirdropDrop(airdropDropType, selectedAirdropPid, airdropLocationMode) end)
     }
 end
 
 local function buildSpawnAirdropMenu()
     return {
-        submenuItem("📦 Airdrop Militar Tatico", buildAirdropConfigSubmenu)
+        submenuItem("Airdrop Militar Tatico", buildAirdropConfigSubmenu)
     }
 end
 
