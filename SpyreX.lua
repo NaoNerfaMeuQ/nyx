@@ -65,21 +65,19 @@ local UI = {
 -- CONTROLES
 ------------------------------------------------------------
 
-local CONTROL_F9 = 56
-
-local CONTROL_UP = 172
-local CONTROL_DOWN = 173
-local CONTROL_LEFT = 174
-local CONTROL_RIGHT = 175
-
-local CONTROL_ACCEPT = 176
-local CONTROL_CANCEL = 177
-
-local CONTROL_FRONTEND_ACCEPT = 201
-local CONTROL_FRONTEND_CANCEL = 202
-
-local CONTROL_HANDS_UP = 74 -- H
-local CONTROL_CROUCH = 246 -- Y
+local CONTROLS = {
+    F9 = 56,
+    UP = 172,
+    DOWN = 173,
+    LEFT = 174,
+    RIGHT = 175,
+    ACCEPT = 176,
+    CANCEL = 177,
+    FRONTEND_ACCEPT = 201,
+    FRONTEND_CANCEL = 202,
+    HANDS_UP = 74,
+    CROUCH = 246
+}
 
 ------------------------------------------------------------
 -- MENU
@@ -769,7 +767,9 @@ end
 -- ANIMAÇÕES
 ------------------------------------------------------------
 
-local policeAnimations = {
+local AnimLists = {}
+
+AnimLists.police = {
 
     {
         name = "Rádio policial",
@@ -832,7 +832,7 @@ local policeAnimations = {
 
 }
 
-local socialAnimations = {
+AnimLists.social = {
 
     {
         name = "Acenar",
@@ -884,7 +884,7 @@ local socialAnimations = {
 
 }
 
-local gestureAnimations = {
+AnimLists.gesture = {
 
     {
         name = "Continência",
@@ -951,7 +951,7 @@ local gestureAnimations = {
 
 }
 
-local workAnimations = {
+AnimLists.work = {
 
     {
         name = "Prancheta",
@@ -1000,7 +1000,7 @@ local workAnimations = {
 
 }
 
-local relaxingAnimations = {
+AnimLists.relaxing = {
 
     {
         name = "Café",
@@ -1034,7 +1034,7 @@ local relaxingAnimations = {
 
 }
 
-local sittingAnimations = {
+AnimLists.sitting = {
 
     {
         name = "Sentar",
@@ -1068,7 +1068,7 @@ local sittingAnimations = {
 
 }
 
-local danceAnimations = {
+AnimLists.dance = {
 
     {
         name = "Dança 1",
@@ -1108,7 +1108,7 @@ local danceAnimations = {
 
 }
 
-local phoneAnimations = {
+AnimLists.phone = {
 
     {
         name = "Usar celular",
@@ -1136,7 +1136,7 @@ local phoneAnimations = {
 
 }
 
-local exerciseAnimations = {
+AnimLists.exercise = {
 
     {
         name = "Yoga",
@@ -1373,11 +1373,12 @@ end
 -- MOD STATE
 ------------------------------------------------------------
 
-local crouchHotkeyEnabled = false
-local crouched = false
-
-local handsUpHotkeyEnabled = false
-local handsUp = false
+local Hotkeys = {
+    crouchEnabled = false,
+    crouched = false,
+    handsUpEnabled = false,
+    handsUp = false
+}
 
 ------------------------------------------------------------
 -- AGACHAR
@@ -1385,10 +1386,10 @@ local handsUp = false
 
 local function setCrouchedState(state)
 
-    crouched =
+    Hotkeys.crouched =
         state == true
 
-    if crouched then
+    if Hotkeys.crouched then
 
         applyMovement({
 
@@ -1408,18 +1409,18 @@ end
 local function toggleCrouchedState()
 
     setCrouchedState(
-        not crouched
+        not Hotkeys.crouched
     )
 
 end
 
 local function toggleCrouchHotkey()
 
-    crouchHotkeyEnabled =
-        not crouchHotkeyEnabled
+    Hotkeys.crouchEnabled =
+        not Hotkeys.crouchEnabled
 
-    if not crouchHotkeyEnabled
-        and crouched
+    if not Hotkeys.crouchEnabled
+        and Hotkeys.crouched
     then
 
         setCrouchedState(
@@ -1430,7 +1431,7 @@ local function toggleCrouchHotkey()
 
     showFeedNotification(
 
-        crouchHotkeyEnabled
+        Hotkeys.crouchEnabled
 
         and
         "~g~Agachar por Y: ON"
@@ -1481,7 +1482,7 @@ end
 
 local function lowerHands()
 
-    handsUp = false
+    Hotkeys.handsUp = false
 
     stopHandsUpAnimation()
 
@@ -1500,13 +1501,13 @@ local function raiseHands()
 
     end
 
-    handsUp = true
+    Hotkeys.handsUp = true
 
 end
 
 local function toggleHands()
 
-    if handsUp then
+    if Hotkeys.handsUp then
 
         lowerHands()
 
@@ -1520,10 +1521,10 @@ end
 
 local function toggleHandsHotkey()
 
-    handsUpHotkeyEnabled =
-        not handsUpHotkeyEnabled
+    Hotkeys.handsUpEnabled =
+        not Hotkeys.handsUpEnabled
 
-    if not handsUpHotkeyEnabled then
+    if not Hotkeys.handsUpEnabled then
 
         lowerHands()
 
@@ -1531,7 +1532,7 @@ local function toggleHandsHotkey()
 
     showFeedNotification(
 
-        handsUpHotkeyEnabled
+        Hotkeys.handsUpEnabled
 
         and
         "~g~Mãos para cima por H: ON"
@@ -1579,7 +1580,7 @@ end
 
 local function processHandsUp()
 
-    if not handsUp then
+    if not Hotkeys.handsUp then
         return
     end
 
@@ -1695,7 +1696,7 @@ local function faintPlayer()
 
     end
 
-    if handsUp then
+    if Hotkeys.handsUp then
 
         lowerHands()
 
@@ -1737,12 +1738,12 @@ local function processPlayerHotkeys()
         return
     end
 
-    if crouchHotkeyEnabled
+    if Hotkeys.crouchEnabled
         and not isPedInVehicle(ped)
     then
 
         if pressed(
-            CONTROL_CROUCH
+            CONTROLS.CROUCH
         )
         then
 
@@ -1752,12 +1753,12 @@ local function processPlayerHotkeys()
 
     end
 
-    if handsUpHotkeyEnabled
+    if Hotkeys.handsUpEnabled
         and not isPedInVehicle(ped)
     then
 
         if pressed(
-            CONTROL_HANDS_UP
+            CONTROLS.HANDS_UP
         )
         then
 
@@ -1765,7 +1766,7 @@ local function processPlayerHotkeys()
 
         end
 
-    elseif handsUp
+    elseif Hotkeys.handsUp
         and isPedInVehicle(ped)
     then
 
@@ -2386,11 +2387,12 @@ local wardrobeProps = {
 
 }
 
-local wardrobeValues = {}
-local wardrobeTextures = {}
-local propValues = {}
-
-local facePaintValue = 0
+local WardrobeState = {
+    values = {},
+    textures = {},
+    props = {},
+    facePaint = 0
+}
 
 local function getComponentDrawable(
     ped,
@@ -2492,7 +2494,7 @@ local function applyComponent(data)
         getLocalPed()
 
     local drawable =
-        wardrobeValues[
+        WardrobeState.values[
             data.component
         ]
 
@@ -2507,7 +2509,7 @@ local function applyComponent(data)
     end
 
     local texture =
-        wardrobeTextures[
+        WardrobeState.textures[
             data.component
         ]
         or 0
@@ -2525,7 +2527,7 @@ local function applyComponent(data)
         texture = 0
     end
 
-    wardrobeTextures[
+    WardrobeState.textures[
         data.component
     ] = texture
 
@@ -2554,7 +2556,7 @@ local function changeComponent(
         getLocalPed()
 
     local current =
-        wardrobeValues[
+        WardrobeState.values[
             data.component
         ]
 
@@ -2584,11 +2586,11 @@ local function changeComponent(
         current = 0
     end
 
-    wardrobeValues[
+    WardrobeState.values[
         data.component
     ] = current
 
-    wardrobeTextures[
+    WardrobeState.textures[
         data.component
     ] = 0
 
@@ -2607,7 +2609,7 @@ local function changeTexture(
         getLocalPed()
 
     local drawable =
-        wardrobeValues[
+        WardrobeState.values[
             data.component
         ]
 
@@ -2622,7 +2624,7 @@ local function changeTexture(
     end
 
     local current =
-        wardrobeTextures[
+        WardrobeState.textures[
             data.component
         ]
 
@@ -2655,7 +2657,7 @@ local function changeTexture(
         current = 0
     end
 
-    wardrobeTextures[
+    WardrobeState.textures[
         data.component
     ] = current
 
@@ -2720,7 +2722,7 @@ local function changeProp(
         getLocalPed()
 
     local current =
-        propValues[
+        WardrobeState.props[
             data.prop
         ]
 
@@ -2750,7 +2752,7 @@ local function changeProp(
         current = -1
     end
 
-    propValues[
+    WardrobeState.props[
         data.prop
     ] = current
 
@@ -2816,14 +2818,14 @@ local function changeFacePaint(direction)
 
     end)
 
-    facePaintValue =
-        facePaintValue + direction
+    WardrobeState.facePaint =
+        WardrobeState.facePaint + direction
 
-    if facePaintValue < 0 then
-        facePaintValue = max
+    if WardrobeState.facePaint < 0 then
+        WardrobeState.facePaint = max
 
-    elseif facePaintValue > max then
-        facePaintValue = 0
+    elseif WardrobeState.facePaint > max then
+        WardrobeState.facePaint = 0
     end
 
     pcall(function()
@@ -2832,7 +2834,7 @@ local function changeFacePaint(direction)
 
             ped,
             overlay,
-            facePaintValue,
+            WardrobeState.facePaint,
             1.0
 
         )
@@ -3426,16 +3428,7 @@ end
 -- BUILDERS
 ------------------------------------------------------------
 
-local buildMainMenu
-local buildPlayerMenu
-local buildWardrobeMenu
-local buildSpectateMenu
-local buildAnimationsMenu
-local buildMovementMenu
-local buildModsMenu
-local buildBackMenu
-local buildScriptsMenu
-local buildArrestPlayerMenu
+local Builders = {}
 
 ------------------------------------------------------------
 -- ANIMATION LIST
@@ -3483,46 +3476,46 @@ end
 ------------------------------------------------------------
 
 local function buildPoliceAnimations()
-    return buildAnimationList(policeAnimations)
+    return buildAnimationList(AnimLists.police)
 end
 
 local function buildSocialAnimations()
-    return buildAnimationList(socialAnimations)
+    return buildAnimationList(AnimLists.social)
 end
 
 local function buildGestureAnimations()
-    return buildAnimationList(gestureAnimations)
+    return buildAnimationList(AnimLists.gesture)
 end
 
 local function buildWorkAnimations()
-    return buildAnimationList(workAnimations)
+    return buildAnimationList(AnimLists.work)
 end
 
 local function buildRelaxAnimations()
-    return buildAnimationList(relaxingAnimations)
+    return buildAnimationList(AnimLists.relaxing)
 end
 
 local function buildSittingAnimations()
-    return buildAnimationList(sittingAnimations)
+    return buildAnimationList(AnimLists.sitting)
 end
 
 local function buildDanceAnimations()
-    return buildAnimationList(danceAnimations)
+    return buildAnimationList(AnimLists.dance)
 end
 
 local function buildPhoneAnimations()
-    return buildAnimationList(phoneAnimations)
+    return buildAnimationList(AnimLists.phone)
 end
 
 local function buildExerciseAnimations()
-    return buildAnimationList(exerciseAnimations)
+    return buildAnimationList(AnimLists.exercise)
 end
 
 ------------------------------------------------------------
 -- ANIMAÇÕES MENU
 ------------------------------------------------------------
 
-buildAnimationsMenu = function()
+Builders.buildAnimationsMenu = function()
 
     return {
 
@@ -3532,7 +3525,7 @@ buildAnimationsMenu = function()
 
             function()
 
-                if handsUp then
+                if Hotkeys.handsUp then
                     lowerHands()
                 end
 
@@ -3595,7 +3588,7 @@ end
 -- GUARDA-ROUPA MENU
 ------------------------------------------------------------
 
-buildWardrobeMenu = function()
+Builders.buildWardrobeMenu = function()
 
     local items = {}
 
@@ -3704,7 +3697,7 @@ end
 -- SPECTATE MENU
 ------------------------------------------------------------
 
-buildSpectateMenu = function()
+Builders.buildSpectateMenu = function()
 
     local items = {}
 
@@ -3796,7 +3789,7 @@ end
 -- MOVIMENTO MENU
 ------------------------------------------------------------
 
-buildMovementMenu = function()
+Builders.buildMovementMenu = function()
 
     local items = {}
 
@@ -3837,13 +3830,13 @@ end
 -- MODS MENU
 ------------------------------------------------------------
 
-buildModsMenu = function()
+Builders.buildModsMenu = function()
 
     return {
 
         actionItem(
 
-            crouchHotkeyEnabled
+            Hotkeys.crouchEnabled
             and "Agachar por Y: ON"
             or "Agachar por Y: OFF",
 
@@ -3852,7 +3845,7 @@ buildModsMenu = function()
                 toggleCrouchHotkey()
 
                 menu.items =
-                    buildModsMenu()
+                    Builders.buildModsMenu()
 
             end
 
@@ -3860,7 +3853,7 @@ buildModsMenu = function()
 
         actionItem(
 
-            handsUpHotkeyEnabled
+            Hotkeys.handsUpEnabled
             and "Mãos para cima por H: ON"
             or "Mãos para cima por H: OFF",
 
@@ -3869,7 +3862,7 @@ buildModsMenu = function()
                 toggleHandsHotkey()
 
                 menu.items =
-                    buildModsMenu()
+                    Builders.buildModsMenu()
 
             end
 
@@ -3877,7 +3870,7 @@ buildModsMenu = function()
 
         actionItem(
 
-            crouched
+            Hotkeys.crouched
             and "Levantar"
             or "Agachar agora",
 
@@ -3886,7 +3879,7 @@ buildModsMenu = function()
                 toggleCrouchedState()
 
                 menu.items =
-                    buildModsMenu()
+                    Builders.buildModsMenu()
 
             end
 
@@ -3894,7 +3887,7 @@ buildModsMenu = function()
 
         actionItem(
 
-            handsUp
+            Hotkeys.handsUp
             and "Abaixar mãos"
             or "Mãos para cima agora",
 
@@ -3903,7 +3896,7 @@ buildModsMenu = function()
                 toggleHands()
 
                 menu.items =
-                    buildModsMenu()
+                    Builders.buildModsMenu()
 
             end
 
@@ -3927,7 +3920,7 @@ buildModsMenu = function()
 
             function()
 
-                if handsUp then
+                if Hotkeys.handsUp then
                     lowerHands()
                 end
 
@@ -3943,7 +3936,7 @@ buildModsMenu = function()
 
             function()
 
-                crouched = false
+                Hotkeys.crouched = false
 
                 resetMovement()
 
@@ -3959,7 +3952,7 @@ end
 -- COSTAS MENU
 ------------------------------------------------------------
 
-buildBackMenu = function()
+Builders.buildBackMenu = function()
 
     local items = {}
 
@@ -4022,22 +4015,33 @@ end
 -- NYX ADVANCED CHAOS, TELEKINESIS, COMBAT & AIRDROP
 ------------------------------------------------------------
 
-local isHoldingVehicle = false
-local heldVehicle = nil
-local holdDistance = 12.0
-local launchForce = 150.0
-
-local isCarryingPlayer = false
-local carriedPlayerPed = nil
-
-local vortexActive = false
-local vehicleShieldActive = false
-local vehicleRainActive = false
-local pushRepulsorActive = false
-local zombiePedOutbreakActive = false
-
-local isTrollAudioActive = false
-local trollAudioLoop = false
+local ChaosState = {
+    isHoldingVehicle = false,
+    heldVehicle = nil,
+    holdDistance = 12.0,
+    launchForce = 150.0,
+    isCarryingPlayer = false,
+    carriedPlayerPed = nil,
+    vortexActive = false,
+    vehicleShieldActive = false,
+    vehicleRainActive = false,
+    pushRepulsorActive = false,
+    zombiePedOutbreakActive = false,
+    isTrollAudioActive = false,
+    trollAudioLoop = false,
+    airdropDropType = 1,
+    airdropLocationMode = 1,
+    selectedAirdropPid = -1,
+    dogfightJetCount = 2,
+    selectedDogfightPid = -1,
+    selectedEarRapePid = -1,
+    trollLightning = true,
+    trollFlashbang = true,
+    activeDogfightJets = {},
+    isDogfightSpawning = false,
+    dogfightAttackRunning = false,
+    lastDogfightSpawnTime = 0
+}
 
 local function getCameraDirection()
     local rot = { x = 0.0, y = 0.0, z = 0.0 }
@@ -4086,21 +4090,21 @@ local function getTargetVehicle(maxDist)
 end
 
 local function toggleHoldVehicle()
-    if isHoldingVehicle then
-        if isValidPed(heldVehicle) then
+    if ChaosState.isHoldingVehicle then
+        if isValidPed(ChaosState.heldVehicle) then
             pcall(function()
-                ENTITY.FREEZE_ENTITY_POSITION(heldVehicle, false)
-                ENTITY.SET_ENTITY_COLLISION(heldVehicle, true, true)
+                ENTITY.FREEZE_ENTITY_POSITION(ChaosState.heldVehicle, false)
+                ENTITY.SET_ENTITY_COLLISION(ChaosState.heldVehicle, true, true)
             end)
         end
-        isHoldingVehicle = false
-        heldVehicle = nil
+        ChaosState.isHoldingVehicle = false
+        ChaosState.heldVehicle = nil
         showFeedNotification("~y~Telecinese: Veiculo solto.")
     else
         local veh = getTargetVehicle(40.0)
         if isValidPed(veh) then
-            heldVehicle = veh
-            isHoldingVehicle = true
+            ChaosState.heldVehicle = veh
+            ChaosState.isHoldingVehicle = true
             showFeedNotification("~g~Telecinese: Segurando veiculo! Use Lancar para arremessar.")
         else
             showFeedNotification("~r~Nenhum veiculo na mira ou proximo.")
@@ -4109,20 +4113,20 @@ local function toggleHoldVehicle()
 end
 
 local function launchHeldVehicle()
-    if isHoldingVehicle and isValidPed(heldVehicle) then
+    if ChaosState.isHoldingVehicle and isValidPed(ChaosState.heldVehicle) then
         local forward = getCameraDirection()
         pcall(function()
-            ENTITY.FREEZE_ENTITY_POSITION(heldVehicle, false)
-            ENTITY.SET_ENTITY_COLLISION(heldVehicle, true, true)
+            ENTITY.FREEZE_ENTITY_POSITION(ChaosState.heldVehicle, false)
+            ENTITY.SET_ENTITY_COLLISION(ChaosState.heldVehicle, true, true)
             ENTITY.SET_ENTITY_VELOCITY(
-                heldVehicle,
-                forward.x * launchForce,
-                forward.y * launchForce,
-                forward.z * launchForce + 5.0
+                ChaosState.heldVehicle,
+                forward.x * ChaosState.launchForce,
+                forward.y * ChaosState.launchForce,
+                forward.z * ChaosState.launchForce + 5.0
             )
         end)
-        isHoldingVehicle = false
-        heldVehicle = nil
+        ChaosState.isHoldingVehicle = false
+        ChaosState.heldVehicle = nil
         showFeedNotification("~g~Veiculo arremessado com poder maximo!")
     else
         showFeedNotification("~r~Voce precisa segurar um veiculo primeiro.")
@@ -4130,11 +4134,11 @@ local function launchHeldVehicle()
 end
 
 local function toggleVortex()
-    vortexActive = not vortexActive
-    if vortexActive then
+    ChaosState.vortexActive = not ChaosState.vortexActive
+    if ChaosState.vortexActive then
         showFeedNotification("~g~Vortice Gravitacional ATIVADO! Carros sendo atraidos...")
         script.run_in_callback(function()
-            while vortexActive do
+            while ChaosState.vortexActive do
                 pcall(function()
                     local ped = getLocalPed()
                     local pCoords = ENTITY.GET_ENTITY_COORDS(ped, true)
@@ -4168,8 +4172,8 @@ local function toggleVortex()
 end
 
 local function toggleVehicleShield()
-    vehicleShieldActive = not vehicleShieldActive
-    if vehicleShieldActive then
+    ChaosState.vehicleShieldActive = not ChaosState.vehicleShieldActive
+    if ChaosState.vehicleShieldActive then
         showFeedNotification("~g~Escudo Orbital de Carros ATIVADO!")
         script.run_in_callback(function()
             local ped = getLocalPed()
@@ -4192,7 +4196,7 @@ local function toggleVehicleShield()
                 end
             end
             local angle = 0.0
-            while vehicleShieldActive do
+            while ChaosState.vehicleShieldActive do
                 pcall(function()
                     local curCoords = ENTITY.GET_ENTITY_COORDS(getLocalPed(), true)
                     angle = angle + 0.08
@@ -4221,12 +4225,12 @@ local function toggleVehicleShield()
 end
 
 local function toggleVehicleRain()
-    vehicleRainActive = not vehicleRainActive
-    if vehicleRainActive then
+    ChaosState.vehicleRainActive = not ChaosState.vehicleRainActive
+    if ChaosState.vehicleRainActive then
         showFeedNotification("~g~Chuva de Carros do Ceu ATIVADA!")
         script.run_in_callback(function()
             local models = { "blista", "futo", "adder", "insurgent", "zentorno", "bus" }
-            while vehicleRainActive do
+            while ChaosState.vehicleRainActive do
                 pcall(function()
                     local ped = getLocalPed()
                     local pCoords = ENTITY.GET_ENTITY_COORDS(ped, true)
@@ -4252,11 +4256,11 @@ local function toggleVehicleRain()
 end
 
 local function togglePushRepulsor()
-    pushRepulsorActive = not pushRepulsorActive
-    if pushRepulsorActive then
+    ChaosState.pushRepulsorActive = not ChaosState.pushRepulsorActive
+    if ChaosState.pushRepulsorActive then
         showFeedNotification("~g~Onda de Choque / Repulsor ATIVADO!")
         script.run_in_callback(function()
-            while pushRepulsorActive do
+            while ChaosState.pushRepulsorActive do
                 pcall(function()
                     local ped = getLocalPed()
                     local pCoords = ENTITY.GET_ENTITY_COORDS(ped, true)
@@ -4287,8 +4291,8 @@ local function togglePushRepulsor()
 end
 
 local function toggleZombiePedOutbreak()
-    zombiePedOutbreakActive = not zombiePedOutbreakActive
-    if zombiePedOutbreakActive then
+    ChaosState.zombiePedOutbreakActive = not ChaosState.zombiePedOutbreakActive
+    if ChaosState.zombiePedOutbreakActive then
         showFeedNotification("~g~Apocalipse Zumbi Iniciado!")
         script.run_in_callback(function()
             local ped = getLocalPed()
@@ -4316,142 +4320,8 @@ local function toggleZombiePedOutbreak()
     end
 end
 
-local function triggerDogfightAttack(targetPid)
-    showFeedNotification("~g~Enviando Esquadrao de Cacas Inimigos 20mm...")
-    script.run_in_callback(function()
-        local ped = getLocalPed()
-        local pCoords = ENTITY.GET_ENTITY_COORDS(ped, true)
-        local jetModel = MISC.GET_HASH_KEY("lazer")
-        local pilotModel = MISC.GET_HASH_KEY("s_m_y_blackops_01")
-        STREAMING.REQUEST_MODEL(jetModel)
-        STREAMING.REQUEST_MODEL(pilotModel)
-        while not STREAMING.HAS_MODEL_LOADED(jetModel) or not STREAMING.HAS_MODEL_LOADED(pilotModel) do
-            script.yield(10)
-        end
-        for i = 1, 3 do
-            local spawnX = pCoords.x + math.random(-200, 200)
-            local spawnY = pCoords.y + math.random(-200, 200)
-            local spawnZ = pCoords.z + 250.0 + (i * 30.0)
-            local jet = VEHICLE.CREATE_VEHICLE(jetModel, spawnX, spawnY, spawnZ, 0.0, true, false, false)
-            if isValidPed(jet) then
-                VEHICLE.SET_VEHICLE_FORWARD_SPEED(jet, 90.0)
-                VEHICLE.CONTROL_LANDING_GEAR(jet, 3)
-                local pilot = PED.CREATE_PED_INSIDE_VEHICLE(jet, 26, pilotModel, -1, true, false)
-                if isValidPed(pilot) then
-                    PED.SET_PED_COMBAT_ATTRIBUTES(pilot, 5, true)
-                    PED.SET_PED_COMBAT_ATTRIBUTES(pilot, 46, true)
-                    TASK.TASK_PLANE_CHASE(pilot, ped, 0.0, 0.0, 50.0)
-                end
-            end
-        end
-        showFeedNotification("~g~3 Cacas Lazer atacando em formacao!")
-    end)
-end
-
-local function triggerEarRapeTremor(targetPid, burstSecs)
-    showFeedNotification("~r~Ear Rape & Terremoto Ativado!")
-    script.run_in_callback(function()
-        local count = burstSecs or 5
-        for i = 1, count * 10 do
-            pcall(function()
-                if AUDIO and AUDIO.PLAY_SOUND_FRONTEND then
-                    AUDIO.PLAY_SOUND_FRONTEND(-1, "Airhorn", "DLC_TG_Running_Back_Sounds", true)
-                end
-                if CAM and CAM.SHAKE_GAMEPLAY_CAM then
-                    CAM.SHAKE_GAMEPLAY_CAM("LARGE_EXPLOSION_SHAKE", 3.0)
-                end
-                local ped = getLocalPed()
-                local pos = ENTITY.GET_ENTITY_COORDS(ped, true)
-                MISC.FORCE_LIGHTNING_FLASH_AT_COORDS(pos.x, pos.y, pos.z, 2.5)
-            end)
-            script.yield(100)
-        end
-        showFeedNotification("~y~Ear Rape & Terremoto finalizado.")
-    end)
-end
-
-local function triggerAirdropDrop(dropType)
-    showFeedNotification("~g~Sinalizador lancado! Airdrop a caminho...")
-    script.run_in_callback(function()
-        local ped = getLocalPed()
-        local pCoords = ENTITY.GET_ENTITY_COORDS(ped, true)
-        local forward = getCameraDirection()
-        local dropX = pCoords.x + forward.x * 15.0
-        local dropY = pCoords.y + forward.y * 15.0
-        local dropZ = pCoords.z + 100.0
-
-        local crateModel = MISC.GET_HASH_KEY("prop_box_ammo04a")
-        STREAMING.REQUEST_MODEL(crateModel)
-        while not STREAMING.HAS_MODEL_LOADED(crateModel) do script.yield(10) end
-
-        local crate = OBJECT.CREATE_OBJECT(crateModel, dropX, dropY, dropZ, true, true, false)
-        if isValidPed(crate) then
-            STREAMING.REQUEST_NAMED_PTFX_ASSET("core")
-            while not STREAMING.HAS_NAMED_PTFX_ASSET_LOADED("core") do script.yield(10) end
-            GRAPHICS.USE_PARTICLE_FX_ASSET("core")
-            local ptfx = GRAPHICS.START_PARTICLE_FX_LOOPED_ON_ENTITY("exp_grd_flare", crate, 0.0, 0.0, 0.5, 0.0, 0.0, 0.0, 1.5, false, false, false)
-
-            if AUDIO and AUDIO.PLAY_SOUND_FRONTEND then
-                AUDIO.PLAY_SOUND_FRONTEND(-1, "FLIGHT_SCHOOL_LESSON_PASSED", "HUD_AWARDS", true)
-            end
-
-            -- Aguarda aterrissagem
-            local landed = false
-            while not landed and isValidPed(crate) do
-                local cCoords = ENTITY.GET_ENTITY_COORDS(crate, true)
-                local groundZ = 0.0
-                local ok, gz = MISC.GET_GROUND_Z_FOR_3D_COORD(cCoords.x, cCoords.y, cCoords.z, 0, false)
-                if ok and math.abs(cCoords.z - gz) < 1.5 then
-                    landed = true
-                end
-                script.yield(100)
-            end
-
-            showFeedNotification("~g~📦 Airdrop aterrissou! Suprimentos entregues.")
-            if dropType == 2 then -- Veículo
-                local vehHash = MISC.GET_HASH_KEY("insurgent3")
-                STREAMING.REQUEST_MODEL(vehHash)
-                while not STREAMING.HAS_MODEL_LOADED(vehHash) do script.yield(10) end
-                VEHICLE.CREATE_VEHICLE(vehHash, dropX, dropY, pCoords.z, 0.0, true, false, false)
-            elseif dropType == 1 then -- Saúde e Colete
-                ENTITY.SET_ENTITY_HEALTH(ped, ENTITY.GET_ENTITY_MAX_HEALTH(ped), 0)
-                PED.SET_PED_ARMOUR(ped, 100)
-            elseif dropType == 3 then -- Trap
-                FIRE.ADD_EXPLOSION(dropX, dropY, pCoords.z, 2, 10.0, true, false, 2.0, false)
-            end
-        end
-    end)
-end
-
--- Telekinesis per-frame processor
-local function processTelekinesis()
-    if isHoldingVehicle and isValidPed(heldVehicle) then
-        pcall(function()
-            local ped = getLocalPed()
-            local pCoords = ENTITY.GET_ENTITY_COORDS(ped, true)
-            local forward = getCameraDirection()
-            local tx = pCoords.x + forward.x * holdDistance
-            local ty = pCoords.y + forward.y * holdDistance
-            local tz = pCoords.z + forward.z * holdDistance + 1.5
-            ENTITY.SET_ENTITY_COORDS_NO_OFFSET(heldVehicle, tx, ty, tz, false, false, false)
-            ENTITY.SET_ENTITY_COLLISION(heldVehicle, false, false)
-            ENTITY.FREEZE_ENTITY_POSITION(heldVehicle, true)
-        end)
-    end
-end
-
 -- Menu Builders
-local airdropDropType = 1
-local airdropLocationMode = 1 -- 1 = Na Sua Frente, 2 = Jogador Selecionado
-local selectedAirdropPid = -1
-
-local dogfightJetCount = 3
-local selectedDogfightPid = -1
-
-local selectedEarRapePid = -1
-local trollLightning = true
-local trollFlashbang = true
-local isTrollAudioActive = false
+-- Attack & Airdrop states managed in ChaosState
 
 local function getTargetPlayerDisplayName(pid)
     if pid == nil or pid == -1 or pid == getLocalPid() then
@@ -4462,51 +4332,266 @@ local function getTargetPlayerDisplayName(pid)
     return string.format("[%02d]%s %s", pid, isNyx and " [NYX USER]" or "", name)
 end
 
-local function triggerDogfightAttack(targetPid, jetCount)
-    local count = jetCount or dogfightJetCount or 3
-    local actualPid = (targetPid == -1 or targetPid == getLocalPid()) and getLocalPid() or targetPid
-    local isLocal = (actualPid == getLocalPid())
-    local pName = isLocal and "Você Mesmo" or getPlayerName(actualPid)
 
-    showFeedNotification("~g~Enviando " .. count .. " Cacas de Combate contra " .. pName .. "!")
 
-    script.run_in_callback(function()
-        local targetPed = isLocal and getLocalPed() or getPlayerPed(actualPid)
-        if not isValidEntity(targetPed) then
-            showFeedNotification("~r~Ped do alvo nao encontrado.")
-            return
-        end
-
-        local pCoords = ENTITY.GET_ENTITY_COORDS(targetPed, true)
-        local jetModel = getHash("lazer")
-        local pilotModel = getHash("s_m_y_blackops_01")
-        STREAMING.REQUEST_MODEL(jetModel)
-        STREAMING.REQUEST_MODEL(pilotModel)
-        while not STREAMING.HAS_MODEL_LOADED(jetModel) or not STREAMING.HAS_MODEL_LOADED(pilotModel) do
-            script.yield(10)
-        end
-
-        for i = 1, count do
-            local spawnX = pCoords.x + math.random(-150, 150)
-            local spawnY = pCoords.y + math.random(-150, 150)
-            local spawnZ = pCoords.z + 180.0 + (i * 25.0)
-            local jet = VEHICLE.CREATE_VEHICLE(jetModel, spawnX, spawnY, spawnZ, 0.0, true, false, false)
-            if isValidEntity(jet) then
-                VEHICLE.SET_VEHICLE_FORWARD_SPEED(jet, 95.0)
-                VEHICLE.CONTROL_LANDING_GEAR(jet, 3)
-                local pilot = PED.CREATE_PED_INSIDE_VEHICLE(jet, 26, pilotModel, -1, true, false)
-                if isValidEntity(pilot) then
-                    PED.SET_PED_COMBAT_ATTRIBUTES(pilot, 5, true)
-                    PED.SET_PED_COMBAT_ATTRIBUTES(pilot, 46, true)
-                    PED.SET_PED_COMBAT_ATTRIBUTES(pilot, 1, true)
-                    PED.SET_PED_ACCURACY(pilot, 100)
-                    TASK.TASK_COMBAT_PED(pilot, targetPed, 0, 16)
-                    if TASK.TASK_PLANE_CHASE then
-                        TASK.TASK_PLANE_CHASE(pilot, targetPed, 0.0, 0.0, 60.0)
-                    end
-                end
+local function safeDeleteEntity(ent)
+    if not ent or ent == 0 then return end
+    pcall(function()
+        if ENTITY and ENTITY.DOES_ENTITY_EXIST and ENTITY.DOES_ENTITY_EXIST(ent) then
+            ENTITY.SET_ENTITY_AS_MISSION_ENTITY(ent, true, true)
+            if ENTITY.SET_ENTITY_COLLISION then ENTITY.SET_ENTITY_COLLISION(ent, false, false) end
+            if PED and PED.DELETE_PED and ENTITY.IS_ENTITY_A_PED and ENTITY.IS_ENTITY_A_PED(ent) then
+                PED.DELETE_PED(ent)
+            elseif VEHICLE and VEHICLE.DELETE_VEHICLE and ENTITY.IS_ENTITY_A_VEHICLE and ENTITY.IS_ENTITY_A_VEHICLE(ent) then
+                VEHICLE.DELETE_VEHICLE(ent)
+            elseif OBJECT and OBJECT.DELETE_OBJECT and ENTITY.IS_ENTITY_AN_OBJECT and ENTITY.IS_ENTITY_AN_OBJECT(ent) then
+                OBJECT.DELETE_OBJECT(ent)
+            end
+            if ENTITY.DELETE_ENTITY then ENTITY.DELETE_ENTITY(ent) end
+            if ENTITY.DOES_ENTITY_EXIST(ent) then
+                ENTITY.SET_ENTITY_COORDS(ent, 0.0, 0.0, -100.0, false, false, false, false)
+                ENTITY.SET_ENTITY_AS_NO_LONGER_NEEDED(ent)
             end
         end
+    end)
+end
+
+local function clearActiveDogfightJets()
+    ChaosState.dogfightAttackRunning = false
+    local count = #ChaosState.activeDogfightJets
+
+    for _, item in ipairs(ChaosState.activeDogfightJets) do
+        pcall(function()
+            if item.blip and HUD and HUD.DOES_BLIP_EXIST and HUD.DOES_BLIP_EXIST(item.blip) then
+                HUD.REMOVE_BLIP(item.blip)
+            end
+            if isValidEntity(item.pilot) then
+                safeDeleteEntity(item.pilot)
+            end
+            if isValidEntity(item.jet) then
+                safeDeleteEntity(item.jet)
+            end
+        end)
+    end
+    ChaosState.activeDogfightJets = {}
+    showFeedNotification("~y~Todos os cacas foram removidos.")
+end
+
+local function triggerDogfightAttack(targetPid, count)
+    if ChaosState.isDogfightSpawning then
+        showFeedNotification("~y~Aguarde, cacas anteriores ainda sendo posicionados!")
+        return
+    end
+
+    local now = gameTimer()
+    if (now - ChaosState.lastDogfightSpawnTime) < 3000 then
+        showFeedNotification("~y~Aguarde alguns segundos entre os ataques!")
+        return
+    end
+    ChaosState.lastDogfightSpawnTime = now
+
+    local jetCount = math.min(3, math.max(1, tonumber(count) or ChaosState.dogfightJetCount or 1))
+    local myLocalPid = getLocalPid()
+    local actualPid = (targetPid == nil or targetPid == -1) and myLocalPid or targetPid
+    local targetName = (actualPid == myLocalPid) and "Voce Mesmo" or getPlayerName(actualPid)
+
+    ChaosState.isDogfightSpawning = true
+
+    script.run_in_callback(function()
+        pcall(function()
+            local targetPed = (actualPid == myLocalPid) and getLocalPed() or getPlayerPed(actualPid)
+            if not isValidEntity(targetPed) then
+                showFeedNotification("~r~Ped do alvo nao encontrado.")
+                ChaosState.isDogfightSpawning = false
+                return
+            end
+
+            -- Remove esquadrão anterior antes de iniciar o novo
+            if #ChaosState.activeDogfightJets > 0 then
+                clearActiveDogfightJets()
+                script.yield(150)
+            end
+
+            local targetCoords = ENTITY.GET_ENTITY_COORDS(targetPed, true)
+            local jetHash = getHash("lazer")
+            local pilotHash = getHash("s_m_y_blackops_01")
+
+            pcall(function()
+                STREAMING.REQUEST_MODEL(jetHash)
+                STREAMING.REQUEST_MODEL(pilotHash)
+            end)
+
+            local timeout = 0
+            while (not STREAMING.HAS_MODEL_LOADED(jetHash) or not STREAMING.HAS_MODEL_LOADED(pilotHash)) and timeout < 80 do
+                script.yield(10)
+                timeout = timeout + 1
+            end
+
+            if not STREAMING.HAS_MODEL_LOADED(jetHash) or not STREAMING.HAS_MODEL_LOADED(pilotHash) then
+                showFeedNotification("~r~Falha ao carregar modelos dos cacas.")
+                ChaosState.isDogfightSpawning = false
+                return
+            end
+
+            showFeedNotification(string.format("~g~Enviando %d caca(s) atacando %s!", jetCount, targetName))
+            ChaosState.dogfightAttackRunning = true
+
+            for i = 1, jetCount do
+                if not ChaosState.dogfightAttackRunning then break end
+
+                local angle = ((i - 1) / jetCount) * (math.pi * 2) + (math.random() * 0.4)
+                local dist = 160.0 + (i * 35.0)
+                local sx = targetCoords.x + math.cos(angle) * dist
+                local sy = targetCoords.y + math.sin(angle) * dist
+                local sz = targetCoords.z + 280.0 + (i * 25.0)
+                local heading = math.deg(math.atan2(-(targetCoords.x - sx), targetCoords.y - sy))
+
+                local jet = nil
+                pcall(function()
+                    jet = VEHICLE.CREATE_VEHICLE(jetHash, sx, sy, sz, heading, true, false, false)
+                end)
+
+                if isValidEntity(jet) then
+                    local pilot = nil
+                    local blip = nil
+
+                    pcall(function()
+                        ENTITY.SET_ENTITY_AS_MISSION_ENTITY(jet, true, true)
+                        ENTITY.SET_ENTITY_COLLISION(jet, true, true)
+                        VEHICLE.SET_VEHICLE_ENGINE_ON(jet, true, true, false)
+                        VEHICLE.SET_VEHICLE_FORWARD_SPEED(jet, 80.0)
+                        if VEHICLE.CONTROL_LANDING_GEAR then
+                            VEHICLE.CONTROL_LANDING_GEAR(jet, 3)
+                        end
+                        if VEHICLE.SET_HELI_BLADES_FULL_SPEED then
+                            VEHICLE.SET_HELI_BLADES_FULL_SPEED(jet)
+                        end
+                        
+                        pilot = PED.CREATE_PED_INSIDE_VEHICLE(jet, 26, pilotHash, -1, true, false)
+
+                        -- Blip Inimigo Vermelho no Radar
+                        if HUD and HUD.ADD_BLIP_FOR_ENTITY then
+                            blip = HUD.ADD_BLIP_FOR_ENTITY(jet)
+                            if HUD.SET_BLIP_SPRITE then
+                                HUD.SET_BLIP_SPRITE(blip, 16)
+                            end
+                            if HUD.SET_BLIP_COLOUR then
+                                HUD.SET_BLIP_COLOUR(blip, 1)
+                            end
+                            if HUD.SET_BLIP_SCALE then
+                                HUD.SET_BLIP_SCALE(blip, 1.0)
+                            end
+                            if HUD.SET_BLIP_AS_SHORT_RANGE then
+                                HUD.SET_BLIP_AS_SHORT_RANGE(blip, false)
+                            end
+                            if HUD.BEGIN_TEXT_COMMAND_SET_BLIP_NAME then
+                                HUD.BEGIN_TEXT_COMMAND_SET_BLIP_NAME("STRING")
+                                HUD.ADD_TEXT_COMPONENT_SUBSTRING_PLAYER_NAME("Caca Inimigo")
+                                HUD.END_TEXT_COMMAND_SET_BLIP_NAME(blip)
+                            end
+                        end
+                    end)
+
+                    table.insert(ChaosState.activeDogfightJets, { jet = jet, pilot = pilot, blip = blip })
+
+                    if isValidEntity(pilot) then
+                        pcall(function()
+                            ENTITY.SET_ENTITY_AS_MISSION_ENTITY(pilot, true, true)
+                            PED.SET_PED_INTO_VEHICLE(pilot, jet, -1)
+                            PED.SET_BLOCKING_OF_NON_TEMPORARY_EVENTS(pilot, true)
+                            PED.SET_PED_KEEP_TASK(pilot, true)
+                            
+                            local enemyGroup = getHash("HATES_PLAYER")
+                            local playerGroup = PED.GET_PED_RELATIONSHIP_GROUP_HASH(targetPed)
+                            PED.SET_PED_RELATIONSHIP_GROUP_HASH(pilot, enemyGroup)
+                            PED.SET_RELATIONSHIP_BETWEEN_GROUPS(5, enemyGroup, playerGroup)
+                            PED.SET_RELATIONSHIP_BETWEEN_GROUPS(5, playerGroup, enemyGroup)
+                            
+                            PED.SET_PED_COMBAT_ATTRIBUTES(pilot, 1, true)
+                            PED.SET_PED_COMBAT_ATTRIBUTES(pilot, 2, true)
+                            PED.SET_PED_COMBAT_ATTRIBUTES(pilot, 3, false)
+                            PED.SET_PED_COMBAT_ATTRIBUTES(pilot, 5, true)
+                            PED.SET_PED_COMBAT_ATTRIBUTES(pilot, 13, true)
+                            PED.SET_PED_COMBAT_ATTRIBUTES(pilot, 27, true)
+                            PED.SET_PED_COMBAT_ATTRIBUTES(pilot, 46, true)
+                            PED.SET_PED_COMBAT_ATTRIBUTES(pilot, 54, true)
+                            PED.SET_PED_COMBAT_ATTRIBUTES(pilot, 58, true)
+                            PED.SET_PED_COMBAT_ATTRIBUTES(pilot, 86, true)
+                            PED.SET_PED_COMBAT_ABILITY(pilot, 2)
+                            PED.SET_PED_COMBAT_MOVEMENT(pilot, 3)
+                            PED.SET_PED_COMBAT_RANGE(pilot, 2)
+                            PED.SET_PED_TARGET_LOSS_RESPONSE(pilot, 1)
+                            PED.SET_PED_ACCURACY(pilot, 100)
+                            PED.SET_PED_SHOOT_RATE(pilot, 1000)
+                            
+                            TASK.TASK_COMBAT_PED(pilot, targetPed, 0, 16)
+                            if TASK.TASK_PLANE_MISSION then
+                                TASK.TASK_PLANE_MISSION(pilot, jet, 0, targetPed, 0.0, 0.0, 0.0, 6, 110.0, 0.0, 90.0, 0, 100.0)
+                            elseif TASK.TASK_PLANE_CHASE then
+                                TASK.TASK_PLANE_CHASE(pilot, targetPed, 0.0, 0.0, 50.0)
+                            end
+                        end)
+                    end
+                end
+                script.yield(350)
+            end
+
+            STREAMING.SET_MODEL_AS_NO_LONGER_NEEDED(jetHash)
+            STREAMING.SET_MODEL_AS_NO_LONGER_NEEDED(pilotHash)
+            ChaosState.isDogfightSpawning = false
+
+            -- Supervisor estável em segundo plano (atualiza alvo vivo e remove blips de caças abatidos)
+            script.run_in_callback(function()
+                local lastAssignedPed = targetPed
+                while ChaosState.dogfightAttackRunning and #ChaosState.activeDogfightJets > 0 do
+                    local curPed = (actualPid == myLocalPid) and getLocalPed() or getPlayerPed(actualPid)
+                    local aliveCount = 0
+
+                    for idx = #ChaosState.activeDogfightJets, 1, -1 do
+                        local item = ChaosState.activeDogfightJets[idx]
+                        local jetValid = isValidEntity(item.jet)
+                        local pilotValid = isValidEntity(item.pilot) and not PED.IS_PED_INJURED(item.pilot)
+
+                        if not jetValid or not pilotValid then
+                            pcall(function()
+                                if item.blip and HUD and HUD.DOES_BLIP_EXIST and HUD.DOES_BLIP_EXIST(item.blip) then
+                                    HUD.REMOVE_BLIP(item.blip)
+                                end
+                            end)
+                            table.remove(ChaosState.activeDogfightJets, idx)
+                        else
+                            aliveCount = aliveCount + 1
+                            if isValidEntity(curPed) and curPed ~= lastAssignedPed and not PED.IS_PED_INJURED(curPed) then
+                                pcall(function()
+                                    local pGroup = PED.GET_PED_RELATIONSHIP_GROUP_HASH(curPed)
+                                    local eGroup = getHash("HATES_PLAYER")
+                                    PED.SET_RELATIONSHIP_BETWEEN_GROUPS(5, eGroup, pGroup)
+                                    PED.SET_RELATIONSHIP_BETWEEN_GROUPS(5, pGroup, eGroup)
+                                    TASK.TASK_COMBAT_PED(item.pilot, curPed, 0, 16)
+                                    if TASK.TASK_PLANE_MISSION then
+                                        TASK.TASK_PLANE_MISSION(item.pilot, item.jet, 0, curPed, 0.0, 0.0, 0.0, 6, 110.0, 0.0, 90.0, 0, 100.0)
+                                    elseif TASK.TASK_PLANE_CHASE then
+                                        TASK.TASK_PLANE_CHASE(item.pilot, curPed, 0.0, 0.0, 50.0)
+                                    end
+                                end)
+                            end
+                        end
+                    end
+
+                    if isValidEntity(curPed) and curPed ~= lastAssignedPed and not PED.IS_PED_INJURED(curPed) then
+                        lastAssignedPed = curPed
+                    end
+
+                    if aliveCount == 0 then
+                        ChaosState.dogfightAttackRunning = false
+                        break
+                    end
+
+                    script.yield(500)
+                end
+            end)
+        end)
+        ChaosState.isDogfightSpawning = false
     end)
 end
 
@@ -4526,7 +4611,7 @@ local function runSingleEarRapeStep(targetPid)
             if CAM and CAM.SHAKE_GAMEPLAY_CAM then
                 CAM.SHAKE_GAMEPLAY_CAM("LARGE_EXPLOSION_SHAKE", 3.0)
             end
-            if trollFlashbang and GRAPHICS and GRAPHICS.ANIMPOSTFX_PLAY then
+            if ChaosState.trollFlashbang and GRAPHICS and GRAPHICS.ANIMPOSTFX_PLAY then
                 GRAPHICS.ANIMPOSTFX_PLAY("DrugsMichaelAliensFight", 0, true)
             end
         end
@@ -4536,14 +4621,14 @@ local function runSingleEarRapeStep(targetPid)
             FIRE.ADD_EXPLOSION(coords.x, coords.y, coords.z - 2.0, 70, 0.0, true, false, 3.0, false)
         end
 
-        if trollLightning and MISC and MISC.FORCE_LIGHTNING_FLASH_AT_COORDS then
+        if ChaosState.trollLightning and MISC and MISC.FORCE_LIGHTNING_FLASH_AT_COORDS then
             MISC.FORCE_LIGHTNING_FLASH_AT_COORDS(coords.x, coords.y, coords.z, 3.0)
         end
     end)
 end
 
 local function stopTrollAudioHarassment()
-    isTrollAudioActive = false
+    ChaosState.isTrollAudioActive = false
     pcall(function()
         if GRAPHICS and GRAPHICS.ANIMPOSTFX_STOP then
             GRAPHICS.ANIMPOSTFX_STOP("DrugsMichaelAliensFight")
@@ -4569,13 +4654,26 @@ local function triggerEarRapeTremor(targetPid, burstSecs)
             stopTrollAudioHarassment()
             showFeedNotification("~y~Burst de Ear Rape finalizado.")
         else
-            isTrollAudioActive = true
-            while isTrollAudioActive do
+            ChaosState.isTrollAudioActive = true
+            while ChaosState.isTrollAudioActive do
                 runSingleEarRapeStep(targetPid)
                 script.yield(80)
             end
         end
     end)
+end
+
+local function getGroundZSafe(x, y, z)
+    local groundZ = z
+    pcall(function()
+        if MISC and MISC.GET_GROUND_Z_FOR_3D_COORD then
+            local ok, val = MISC.GET_GROUND_Z_FOR_3D_COORD(x, y, z + 50.0, false, false)
+            if ok and val and type(val) == "number" and val ~= 0 then
+                groundZ = val
+            end
+        end
+    end)
+    return groundZ
 end
 
 local function triggerAirdropDrop(dropType, targetPid, locMode)
@@ -4591,7 +4689,7 @@ local function triggerAirdropDrop(dropType, targetPid, locMode)
             local forward = getCameraDirection()
             dropX = pCoords.x + forward.x * 15.0
             dropY = pCoords.y + forward.y * 15.0
-            dropZ = pCoords.z + 80.0
+            dropZ = getGroundZSafe(dropX, dropY, pCoords.z)
         else
             local targetPed = getPlayerPed(targetPid)
             if not isValidEntity(targetPed) then
@@ -4601,64 +4699,222 @@ local function triggerAirdropDrop(dropType, targetPid, locMode)
             local tCoords = ENTITY.GET_ENTITY_COORDS(targetPed, true)
             dropX = tCoords.x
             dropY = tCoords.y
-            dropZ = tCoords.z + 80.0
+            dropZ = getGroundZSafe(dropX, dropY, tCoords.z)
         end
 
+        -- 1. BIP SONORO TÁTICO (8 bips acelerando o ritmo antes do impacto)
+        local beepDelays = { 380, 320, 260, 210, 160, 120, 90, 70 }
+        for _, delay in ipairs(beepDelays) do
+            pcall(function()
+                if AUDIO and AUDIO.PLAY_SOUND_FRONTEND then
+                    AUDIO.PLAY_SOUND_FRONTEND(-1, "Beep_Red", "DLC_HEIST_HACKING_SNAKE_SOUNDS", true)
+                end
+            end)
+            script.yield(delay)
+        end
+
+        -- 2. SPAWN DA CAIXA NO ALTO E QUEDA RÁPIDA SUAVE
         local crateModel = getHash("prop_box_ammo04a")
         STREAMING.REQUEST_MODEL(crateModel)
-        while not STREAMING.HAS_MODEL_LOADED(crateModel) do script.yield(10) end
+        local tO = 0
+        while not STREAMING.HAS_MODEL_LOADED(crateModel) and tO < 50 do
+            script.yield(10)
+            tO = tO + 1
+        end
 
-        local crate = OBJECT.CREATE_OBJECT(crateModel, dropX, dropY, dropZ, true, true, false)
-        if isValidEntity(crate) then
-            STREAMING.REQUEST_NAMED_PTFX_ASSET("core")
-            while not STREAMING.HAS_NAMED_PTFX_ASSET_LOADED("core") do script.yield(10) end
-            GRAPHICS.USE_PARTICLE_FX_ASSET("core")
-            local ptfx = GRAPHICS.START_PARTICLE_FX_LOOPED_ON_ENTITY("exp_grd_flare", crate, 0.0, 0.0, 0.5, 0.0, 0.0, 0.0, 1.5, false, false, false)
+        local startZ = dropZ + 65.0
+        local crate = nil
+        pcall(function()
+            if OBJECT and OBJECT.CREATE_OBJECT_NO_OFFSET then
+                crate = OBJECT.CREATE_OBJECT_NO_OFFSET(crateModel, dropX, dropY, startZ, true, false, true)
+            elseif OBJECT and OBJECT.CREATE_OBJECT then
+                crate = OBJECT.CREATE_OBJECT(crateModel, dropX, dropY, startZ, true, false, true)
+            end
+        end)
 
+        if not isValidEntity(crate) then
+            showFeedNotification("~r~Erro ao criar entidade da caixa.")
+            return
+        end
+
+        pcall(function()
+            ENTITY.SET_ENTITY_AS_MISSION_ENTITY(crate, true, true)
+            ENTITY.SET_ENTITY_INVINCIBLE(crate, true)
+            ENTITY.SET_ENTITY_COLLISION(crate, true, true)
+        end)
+
+        -- Queda Rápida e Suave
+        local curZ = startZ
+        local fallSpeed = 36.0
+        while isValidEntity(crate) and curZ > (dropZ + 0.3) do
+            curZ = curZ - (fallSpeed * 0.035)
+            pcall(function()
+                ENTITY.SET_ENTITY_COORDS(crate, dropX, dropY, curZ, false, false, false, true)
+                ENTITY.SET_ENTITY_VELOCITY(crate, 0.0, 0.0, -fallSpeed)
+            end)
+            script.yield(35)
+        end
+
+        -- Impacto no Solo e Som
+        pcall(function()
+            ENTITY.PLACE_ENTITY_ON_GROUND_PROPERLY(crate)
+            ENTITY.SET_ENTITY_INVINCIBLE(crate, false)
             if AUDIO and AUDIO.PLAY_SOUND_FRONTEND then
-                AUDIO.PLAY_SOUND_FRONTEND(-1, "FLIGHT_SCHOOL_LESSON_PASSED", "HUD_AWARDS", true)
+                AUDIO.PLAY_SOUND_FRONTEND(-1, "Airhorn", "DLC_TG_Running_Back_Sounds", true)
             end
+        end)
 
-            local landed = false
-            while not landed and isValidEntity(crate) do
-                local cCoords = ENTITY.GET_ENTITY_COORDS(crate, true)
-                local ok, gz = MISC.GET_GROUND_Z_FOR_3D_COORD(cCoords.x, cCoords.y, cCoords.z, 0, false)
-                if ok and math.abs(cCoords.z - gz) < 1.5 then
-                    landed = true
+        -- 3. FUMAÇA VERMELHA CONTÍNUA ACOPLADA NA CAIXA
+        local ptfxLoop = nil
+        pcall(function()
+            STREAMING.REQUEST_NAMED_PTFX_ASSET("core")
+            local ptO = 0
+            while not STREAMING.HAS_NAMED_PTFX_ASSET_LOADED("core") and ptO < 30 do
+                script.yield(10)
+                ptO = ptO + 1
+            end
+            if STREAMING.HAS_NAMED_PTFX_ASSET_LOADED("core") and isValidEntity(crate) then
+                GRAPHICS.USE_PARTICLE_FX_ASSET("core")
+                ptfxLoop = GRAPHICS.START_PARTICLE_FX_LOOPED_ON_ENTITY(
+                    "exp_grd_flare", crate, 0.0, 0.0, 0.35, 0.0, 0.0, 0.0, 2.0, false, false, false
+                )
+                if ptfxLoop and ptfxLoop ~= 0 then
+                    if GRAPHICS.SET_PARTICLE_FX_LOOPED_COLOUR then
+                        GRAPHICS.SET_PARTICLE_FX_LOOPED_COLOUR(ptfxLoop, 1.0, 0.1, 0.1, false)
+                    end
+                    if GRAPHICS.SET_PARTICLE_FX_LOOPED_EVOLUTION then
+                        GRAPHICS.SET_PARTICLE_FX_LOOPED_EVOLUTION(ptfxLoop, "smoke", 1.0, false)
+                    end
                 end
-                script.yield(100)
             end
+        end)
 
-            showFeedNotification("~g~📦 Airdrop aterrissou com sucesso!")
-            if dropType == 2 then
-                local vehHash = getHash("insurgent3")
-                STREAMING.REQUEST_MODEL(vehHash)
-                while not STREAMING.HAS_MODEL_LOADED(vehHash) do script.yield(10) end
-                VEHICLE.CREATE_VEHICLE(vehHash, dropX, dropY, dropZ - 75.0, 0.0, true, false, false)
-            elseif dropType == 1 and isLocalTarget then
-                local ped = getLocalPed()
-                ENTITY.SET_ENTITY_HEALTH(ped, ENTITY.GET_ENTITY_MAX_HEALTH(ped), 0)
-                PED.SET_PED_ARMOUR(ped, 100)
-            elseif dropType == 3 then
-                FIRE.ADD_EXPLOSION(dropX, dropY, dropZ - 75.0, 2, 10.0, true, false, 2.0, false)
+        showFeedNotification("~g~Airdrop pousou! Aproxime-se para abrir.")
+
+        -- 4. LOOP DE PROXIMIDADE (AO APROXIMAR, A CAIXA SOME E O CONTEÚDO APARECE)
+        local waitTicks = 0
+        local opened = false
+
+        while isValidEntity(crate) and waitTicks < 500 and not opened do
+            waitTicks = waitTicks + 1
+            local cPos = ENTITY.GET_ENTITY_COORDS(crate, true)
+
+            for pid = 0, 31 do
+                if isPlayerActive(pid) or pid == getLocalPid() then
+                    local pPed = (pid == getLocalPid()) and getLocalPed() or getPlayerPed(pid)
+                    if isValidEntity(pPed) and not PED.IS_PED_INJURED(pPed) then
+                        local pp = ENTITY.GET_ENTITY_COORDS(pPed, true)
+                        local dx = pp.x - cPos.x
+                        local dy = pp.y - cPos.y
+                        local dz = pp.z - cPos.z
+                        local dist = math.sqrt(dx * dx + dy * dy + dz * dz)
+
+                        if dist <= 3.8 then
+                            opened = true
+                            local openerName = (pid == getLocalPid()) and "Voce" or getPlayerName(pid)
+
+                            -- Para a fumaça e remove a caixa
+                            pcall(function()
+                                if ptfxLoop and ptfxLoop ~= 0 then
+                                    GRAPHICS.STOP_PARTICLE_FX_LOOPED(ptfxLoop, false)
+                                    GRAPHICS.REMOVE_PARTICLE_FX(ptfxLoop, false)
+                                end
+                            end)
+                            safeDeleteEntity(crate)
+
+                            if dropType == 1 then
+                                -- SAÚDE, COLETE, ARMAS E MUNIÇÃO
+                                pcall(function()
+                                    local hPickupHash = getHash("PICKUP_HEALTH_STANDARD")
+                                    local aPickupHash = getHash("PICKUP_ARMOUR_STANDARD")
+                                    if OBJECT and OBJECT.CREATE_AMBIENT_PICKUP then
+                                        OBJECT.CREATE_AMBIENT_PICKUP(hPickupHash, cPos.x - 0.7, cPos.y, cPos.z + 0.2, 0, 100, getHash("prop_health_pack_01"), false, true)
+                                        OBJECT.CREATE_AMBIENT_PICKUP(aPickupHash, cPos.x + 0.7, cPos.y, cPos.z + 0.2, 0, 100, getHash("prop_armour_pickup_01"), false, true)
+                                    end
+
+                                    -- Restaura 100% Vida & Colete
+                                    local maxHp = (ENTITY and ENTITY.GET_ENTITY_MAX_HEALTH and ENTITY.GET_ENTITY_MAX_HEALTH(pPed)) or 200
+                                    if ENTITY and ENTITY.SET_ENTITY_HEALTH then
+                                        local ok = pcall(function() ENTITY.SET_ENTITY_HEALTH(pPed, maxHp, 0, 0) end)
+                                        if not ok then ok = pcall(function() ENTITY.SET_ENTITY_HEALTH(pPed, maxHp, 0) end) end
+                                        if not ok then pcall(function() ENTITY.SET_ENTITY_HEALTH(pPed, maxHp) end) end
+                                    end
+                                    if PED and PED.SET_PED_ARMOUR then
+                                        pcall(function() PED.SET_PED_ARMOUR(pPed, 100) end)
+                                    end
+
+                                    -- Entrega Armamento Pesado
+                                    local weapons = {
+                                        "WEAPON_MINIGUN", "WEAPON_RAILGUN", "WEAPON_HOMINGLAUNCHER",
+                                        "WEAPON_RPG", "WEAPON_SPECIALCARBINE_MK2", "WEAPON_HEAVYSNIPER_MK2",
+                                        "WEAPON_COMBATMG_MK2", "WEAPON_PIPEBOMB"
+                                    }
+                                    for _, wName in ipairs(weapons) do
+                                        local wHash = getHash(wName)
+                                        if wHash ~= 0 then
+                                            WEAPON.GIVE_WEAPON_TO_PED(pPed, wHash, 9999, false, true)
+                                            WEAPON.SET_PED_AMMO(pPed, wHash, 9999)
+                                        end
+                                    end
+
+                                    if AUDIO and AUDIO.PLAY_SOUND_FRONTEND then
+                                        AUDIO.PLAY_SOUND_FRONTEND(-1, "PICK_UP_WEAPON", "HUD_FRONTEND_DEFAULT_SOUNDSET", true)
+                                    end
+                                end)
+                                showFeedNotification("~g~" .. openerName .. " resgatou o Suprimento Tatico!")
+
+                            elseif dropType == 2 then
+                                -- VEÍCULO MILITAR INSURGENT
+                                pcall(function()
+                                    local vehHash = getHash("insurgent3")
+                                    STREAMING.REQUEST_MODEL(vehHash)
+                                    local vO = 0
+                                    while not STREAMING.HAS_MODEL_LOADED(vehHash) and vO < 50 do
+                                        script.yield(10)
+                                        vO = vO + 1
+                                    end
+                                    if STREAMING.HAS_MODEL_LOADED(vehHash) then
+                                        local heading = isValidEntity(pPed) and ENTITY.GET_ENTITY_HEADING(pPed) or 0.0
+                                        local veh = VEHICLE.CREATE_VEHICLE(vehHash, cPos.x, cPos.y, cPos.z + 0.3, heading, true, false, false)
+                                        if isValidEntity(veh) then
+                                            ENTITY.SET_ENTITY_AS_MISSION_ENTITY(veh, true, true)
+                                            VEHICLE.SET_VEHICLE_ON_GROUND_PROPERLY(veh)
+                                        end
+                                    end
+                                end)
+                                showFeedNotification("~g~Insurgent Custom .50cal entregue!")
+
+                            elseif dropType == 3 then
+                                -- ARMADILHA EXPLOSIVA
+                                pcall(function()
+                                    FIRE.ADD_EXPLOSION(cPos.x, cPos.y, cPos.z, 29, 25.0, true, false, 2.5, false)
+                                    FIRE.ADD_EXPLOSION(cPos.x, cPos.y, cPos.z, 3, 12.0, true, false, 1.5, false)
+                                end)
+                                showFeedNotification("~r~Armadilha do Airdrop detonada!")
+                            end
+                            break
+                        end
+                    end
+                end
             end
+            script.yield(40)
         end
     end)
 end
 
 -- Telekinesis per-frame processor
 local function processTelekinesis()
-    if isHoldingVehicle and isValidEntity(heldVehicle) then
+    if ChaosState.isHoldingVehicle and isValidEntity(ChaosState.heldVehicle) then
         pcall(function()
             local ped = getLocalPed()
             local pCoords = ENTITY.GET_ENTITY_COORDS(ped, true)
             local forward = getCameraDirection()
-            local tx = pCoords.x + forward.x * holdDistance
-            local ty = pCoords.y + forward.y * holdDistance
-            local tz = pCoords.z + forward.z * holdDistance + 1.5
-            ENTITY.SET_ENTITY_COORDS_NO_OFFSET(heldVehicle, tx, ty, tz, false, false, false)
-            ENTITY.SET_ENTITY_COLLISION(heldVehicle, false, false)
-            ENTITY.FREEZE_ENTITY_POSITION(heldVehicle, true)
+            local tx = pCoords.x + forward.x * ChaosState.holdDistance
+            local ty = pCoords.y + forward.y * ChaosState.holdDistance
+            local tz = pCoords.z + forward.z * ChaosState.holdDistance + 1.5
+            ENTITY.SET_ENTITY_COORDS_NO_OFFSET(ChaosState.heldVehicle, tx, ty, tz, false, false, false)
+            ENTITY.SET_ENTITY_COLLISION(ChaosState.heldVehicle, false, false)
+            ENTITY.FREEZE_ENTITY_POSITION(ChaosState.heldVehicle, true)
         end)
     end
 end
@@ -4667,19 +4923,22 @@ end
 local function buildDogfightTargetMenu()
     local items = {}
     local me = getLocalPid()
-    table.insert(items, actionItem((selectedDogfightPid == -1 and "[X] " or "[  ] ") .. "Voce Mesmo (Testar)", function()
-        selectedDogfightPid = -1
+    table.insert(items, toggleItem("Voce Mesmo (Testar)", function()
+        return ChaosState.selectedDogfightPid == -1 or ChaosState.selectedDogfightPid == me
+    end, function()
+        ChaosState.selectedDogfightPid = -1
         showFeedNotification("Alvo: Voce Mesmo")
     end))
     for pid = 0, 31 do
         if pid ~= me and isPlayerActive(pid) then
-            local isSel = (selectedDogfightPid == pid)
             local isNyx = (nyx_detected_users[pid] == true)
             local name = getPlayerName(pid)
-            local label = string.format("%s[%02d]%s %s", isSel and "[X] " or "[  ] ", pid, isNyx and " [NYX USER]" or "", name)
+            local label = string.format("[%02d]%s %s", pid, isNyx and " [NYX USER]" or "", name)
             local savedPid = pid
-            table.insert(items, actionItem(label, function()
-                selectedDogfightPid = savedPid
+            table.insert(items, toggleItem(label, function()
+                return ChaosState.selectedDogfightPid == savedPid
+            end, function()
+                ChaosState.selectedDogfightPid = savedPid
                 showFeedNotification("Alvo dos Cacas: " .. name)
             end))
         end
@@ -4690,19 +4949,22 @@ end
 local function buildEarRapeTargetMenu()
     local items = {}
     local me = getLocalPid()
-    table.insert(items, actionItem((selectedEarRapePid == -1 and "[X] " or "[  ] ") .. "Voce Mesmo (Testar)", function()
-        selectedEarRapePid = -1
+    table.insert(items, toggleItem("Voce Mesmo (Testar)", function()
+        return ChaosState.selectedEarRapePid == -1 or ChaosState.selectedEarRapePid == me
+    end, function()
+        ChaosState.selectedEarRapePid = -1
         showFeedNotification("Alvo: Voce Mesmo")
     end))
     for pid = 0, 31 do
         if pid ~= me and isPlayerActive(pid) then
-            local isSel = (selectedEarRapePid == pid)
             local isNyx = (nyx_detected_users[pid] == true)
             local name = getPlayerName(pid)
-            local label = string.format("%s[%02d]%s %s", isSel and "[X] " or "[  ] ", pid, isNyx and " [NYX USER]" or "", name)
+            local label = string.format("[%02d]%s %s", pid, isNyx and " [NYX USER]" or "", name)
             local savedPid = pid
-            table.insert(items, actionItem(label, function()
-                selectedEarRapePid = savedPid
+            table.insert(items, toggleItem(label, function()
+                return ChaosState.selectedEarRapePid == savedPid
+            end, function()
+                ChaosState.selectedEarRapePid = savedPid
                 showFeedNotification("Alvo do Ear Rape: " .. name)
             end))
         end
@@ -4713,20 +4975,23 @@ end
 local function buildAirdropTargetMenu()
     local items = {}
     local me = getLocalPid()
-    table.insert(items, actionItem((airdropLocationMode == 1 and "[X] " or "[  ] ") .. "Na Sua Frente (15 metros)", function()
-        airdropLocationMode = 1
-        selectedAirdropPid = -1
+    table.insert(items, toggleItem("Na Sua Frente (15 metros)", function()
+        return ChaosState.airdropLocationMode == 1
+    end, function()
+        ChaosState.airdropLocationMode = 1
+        ChaosState.selectedAirdropPid = -1
         showFeedNotification("Airdrop: Na sua frente")
     end))
     for pid = 0, 31 do
         if pid ~= me and isPlayerActive(pid) then
-            local isSel = (airdropLocationMode == 2 and selectedAirdropPid == pid)
             local name = getPlayerName(pid)
-            local label = string.format("%sEntregar em: [%02d] %s", isSel and "[X] " or "[  ] ", pid, name)
+            local label = string.format("Entregar em: [%02d] %s", pid, name)
             local savedPid = pid
-            table.insert(items, actionItem(label, function()
-                airdropLocationMode = 2
-                selectedAirdropPid = savedPid
+            table.insert(items, toggleItem(label, function()
+                return ChaosState.airdropLocationMode == 2 and ChaosState.selectedAirdropPid == savedPid
+            end, function()
+                ChaosState.airdropLocationMode = 2
+                ChaosState.selectedAirdropPid = savedPid
                 showFeedNotification("Destinatario do Airdrop: " .. name)
             end))
         end
@@ -4737,39 +5002,41 @@ end
 -- Submenus
 local function buildTelekinesisMenu()
     return {
-        toggleItem("Segurar Veiculo com a Forca", function() return isHoldingVehicle end, toggleHoldVehicle),
+        toggleItem("Segurar Veiculo com a Forca", function() return ChaosState.isHoldingVehicle end, toggleHoldVehicle),
         actionItem("Arremessar Veiculo com Forca (150m/s)", launchHeldVehicle),
-        actionItem("Aumentar Distancia (+5m)", function() holdDistance = holdDistance + 5.0; showFeedNotification("Distancia: " .. holdDistance) end),
-        actionItem("Diminuir Distancia (-5m)", function() holdDistance = math.max(5.0, holdDistance - 5.0); showFeedNotification("Distancia: " .. holdDistance) end)
+        actionItem("Aumentar Distancia (+5m)", function() ChaosState.holdDistance = ChaosState.holdDistance + 5.0; showFeedNotification("Distancia: " .. ChaosState.holdDistance) end),
+        actionItem("Diminuir Distancia (-5m)", function() ChaosState.holdDistance = math.max(5.0, ChaosState.holdDistance - 5.0); showFeedNotification("Distancia: " .. ChaosState.holdDistance) end)
     }
 end
 
 local function buildWorldChaosMenu()
     return {
-        toggleItem("Vortice Gravitacional (Buraco Negro)", function() return vortexActive end, toggleVortex),
-        toggleItem("Escudo Orbital de Carros", function() return vehicleShieldActive end, toggleVehicleShield),
-        toggleItem("Chuva de Carros do Ceu", function() return vehicleRainActive end, toggleVehicleRain),
-        toggleItem("Onda de Choque Repulsora", function() return pushRepulsorActive end, togglePushRepulsor),
-        toggleItem("Invasao Apocalipse Zumbi", function() return zombiePedOutbreakActive end, toggleZombiePedOutbreak)
+        toggleItem("Vortice Gravitacional (Buraco Negro)", function() return ChaosState.vortexActive end, toggleVortex),
+        toggleItem("Escudo Orbital de Carros", function() return ChaosState.vehicleShieldActive end, toggleVehicleShield),
+        toggleItem("Chuva de Carros do Ceu", function() return ChaosState.vehicleRainActive end, toggleVehicleRain),
+        toggleItem("Onda de Choque Repulsora", function() return ChaosState.pushRepulsorActive end, togglePushRepulsor),
+        toggleItem("Invasao Apocalipse Zumbi", function() return ChaosState.zombiePedOutbreakActive end, toggleZombiePedOutbreak)
     }
 end
 
 local function buildDogfightSubmenu()
     return {
-        submenuItem("Escolher Alvo: " .. getTargetPlayerDisplayName(selectedDogfightPid), buildDogfightTargetMenu),
-        actionItem("Quantidade: 3 Cacas Lazer", function() dogfightJetCount = 3; showFeedNotification("3 Cacas selecionados") end),
-        actionItem("Quantidade: 5 Cacas (Enxame)", function() dogfightJetCount = 5; showFeedNotification("5 Cacas selecionados") end),
-        actionItem("> ENVIAR ATAQUE AEREO AGORA", function() triggerDogfightAttack(selectedDogfightPid, dogfightJetCount) end)
+        submenuItem("Escolher Alvo: " .. getTargetPlayerDisplayName(ChaosState.selectedDogfightPid), buildDogfightTargetMenu),
+        toggleItem("1 Caca (Ataque Rapido)", function() return ChaosState.dogfightJetCount == 1 end, function() ChaosState.dogfightJetCount = 1; showFeedNotification("1 Caca selecionado") end),
+        toggleItem("2 Cacas (Esquadrao)", function() return ChaosState.dogfightJetCount == 2 end, function() ChaosState.dogfightJetCount = 2; showFeedNotification("2 Cacas selecionados") end),
+        toggleItem("3 Cacas (Ataque Pesado)", function() return ChaosState.dogfightJetCount == 3 end, function() ChaosState.dogfightJetCount = 3; showFeedNotification("3 Cacas selecionados") end),
+        actionItem("> ENVIAR ATAQUE AEREO AGORA", function() triggerDogfightAttack(ChaosState.selectedDogfightPid, ChaosState.dogfightJetCount) end),
+        actionItem("* Remover Todos os Cacas", clearActiveDogfightJets)
     }
 end
 
 local function buildEarRapeSubmenu()
     return {
-        submenuItem("Escolher Alvo: " .. getTargetPlayerDisplayName(selectedEarRapePid), buildEarRapeTargetMenu),
-        toggleItem("Relampagos & Trovoes Cegantes", function() return trollLightning end, function() trollLightning = not trollLightning end),
-        toggleItem("Flashbang & Efeito Psicodelico", function() return trollFlashbang end, function() trollFlashbang = not trollFlashbang end),
-        actionItem("> Disparo Rapido (5 Segundos)", function() triggerEarRapeTremor(selectedEarRapePid, 5) end),
-        actionItem("> Disparo Longo (10 Segundos)", function() triggerEarRapeTremor(selectedEarRapePid, 10) end),
+        submenuItem("Escolher Alvo: " .. getTargetPlayerDisplayName(ChaosState.selectedEarRapePid), buildEarRapeTargetMenu),
+        toggleItem("Relampagos & Trovoes Cegantes", function() return ChaosState.trollLightning end, function() ChaosState.trollLightning = not ChaosState.trollLightning end),
+        toggleItem("Flashbang & Efeito Psicodelico", function() return ChaosState.trollFlashbang end, function() ChaosState.trollFlashbang = not ChaosState.trollFlashbang end),
+        actionItem("> Disparo Rapido (5 Segundos)", function() triggerEarRapeTremor(ChaosState.selectedEarRapePid, 5) end),
+        actionItem("> Disparo Longo (10 Segundos)", function() triggerEarRapeTremor(ChaosState.selectedEarRapePid, 10) end),
         actionItem("* Parar Todos os Efeitos", stopTrollAudioHarassment)
     }
 end
@@ -4783,11 +5050,11 @@ end
 
 local function buildAirdropConfigSubmenu()
     return {
-        submenuItem("Destinatario / Local: " .. (airdropLocationMode == 1 and "Na Sua Frente (15m)" or getTargetPlayerDisplayName(selectedAirdropPid)), buildAirdropTargetMenu),
-        toggleItem("Saude & Colete 100%", function() return airdropDropType == 1 end, function() airdropDropType = 1 end),
-        toggleItem("Insurgent Custom .50cal", function() return airdropDropType == 2 end, function() airdropDropType = 2 end),
-        toggleItem("Caixa Armadilha (Trap)", function() return airdropDropType == 3 end, function() airdropDropType = 3 end),
-        actionItem("> SOLICITAR AIRDROP AGORA", function() triggerAirdropDrop(airdropDropType, selectedAirdropPid, airdropLocationMode) end)
+        submenuItem("Destinatario / Local: " .. (ChaosState.airdropLocationMode == 1 and "Na Sua Frente (15m)" or getTargetPlayerDisplayName(ChaosState.selectedAirdropPid)), buildAirdropTargetMenu),
+        toggleItem("Saude & Colete 100%", function() return ChaosState.airdropDropType == 1 end, function() ChaosState.airdropDropType = 1 end),
+        toggleItem("Insurgent Custom .50cal", function() return ChaosState.airdropDropType == 2 end, function() ChaosState.airdropDropType = 2 end),
+        toggleItem("Caixa Armadilha (Trap)", function() return ChaosState.airdropDropType == 3 end, function() ChaosState.airdropDropType = 3 end),
+        actionItem("> SOLICITAR AIRDROP AGORA", function() triggerAirdropDrop(ChaosState.airdropDropType, ChaosState.selectedAirdropPid, ChaosState.airdropLocationMode) end)
     }
 end
 
@@ -4801,7 +5068,7 @@ end
 -- PLAYER MENU
 ------------------------------------------------------------
 
-buildPlayerMenu = function()
+Builders.buildPlayerMenu = function()
 
     return {
 
@@ -4812,32 +5079,32 @@ buildPlayerMenu = function()
 
         submenuItem(
             "Guarda-roupa",
-            buildWardrobeMenu
+            Builders.buildWardrobeMenu
         ),
 
         submenuItem(
             "Assistir",
-            buildSpectateMenu
+            Builders.buildSpectateMenu
         ),
 
         submenuItem(
             "Animações",
-            buildAnimationsMenu
+            Builders.buildAnimationsMenu
         ),
 
         submenuItem(
             "Movimento",
-            buildMovementMenu
+            Builders.buildMovementMenu
         ),
 
         submenuItem(
             "Mods",
-            buildModsMenu
+            Builders.buildModsMenu
         ),
 
         submenuItem(
             "Costas",
-            buildBackMenu
+            Builders.buildBackMenu
         )
 
     }
@@ -4848,7 +5115,7 @@ end
 -- PLAYER LIST - PRISÃO
 ------------------------------------------------------------
 
-buildArrestPlayerMenu = function()
+Builders.buildArrestPlayerMenu = function()
 
     local items = {}
 
@@ -4944,7 +5211,7 @@ end
 -- SCRIPTS MENU
 ------------------------------------------------------------
 
-buildScriptsMenu = function()
+Builders.buildScriptsMenu = function()
 
     return {
 
@@ -4952,7 +5219,7 @@ buildScriptsMenu = function()
 
             "Prender player",
 
-            buildArrestPlayerMenu
+            Builders.buildArrestPlayerMenu
 
         )
 
@@ -4992,13 +5259,13 @@ end
 -- MAIN MENU
 ------------------------------------------------------------
 
-buildMainMenu = function()
+Builders.buildMainMenu = function()
 
     return {
 
         submenuItem(
             "Jogador",
-            buildPlayerMenu
+            Builders.buildPlayerMenu
         ),
 
         submenuItem(
@@ -5038,7 +5305,7 @@ buildMainMenu = function()
 
         submenuItem(
             "Scripts",
-            buildScriptsMenu
+            Builders.buildScriptsMenu
         ),
 
         submenuItem(
@@ -5077,7 +5344,7 @@ local function resetMenu()
     setMenu(
         "main",
         MENU_NAME,
-        buildMainMenu()
+        Builders.buildMainMenu()
     )
 
 end
@@ -5161,7 +5428,7 @@ local function getItemDisplay(item)
     if item.type == "component" then
 
         local value =
-            wardrobeValues[
+            WardrobeState.values[
                 item.data.component
             ]
 
@@ -5189,7 +5456,7 @@ local function getItemDisplay(item)
     if item.type == "texture" then
 
         local value =
-            wardrobeTextures[
+            WardrobeState.textures[
                 item.data.component
             ]
 
@@ -5217,7 +5484,7 @@ local function getItemDisplay(item)
     if item.type == "prop" then
 
         local value =
-            propValues[
+            WardrobeState.props[
                 item.data.prop
             ]
 
@@ -5247,7 +5514,7 @@ local function getItemDisplay(item)
         return
             "Pintura facial   < "
             ..
-            tostring(facePaintValue)
+            tostring(WardrobeState.facePaint)
             ..
             " >"
 
@@ -5674,16 +5941,16 @@ end
 
 local function disableMenuControls()
 
-    disableControl(CONTROL_UP)
-    disableControl(CONTROL_DOWN)
-    disableControl(CONTROL_LEFT)
-    disableControl(CONTROL_RIGHT)
+    disableControl(CONTROLS.UP)
+    disableControl(CONTROLS.DOWN)
+    disableControl(CONTROLS.LEFT)
+    disableControl(CONTROLS.RIGHT)
 
-    disableControl(CONTROL_ACCEPT)
-    disableControl(CONTROL_CANCEL)
+    disableControl(CONTROLS.ACCEPT)
+    disableControl(CONTROLS.CANCEL)
 
-    disableControl(CONTROL_FRONTEND_ACCEPT)
-    disableControl(CONTROL_FRONTEND_CANCEL)
+    disableControl(CONTROLS.FRONTEND_ACCEPT)
+    disableControl(CONTROLS.FRONTEND_CANCEL)
 
     disableControl(27)
 
@@ -5814,7 +6081,7 @@ local function selectCurrent()
         then
 
             menu.items =
-                buildArrestPlayerMenu()
+                Builders.buildArrestPlayerMenu()
 
             if menu.selected
                 >
@@ -5869,11 +6136,11 @@ local function mainLoop()
         processTelekinesis()
 
         disableControl(
-            CONTROL_F9
+            CONTROLS.F9
         )
 
         if pressed(
-            CONTROL_F9
+            CONTROLS.F9
         )
         then
 
@@ -5886,7 +6153,7 @@ local function mainLoop()
             disableMenuControls()
 
             if pressed(
-                CONTROL_UP
+                CONTROLS.UP
             )
             then
 
@@ -5895,7 +6162,7 @@ local function mainLoop()
             end
 
             if pressed(
-                CONTROL_DOWN
+                CONTROLS.DOWN
             )
             then
 
@@ -5904,7 +6171,7 @@ local function mainLoop()
             end
 
             if pressed(
-                CONTROL_LEFT
+                CONTROLS.LEFT
             )
             then
 
@@ -5915,7 +6182,7 @@ local function mainLoop()
             end
 
             if pressed(
-                CONTROL_RIGHT
+                CONTROLS.RIGHT
             )
             then
 
@@ -5926,10 +6193,10 @@ local function mainLoop()
             end
 
             if pressed(
-                CONTROL_ACCEPT
+                CONTROLS.ACCEPT
             )
             or pressed(
-                CONTROL_FRONTEND_ACCEPT
+                CONTROLS.FRONTEND_ACCEPT
             )
             then
 
@@ -5938,10 +6205,10 @@ local function mainLoop()
             end
 
             if pressed(
-                CONTROL_CANCEL
+                CONTROLS.CANCEL
             )
             or pressed(
-                CONTROL_FRONTEND_CANCEL
+                CONTROLS.FRONTEND_CANCEL
             )
             then
 

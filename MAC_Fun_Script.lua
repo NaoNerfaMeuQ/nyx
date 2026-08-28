@@ -4901,15 +4901,89 @@ end
 -- CAÇAS INIMIGOS AÉREOS (SPAWN NO CÉU -> PILOTOS INIMIGOS -> COMBATE CONTÍNUO)
 -- ════════════════════════════════════════════════════════════════════
 
+local activeEnemyJets = {}
+local isEnemyJetsSpawning = false
+local enemyJetsAttackRunning = false
+local lastEnemyJetsSpawnTime = 0
+
+local function safeDeleteEntity(ent)
+    if not ent or ent == 0 then return end
+    pcall(function()
+        if ENTITY and ENTITY.DOES_ENTITY_EXIST and ENTITY.DOES_ENTITY_EXIST(ent) then
+            ENTITY.SET_ENTITY_AS_MISSION_ENTITY(ent, true, true)
+            if ENTITY.SET_ENTITY_COLLISION then ENTITY.SET_ENTITY_COLLISION(ent, false, false) end
+            if PED and PED.DELETE_PED and ENTITY.IS_ENTITY_A_PED and ENTITY.IS_ENTITY_A_PED(ent) then
+                PED.DELETE_PED(ent)
+            elseif VEHICLE and VEHICLE.DELETE_VEHICLE and ENTITY.IS_ENTITY_A_VEHICLE and ENTITY.IS_ENTITY_A_VEHICLE(ent) then
+                VEHICLE.DELETE_VEHICLE(ent)
+            elseif OBJECT and OBJECT.DELETE_OBJECT and ENTITY.IS_ENTITY_AN_OBJECT and ENTITY.IS_ENTITY_AN_OBJECT(ent) then
+                OBJECT.DELETE_OBJECT(ent)
+            end
+            if ENTITY.DELETE_ENTITY then ENTITY.DELETE_ENTITY(ent) end
+            if ENTITY.DOES_ENTITY_EXIST(ent) then
+                ENTITY.SET_ENTITY_COORDS(ent, 0.0, 0.0, -100.0, false, false, false, false)
+                ENTITY.SET_ENTITY_AS_NO_LONGER_NEEDED(ent)
+            end
+        end
+    end)
+end
+
+local function clearActiveEnemyJets()
+    enemyJetsAttackRunning = false
+    local count = #activeEnemyJets
+
+    for _, item in ipairs(activeEnemyJets) do
+        pcall(function()
+            if item.blip and HUD and HUD.DOES_BLIP_EXIST and HUD.DOES_BLIP_EXIST(item.blip) then
+                HUD.REMOVE_BLIP(item.blip)
+            end
+            if isValidEntity(item.pilot) then
+                safeDeleteEntity(item.pilot)
+            end
+            if isValidEntity(item.jet) then
+                safeDeleteEntity(item.jet)
+            end
+        end)
+    end
+    activeEnemyJets = {}
+    notify.info("MAC_Fun_Script", "Todos os caças foram removidos com sucesso.")
+end
+
 local function spawnEnemyJets(targetPid, count)
+    if isEnemyJetsSpawning then
+        notify.warn("MAC_Fun_Script", "Aguarde, caças anteriores ainda sendo posicionados!")
+        return
+    end
+
+    local now = (MISC and MISC.GET_GAME_TIMER and MISC.GET_GAME_TIMER()) or 0
+    if (now - lastEnemyJetsSpawnTime) < 4000 then
+        notify.warn("MAC_Fun_Script", "Aguarde alguns segundos entre os ataques!")
+        return
+    end
+    lastEnemyJetsSpawnTime = now
+
+    local myLocalPid = get_local_pid()
+    local actualPid = (targetPid == nil or targetPid == -1) and myLocalPid or targetPid
+    local targetPed = getPlayerPedSafe(actualPid)
+    local targetCoords = getTargetCoordsSafe(actualPid, targetPed)
+    local targetName = (actualPid == myLocalPid) and "Você Mesmo" or get_player_name(actualPid)
+    local jetCount = math.min(3, math.max(1, count or kamikazeJetCount or 2))
+
+    isEnemyJetsSpawning = true
+
     script.run_in_callback(function()
         pcall(function()
-            local myLocalPid = get_local_pid()
-            local actualPid = (targetPid == nil or targetPid == -1) and myLocalPid or targetPid
-            local targetPed = getPlayerPedSafe(actualPid)
-            local targetCoords = getTargetCoordsSafe(actualPid, targetPed)
-            local targetName = (actualPid == myLocalPid) and "Você Mesmo" or get_player_name(actualPid)
-            local jetCount = count or kamikazeJetCount or 3
+            if not isValidEntity(targetPed) then
+                notify.error("MAC_Fun_Script", "Ped do alvo não encontrado.")
+                isEnemyJetsSpawning = false
+                return
+            end
+
+            -- Limpa esquadrão anterior suavemente
+            if #activeEnemyJets > 0 then
+                clearActiveEnemyJets()
+                script.yield(200)
+            end
 
             local jetHash = getModelHash("lazer")
             local pilotHash = getModelHash("s_m_y_blackops_01")
@@ -4927,17 +5001,21 @@ local function spawnEnemyJets(targetPid, count)
 
             if not STREAMING.HAS_MODEL_LOADED(jetHash) or not STREAMING.HAS_MODEL_LOADED(pilotHash) then
                 notify.error("MAC_Fun_Script", "Falha ao carregar modelos dos caças.")
+                isEnemyJetsSpawning = false
                 return
             end
 
-            notify.warn("MAC_Fun_Script", string.format("Spawando %d caças inimigos no céu atacando %s!", jetCount, targetName))
+            notify.warn("MAC_Fun_Script", string.format("Enviando %d caça(s) atacando %s!", jetCount, targetName))
+            enemyJetsAttackRunning = true
 
             for i = 1, jetCount do
+                if not enemyJetsAttackRunning then break end
+
                 local angle = ((i - 1) / jetCount) * (math.pi * 2) + (math.random() * 0.4)
-                local dist = 120.0 + (i * 30.0)
+                local dist = 160.0 + (i * 35.0)
                 local sx = targetCoords.x + math.cos(angle) * dist
                 local sy = targetCoords.y + math.sin(angle) * dist
-                local sz = targetCoords.z + 280.0 + (i * 20.0)
+                local sz = targetCoords.z + 280.0 + (i * 25.0)
                 local heading = math.deg(math.atan2(-(targetCoords.x - sx), targetCoords.y - sy))
 
                 local jet = nil
@@ -4953,25 +5031,23 @@ local function spawnEnemyJets(targetPid, count)
                         ENTITY.SET_ENTITY_AS_MISSION_ENTITY(jet, true, true)
                         ENTITY.SET_ENTITY_COLLISION(jet, true, true)
                         VEHICLE.SET_VEHICLE_ENGINE_ON(jet, true, true, false)
-                        VEHICLE.SET_VEHICLE_FORWARD_SPEED(jet, 85.0)
+                        VEHICLE.SET_VEHICLE_FORWARD_SPEED(jet, 80.0)
                         if VEHICLE.CONTROL_LANDING_GEAR then
-                            VEHICLE.CONTROL_LANDING_GEAR(jet, 3) -- Recolhe trem de pouso
+                            VEHICLE.CONTROL_LANDING_GEAR(jet, 3)
                         end
                         if VEHICLE.SET_HELI_BLADES_FULL_SPEED then
                             VEHICLE.SET_HELI_BLADES_FULL_SPEED(jet)
                         end
                         
-                        -- Cria o piloto militar dentro do caça
                         pilot = PED.CREATE_PED_INSIDE_VEHICLE(jet, 26, pilotHash, -1, true, false)
 
-                        -- Cria Blip Inimigo Vermelho no Mapa
                         if HUD and HUD.ADD_BLIP_FOR_ENTITY then
                             blip = HUD.ADD_BLIP_FOR_ENTITY(jet)
                             if HUD.SET_BLIP_SPRITE then
-                                HUD.SET_BLIP_SPRITE(blip, 16) -- Ícone de Caça / Avião
+                                HUD.SET_BLIP_SPRITE(blip, 16)
                             end
                             if HUD.SET_BLIP_COLOUR then
-                                HUD.SET_BLIP_COLOUR(blip, 1) -- Vermelho Inimigo
+                                HUD.SET_BLIP_COLOUR(blip, 1)
                             end
                             if HUD.SET_BLIP_SCALE then
                                 HUD.SET_BLIP_SCALE(blip, 1.0)
@@ -4987,6 +5063,8 @@ local function spawnEnemyJets(targetPid, count)
                         end
                     end)
 
+                    table.insert(activeEnemyJets, { jet = jet, pilot = pilot, blip = blip })
+
                     if isValidEntity(pilot) then
                         pcall(function()
                             ENTITY.SET_ENTITY_AS_MISSION_ENTITY(pilot, true, true)
@@ -4994,28 +5072,26 @@ local function spawnEnemyJets(targetPid, count)
                             PED.SET_BLOCKING_OF_NON_TEMPORARY_EVENTS(pilot, true)
                             PED.SET_PED_KEEP_TASK(pilot, true)
                             
-                            -- Configura o piloto como inimigo hostil do player
                             local enemyGroup = getModelHash("HATES_PLAYER")
                             local playerGroup = PED.GET_PED_RELATIONSHIP_GROUP_HASH(targetPed)
                             PED.SET_PED_RELATIONSHIP_GROUP_HASH(pilot, enemyGroup)
                             PED.SET_RELATIONSHIP_BETWEEN_GROUPS(5, enemyGroup, playerGroup)
                             PED.SET_RELATIONSHIP_BETWEEN_GROUPS(5, playerGroup, enemyGroup)
                             
-                            -- Atributos de combate agressivo e uso total de armas do caça
-                            PED.SET_PED_COMBAT_ATTRIBUTES(pilot, 1, true)  -- Can use vehicles
-                            PED.SET_PED_COMBAT_ATTRIBUTES(pilot, 2, true)  -- Can do drivebys / vehicle weapons
-                            PED.SET_PED_COMBAT_ATTRIBUTES(pilot, 3, false) -- Don't leave vehicle
-                            PED.SET_PED_COMBAT_ATTRIBUTES(pilot, 5, true)  -- Always fight
-                            PED.SET_PED_COMBAT_ATTRIBUTES(pilot, 13, true) -- Aggressive
-                            PED.SET_PED_COMBAT_ATTRIBUTES(pilot, 27, true) -- Perfect accuracy
-                            PED.SET_PED_COMBAT_ATTRIBUTES(pilot, 46, true) -- Always fight armed
-                            PED.SET_PED_COMBAT_ATTRIBUTES(pilot, 54, true) -- Always equip best weapon
-                            PED.SET_PED_COMBAT_ATTRIBUTES(pilot, 58, true) -- Disable flee
-                            PED.SET_PED_COMBAT_ATTRIBUTES(pilot, 86, true) -- Allow dogfighting
-                            PED.SET_PED_COMBAT_ABILITY(pilot, 2)          -- Professional
-                            PED.SET_PED_COMBAT_MOVEMENT(pilot, 3)         -- Aggressive
-                            PED.SET_PED_COMBAT_RANGE(pilot, 2)            -- Far range
-                            PED.SET_PED_TARGET_LOSS_RESPONSE(pilot, 1)    -- Never lose target
+                            PED.SET_PED_COMBAT_ATTRIBUTES(pilot, 1, true)
+                            PED.SET_PED_COMBAT_ATTRIBUTES(pilot, 2, true)
+                            PED.SET_PED_COMBAT_ATTRIBUTES(pilot, 3, false)
+                            PED.SET_PED_COMBAT_ATTRIBUTES(pilot, 5, true)
+                            PED.SET_PED_COMBAT_ATTRIBUTES(pilot, 13, true)
+                            PED.SET_PED_COMBAT_ATTRIBUTES(pilot, 27, true)
+                            PED.SET_PED_COMBAT_ATTRIBUTES(pilot, 46, true)
+                            PED.SET_PED_COMBAT_ATTRIBUTES(pilot, 54, true)
+                            PED.SET_PED_COMBAT_ATTRIBUTES(pilot, 58, true)
+                            PED.SET_PED_COMBAT_ATTRIBUTES(pilot, 86, true)
+                            PED.SET_PED_COMBAT_ABILITY(pilot, 2)
+                            PED.SET_PED_COMBAT_MOVEMENT(pilot, 3)
+                            PED.SET_PED_COMBAT_RANGE(pilot, 2)
+                            PED.SET_PED_TARGET_LOSS_RESPONSE(pilot, 1)
                             PED.SET_PED_ACCURACY(pilot, 100)
                             PED.SET_PED_SHOOT_RATE(pilot, 1000)
                             
@@ -5027,80 +5103,66 @@ local function spawnEnemyJets(targetPid, count)
                             end
                         end)
                     end
+                end
+                script.yield(350)
+            end
 
-                    -- Loop assíncrono em segundo plano: rajadas ativas de canhão explosivo + perseguição contínua pós-morte
-                    script.run_in_callback(function()
-                        local lastAssignedPed = targetPed
-                        local shootCooldown = 0
+            STREAMING.SET_MODEL_AS_NO_LONGER_NEEDED(jetHash)
+            STREAMING.SET_MODEL_AS_NO_LONGER_NEEDED(pilotHash)
+            isEnemyJetsSpawning = false
 
-                        while isValidEntity(jet) and isValidEntity(pilot) and not PED.IS_PED_INJURED(pilot) do
-                            local curPed = getPlayerPedSafe(actualPid)
+            -- Supervisor único em segundo plano
+            script.run_in_callback(function()
+                local lastAssignedPed = targetPed
+                while enemyJetsAttackRunning and #activeEnemyJets > 0 do
+                    local curPed = getPlayerPedSafe(actualPid)
+                    local aliveCount = 0
 
-                            -- Se o player morreu e renasceu (novo ped), reatribui o ataque no novo ped vivo!
+                    for idx = #activeEnemyJets, 1, -1 do
+                        local item = activeEnemyJets[idx]
+                        local jetValid = isValidEntity(item.jet)
+                        local pilotValid = isValidEntity(item.pilot) and not PED.IS_PED_INJURED(item.pilot)
+
+                        if not jetValid or not pilotValid then
+                            pcall(function()
+                                if item.blip and HUD and HUD.DOES_BLIP_EXIST and HUD.DOES_BLIP_EXIST(item.blip) then
+                                    HUD.REMOVE_BLIP(item.blip)
+                                end
+                            end)
+                            table.remove(activeEnemyJets, idx)
+                        else
+                            aliveCount = aliveCount + 1
                             if isValidEntity(curPed) and curPed ~= lastAssignedPed and not PED.IS_PED_INJURED(curPed) then
-                                lastAssignedPed = curPed
                                 pcall(function()
                                     local pGroup = PED.GET_PED_RELATIONSHIP_GROUP_HASH(curPed)
                                     local eGroup = getModelHash("HATES_PLAYER")
                                     PED.SET_RELATIONSHIP_BETWEEN_GROUPS(5, eGroup, pGroup)
                                     PED.SET_RELATIONSHIP_BETWEEN_GROUPS(5, pGroup, eGroup)
-                                    TASK.TASK_COMBAT_PED(pilot, curPed, 0, 16)
+                                    TASK.TASK_COMBAT_PED(item.pilot, curPed, 0, 16)
                                     if TASK.TASK_PLANE_MISSION then
-                                        TASK.TASK_PLANE_MISSION(pilot, jet, 0, curPed, 0.0, 0.0, 0.0, 6, 110.0, 0.0, 90.0, 0, 100.0)
+                                        TASK.TASK_PLANE_MISSION(item.pilot, item.jet, 0, curPed, 0.0, 0.0, 0.0, 6, 110.0, 0.0, 90.0, 0, 100.0)
                                     elseif TASK.TASK_PLANE_CHASE then
-                                        TASK.TASK_PLANE_CHASE(pilot, curPed, 0.0, 0.0, 50.0)
+                                        TASK.TASK_PLANE_CHASE(item.pilot, curPed, 0.0, 0.0, 50.0)
                                     end
                                 end)
                             end
-
-                            -- Disparo de canhões explosivos de 20mm do caça quando alinhado com o player
-                            shootCooldown = shootCooldown + 1
-                            if shootCooldown >= 3 and isValidEntity(curPed) then
-                                pcall(function()
-                                    local jCoords = ENTITY.GET_ENTITY_COORDS(jet, true)
-                                    local pCoords = ENTITY.GET_ENTITY_COORDS(curPed, true)
-                                    local dx = pCoords.x - jCoords.x
-                                    local dy = pCoords.y - jCoords.y
-                                    local dz = pCoords.z - jCoords.z
-                                    local dist = math.sqrt(dx * dx + dy * dy + dz * dz)
-
-                                    if dist < 480.0 and dist > 12.0 then
-                                        local fwd = ENTITY.GET_ENTITY_FORWARD_VECTOR(jet)
-                                        local toX, toY, toZ = dx / dist, dy / dist, dz / dist
-                                        local dot = fwd.x * toX + fwd.y * toY + fwd.z * toZ
-
-                                        -- Se o bico do caça estiver apontado na direção do player
-                                        if dot > 0.65 then
-                                            local leftMuzzle = ENTITY.GET_OFFSET_FROM_ENTITY_IN_WORLD_COORDS(jet, -1.8, 4.0, -0.2)
-                                            local rightMuzzle = ENTITY.GET_OFFSET_FROM_ENTITY_IN_WORLD_COORDS(jet, 1.8, 4.0, -0.2)
-                                            local laserHash = getModelHash("VEHICLE_WEAPON_PLAYER_LAZER")
-                                            if laserHash == 0 then laserHash = getModelHash("WEAPON_EXPLOSION") end
-
-                                            MISC.SHOOT_SINGLE_BULLET_BETWEEN_COORDS(leftMuzzle.x, leftMuzzle.y, leftMuzzle.z, pCoords.x, pCoords.y, pCoords.z + 0.4, 250, true, laserHash, pilot, true, false, 950.0)
-                                            MISC.SHOOT_SINGLE_BULLET_BETWEEN_COORDS(rightMuzzle.x, rightMuzzle.y, rightMuzzle.z, pCoords.x, pCoords.y, pCoords.z + 0.4, 250, true, laserHash, pilot, true, false, 950.0)
-                                            shootCooldown = 0
-                                        end
-                                    end
-                                end)
-                            end
-
-                            script.yield(40)
                         end
+                    end
 
-                        -- Remove o blip quando o caça for destruído ou o piloto morrer
-                        pcall(function()
-                            if blip and HUD and HUD.DOES_BLIP_EXIST and HUD.DOES_BLIP_EXIST(blip) then
-                                HUD.REMOVE_BLIP(blip)
-                            end
-                        end)
-                    end)
+                    if isValidEntity(curPed) and curPed ~= lastAssignedPed and not PED.IS_PED_INJURED(curPed) then
+                        lastAssignedPed = curPed
+                    end
+
+                    if aliveCount == 0 then
+                        enemyJetsAttackRunning = false
+                        break
+                    end
+
+                    script.yield(500)
                 end
-                script.yield(150)
-            end
-
-            STREAMING.SET_MODEL_AS_NO_LONGER_NEEDED(jetHash)
-            STREAMING.SET_MODEL_AS_NO_LONGER_NEEDED(pilotHash)
+            end)
         end)
+        isEnemyJetsSpawning = false
     end)
 end
 
@@ -5163,6 +5225,10 @@ local function renderTabEnemyJets()
 
     if imgui.button(">> SPAWNAR CAÇAS INIMIGOS NO CÉU <<##spawn_enemy_jets_btn") then
         spawnEnemyJets(selectedKamikazePid, kamikazeJetCount)
+    end
+    imgui.same_line()
+    if imgui.button("* Remover Todos os Cacas##del_enemy_jets_btn") then
+        clearActiveEnemyJets()
     end
 
     imgui.end_tab_item()
@@ -5482,8 +5548,15 @@ local function callAirdropSupply()
                                     end
 
                                     -- 3. Aplica Imediatamente Vida 100% + Colete Pesado 100% + Armas e Munição
-                                    ENTITY.SET_ENTITY_HEALTH(pPed, ENTITY.GET_ENTITY_MAX_HEALTH(pPed), 0)
-                                    PED.SET_PED_ARMOUR(pPed, 100)
+                                    if isValidEntity(pPed) then
+                                        local maxHp = (ENTITY and ENTITY.GET_ENTITY_MAX_HEALTH and ENTITY.GET_ENTITY_MAX_HEALTH(pPed)) or 200
+                                        if ENTITY and ENTITY.SET_ENTITY_HEALTH then
+                                            local ok = pcall(function() ENTITY.SET_ENTITY_HEALTH(pPed, maxHp, 0, 0) end)
+                                            if not ok then ok = pcall(function() ENTITY.SET_ENTITY_HEALTH(pPed, maxHp, 0) end) end
+                                            if not ok then pcall(function() ENTITY.SET_ENTITY_HEALTH(pPed, maxHp) end) end
+                                        end
+                                        if PED and PED.SET_PED_ARMOUR then pcall(function() PED.SET_PED_ARMOUR(pPed, 100) end) end
+                                    end
 
                                     local weapons = {
                                         "WEAPON_MINIGUN", "WEAPON_RAILGUN", "WEAPON_HOMINGLAUNCHER",
