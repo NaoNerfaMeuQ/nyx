@@ -4740,6 +4740,10 @@ local function runSingleEarRapeStep(targetPid)
             if ChaosState.trollFlashbang and GRAPHICS and GRAPHICS.ANIMPOSTFX_PLAY then
                 GRAPHICS.ANIMPOSTFX_PLAY("DrugsMichaelAliensFight", 0, true)
             end
+        else
+            if AUDIO and AUDIO.PLAY_SOUND_FROM_COORD then
+                AUDIO.PLAY_SOUND_FROM_COORD(-1, "Airhorn", coords.x, coords.y, coords.z, "DLC_TG_Running_Back_Sounds", true, 150, false)
+            end
         end
 
         -- Ondas de choque nas coordenadas do alvo (treme tela e vibra controle)
@@ -4755,6 +4759,7 @@ end
 
 local function stopTrollAudioHarassment()
     ChaosState.isTrollAudioActive = false
+    ChaosState.trollAudioLoop = false
     pcall(function()
         if GRAPHICS and GRAPHICS.ANIMPOSTFX_STOP then
             GRAPHICS.ANIMPOSTFX_STOP("DrugsMichaelAliensFight")
@@ -4767,26 +4772,44 @@ local function stopTrollAudioHarassment()
 end
 
 local function triggerEarRapeTremor(targetPid, burstSecs)
-    local pName = (targetPid == -1 or targetPid == getLocalPid()) and "Você Mesmo" or getPlayerName(targetPid)
-    showFeedNotification("~r~Disparando Ear Rape e Terremoto em " .. pName .. "!")
+    local actualPid = (targetPid == -1 or targetPid == getLocalPid()) and getLocalPid() or targetPid
+    local pName = (actualPid == getLocalPid()) and "Voce Mesmo" or getPlayerName(actualPid)
+
+    if burstSecs and burstSecs > 0 then
+        showFeedNotification(string.format("~r~Disparando Ear Rape (%ds) em %s!", burstSecs, pName))
+    else
+        showFeedNotification("~r~Modo Continuo de Ear Rape ATIVADO em " .. pName .. "!")
+    end
 
     script.run_in_callback(function()
         if burstSecs and burstSecs > 0 then
+            ChaosState.isTrollAudioActive = true
             local totalTicks = math.floor((burstSecs * 1000) / 80)
             for i = 1, totalTicks do
-                runSingleEarRapeStep(targetPid)
+                if not ChaosState.isTrollAudioActive then break end
+                runSingleEarRapeStep(actualPid)
                 script.yield(80)
             end
             stopTrollAudioHarassment()
             showFeedNotification("~y~Burst de Ear Rape finalizado.")
         else
             ChaosState.isTrollAudioActive = true
-            while ChaosState.isTrollAudioActive do
-                runSingleEarRapeStep(targetPid)
+            ChaosState.trollAudioLoop = true
+            while ChaosState.isTrollAudioActive and ChaosState.trollAudioLoop do
+                runSingleEarRapeStep(actualPid)
                 script.yield(80)
             end
+            stopTrollAudioHarassment()
         end
     end)
+end
+
+local function toggleContinuousEarRape(targetPid)
+    if ChaosState.trollAudioLoop then
+        stopTrollAudioHarassment()
+    else
+        triggerEarRapeTremor(targetPid, 0)
+    end
 end
 
 local AirdropVehiclePresets = {
@@ -5307,6 +5330,7 @@ end
 local function buildEarRapeSubmenu()
     return {
         submenuItem("Escolher Alvo: " .. getTargetPlayerDisplayName(ChaosState.selectedEarRapePid), buildEarRapeTargetMenu),
+        toggleItem("Modo Continuo (Loop Infinito)", function() return ChaosState.trollAudioLoop end, function() toggleContinuousEarRape(ChaosState.selectedEarRapePid) end),
         toggleItem("Relampagos & Trovoes Cegantes", function() return ChaosState.trollLightning end, function() ChaosState.trollLightning = not ChaosState.trollLightning end),
         toggleItem("Flashbang & Efeito Psicodelico", function() return ChaosState.trollFlashbang end, function() ChaosState.trollFlashbang = not ChaosState.trollFlashbang end),
         actionItem("> Disparo Rapido (5 Segundos)", function() triggerEarRapeTremor(ChaosState.selectedEarRapePid, 5) end),
