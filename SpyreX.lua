@@ -61,6 +61,7 @@ local S = {
     customSpawnHeight = 0.0,
     customSpawnYaw = 0.0,
     customSpawnFreeze = true,
+    selectedPropSpawnPid = -1,
     is_spawning_stunt = false,
     spawned_stunt_objects = {},
     fixedUfoObject = nil,
@@ -1383,11 +1384,11 @@ local function safeCreateStuntProp(hash, x, y, z, dynamic)
     local isDyn = (dynamic == true)
     local obj = 0
     pcall(function()
-        if OBJECT and OBJECT.CREATE_OBJECT_NO_OFFSET then obj = OBJECT.CREATE_OBJECT_NO_OFFSET(hash, x, y, z, true, false, isDyn) end
+        if OBJECT and OBJECT.CREATE_OBJECT_NO_OFFSET then obj = OBJECT.CREATE_OBJECT_NO_OFFSET(hash, x, y, z, true, true, isDyn) end
     end)
     if not obj or obj == 0 or not isValidEntity(obj) then
         pcall(function()
-            if OBJECT and OBJECT.CREATE_OBJECT then obj = OBJECT.CREATE_OBJECT(hash, x, y, z, true, false, isDyn) end
+            if OBJECT and OBJECT.CREATE_OBJECT then obj = OBJECT.CREATE_OBJECT(hash, x, y, z, true, true, isDyn) end
         end)
     end
     if not obj or obj == 0 or not isValidEntity(obj) then
@@ -1399,17 +1400,28 @@ local function safeCreateStuntProp(hash, x, y, z, dynamic)
         pcall(function()
             ENTITY.SET_ENTITY_VISIBLE(obj, true, false)
             if ENTITY.SET_ENTITY_LOD_DIST then ENTITY.SET_ENTITY_LOD_DIST(obj, 0xFFFF) end
+            
+            -- Requisita colisao da malha 3D nas coordenadas para solidez imediata
+            if STREAMING and STREAMING.REQUEST_COLLISION_AT_COORD then
+                STREAMING.REQUEST_COLLISION_AT_COORD(x, y, z)
+            end
+
             if not isDyn then
                 ENTITY.FREEZE_ENTITY_POSITION(obj, true)
+                if ENTITY.SET_ENTITY_DYNAMIC then ENTITY.SET_ENTITY_DYNAMIC(obj, false) end
                 ENTITY.SET_ENTITY_COLLISION(obj, true, true)
+                if ENTITY.SET_ENTITY_CAN_BE_DAMAGED then ENTITY.SET_ENTITY_CAN_BE_DAMAGED(obj, false) end
+                if ENTITY.SET_ENTITY_INVINCIBLE then ENTITY.SET_ENTITY_INVINCIBLE(obj, true) end
                 if ENTITY.SET_ENTITY_SHOULD_FREEZE_WAITING_ON_COLLISION then
                     ENTITY.SET_ENTITY_SHOULD_FREEZE_WAITING_ON_COLLISION(obj, true)
                 end
             else
                 ENTITY.FREEZE_ENTITY_POSITION(obj, false)
-                ENTITY.SET_ENTITY_DYNAMIC(obj, true)
+                if ENTITY.SET_ENTITY_DYNAMIC then ENTITY.SET_ENTITY_DYNAMIC(obj, true) end
+                ENTITY.SET_ENTITY_COLLISION(obj, true, true)
             end
 
+            -- Registro de Rede GTA Online com Migracao de Host/Player Habilitada
             if NETWORK then
                 if NETWORK.NETWORK_REGISTER_ENTITY_AS_NETWORKED then NETWORK.NETWORK_REGISTER_ENTITY_AS_NETWORKED(obj) end
                 if NETWORK.OBJ_TO_NET then
@@ -1422,9 +1434,12 @@ local function safeCreateStuntProp(hash, x, y, z, dynamic)
                 end
             end
 
-            -- Permite persistir na sessao mesmo se o criador sair da sala
+            -- Permite persistir na sessao mesmo se o criador sair da sala (desassocia do script local)
             if ENTITY.SET_ENTITY_AS_MISSION_ENTITY then
                 ENTITY.SET_ENTITY_AS_MISSION_ENTITY(obj, false, true)
+            end
+            if ENTITY.SET_ENTITY_AS_NO_LONGER_NEEDED then
+                ENTITY.SET_ENTITY_AS_NO_LONGER_NEEDED(obj)
             end
         end)
     end
@@ -1652,10 +1667,13 @@ local function spawnInstantFrontRamp(rampModel)
     end)
 end
 
-local function spawnSinglePropAtPlayer(modelNameOrHash, customDist, customZ, customYaw, freeze)
+local function spawnSinglePropAtPlayer(modelNameOrHash, customDist, customZ, customYaw, freeze, targetPid)
     script.run_in_callback(function()
-        local ped = getLocalPed()
-        if not isValidEntity(ped) then return end
+        local myLocalPid = getLocalPid()
+        local actualPid = (targetPid == nil or targetPid == -1) and myLocalPid or targetPid
+        local ped = getPlayerPed(actualPid)
+        if not isValidEntity(ped) then notify.warn("Props", "Jogador alvo nao encontrado!"); return end
+        
         local my_pos = ENTITY.GET_ENTITY_COORDS(ped, true)
         local heading = ENTITY.GET_ENTITY_HEADING(ped)
         local rad = math.rad(heading)
@@ -1666,6 +1684,7 @@ local function spawnSinglePropAtPlayer(modelNameOrHash, customDist, customZ, cus
 
         local rx = my_pos.x + (-math.sin(rad) * dist)
         local ry = my_pos.y + (math.cos(rad) * dist)
+        local rz = my_pos.z + zOffset
         local h = getHash(modelNameOrHash)
         if not h or h == 0 then notify.warn("Props", "Modelo invalido: " .. tostring(modelNameOrHash)) return end
 
@@ -1673,22 +1692,19 @@ local function spawnSinglePropAtPlayer(modelNameOrHash, customDist, customZ, cus
         local t = 0
         while not STREAMING.HAS_MODEL_LOADED(h) and t < 60 do script.yield(10); t = t + 1 end
         if STREAMING.HAS_MODEL_LOADED(h) then
-            local obj = safeCreateStuntProp(h, rx, ry, my_pos.z + zOffset)
+            local obj = safeCreateStuntProp(h, rx, ry, rz, not isFrozen)
             if isValidEntity(obj) then
                 pcall(function()
                     ENTITY.SET_ENTITY_ROTATION(obj, 0.0, 0.0, heading + yawOffset, 2, true)
-                    if isFrozen then ENTITY.FREEZE_ENTITY_POSITION(obj, true) end
-                    ENTITY.SET_ENTITY_COLLISION(obj, true, true)
-                    if ENTITY.SET_ENTITY_SHOULD_FREEZE_WAITING_ON_COLLISION then
-                        ENTITY.SET_ENTITY_SHOULD_FREEZE_WAITING_ON_COLLISION(obj, true)
-                    end
-                    if ENTITY.SET_ENTITY_AS_NO_LONGER_NEEDED then
-                        ENTITY.SET_ENTITY_AS_NO_LONGER_NEEDED(obj)
+                    if isFrozen then
+                        ENTITY.FREEZE_ENTITY_POSITION(obj, true)
+                        if ENTITY.SET_ENTITY_DYNAMIC then ENTITY.SET_ENTITY_DYNAMIC(obj, false) end
                     end
                 end)
                 table.insert(S.spawned_stunt_objects, obj)
                 STREAMING.SET_MODEL_AS_NO_LONGER_NEEDED(h)
-                notify.success("Props", "Objeto [" .. tostring(modelNameOrHash) .. "] gerado a sua frente!")
+                local pName = (actualPid == myLocalPid) and "a sua frente" or ("na frente de " .. getPlayerName(actualPid))
+                notify.success("Props", string.format("Objeto [%s] gerado %s!", tostring(modelNameOrHash), pName))
             end
         end
     end)
@@ -2044,37 +2060,129 @@ local function removeAllAttachedProps()
     notify.info("Anexar", string.format("Todos os %d objetos anexados foram removidos!", count))
 end
 
-local function spawnApeCrateCageOnPlayer(targetPid)
+local STAND_CAGE_MODELS = {
+    getHash("prop_gold_cont_01"),     -- Container Dourado Fechado
+    getHash("prop_rub_cage01a"),      -- Gaiola Dupla Cruzada
+    getHash("prop_fnclink_03e"),      -- Caixa de 4 Cercas
+    getHash("stt_prop_stunt_tube_s"), -- Tubo Vertical Stunt
+    getHash("v_med_apecrate"),        -- Jaula de Macaco
+}
+
+local function spawnAdvancedCageOnPlayer(targetPid, cageType)
     script.run_in_callback(function()
         local myLocalPid = getLocalPid()
         local actualPid = (targetPid == nil or targetPid == -1) and myLocalPid or targetPid
         local ped = getPlayerPed(actualPid)
-        if not isValidEntity(ped) then notify.warn("Jaula", "Jogador nao encontrado!"); return end
+        if not isValidEntity(ped) then notify.warn("Gaiola", "Jogador nao encontrado!"); return end
 
-        local hash = getHash("v_med_apecrate")
-        STREAMING.REQUEST_MODEL(hash)
-        local t = 0
-        while not STREAMING.HAS_MODEL_LOADED(hash) and t < 100 do script.yield(10); t = t + 1 end
-        if not STREAMING.HAS_MODEL_LOADED(hash) then return end
+        local cageHash = cageType
+        if not cageHash or cageHash == 0 or cageHash == "random" then
+            cageHash = STAND_CAGE_MODELS[math.random(#STAND_CAGE_MODELS)]
+        elseif type(cageHash) == "string" then
+            cageHash = getHash(cageHash)
+        end
 
         local coords = getTargetCoordsSafe(actualPid, ped)
-        local zFloor = coords.z - 0.95
-        local obj = safeCreateStuntProp(hash, coords.x, coords.y, zFloor, true)
-        STREAMING.SET_MODEL_AS_NO_LONGER_NEEDED(hash)
+        local pHeading = ENTITY.GET_ENTITY_HEADING(ped)
 
-        if isValidEntity(obj) then
-            pcall(function()
-                ENTITY.SET_ENTITY_COLLISION(obj, true, true)
-                ENTITY.SET_ENTITY_HEADING(obj, ENTITY.GET_ENTITY_HEADING(ped))
-                ENTITY.SET_ENTITY_COORDS_NO_OFFSET(obj, coords.x, coords.y, zFloor, false, false, false)
-                ENTITY.FREEZE_ENTITY_POSITION(obj, false)
-            end)
-            table.insert(S.spawned_stunt_objects, obj)
-            local pName = (actualPid == myLocalPid) and "Voce" or getPlayerName(actualPid)
-            notify.success("Jaula", string.format("Jaula gerada em %s com fisica!", pName))
+        if cageHash == getHash("prop_gold_cont_01") then
+            -- 1. Container de Ouro: Spawna 1 container centrado na coordenada do jogador e congela
+            if requestAndLoadModel(cageHash, 80) then
+                local obj = safeCreateStuntProp(cageHash, coords.x, coords.y, coords.z, false)
+                if isValidEntity(obj) then
+                    pcall(function()
+                        ENTITY.SET_ENTITY_ROTATION(obj, 0.0, 0.0, pHeading, 2, true)
+                    end)
+                    table.insert(S.spawned_stunt_objects, obj)
+                end
+                STREAMING.SET_MODEL_AS_NO_LONGER_NEEDED(cageHash)
+            end
+
+        elseif cageHash == getHash("stt_prop_stunt_tube_s") then
+            -- 2. Tubo de Duble: Spawna 1 tubo rotacionado em 90 graus no eixo Y (em pe)
+            if requestAndLoadModel(cageHash, 80) then
+                local obj = safeCreateStuntProp(cageHash, coords.x, coords.y, coords.z, false)
+                if isValidEntity(obj) then
+                    pcall(function()
+                        ENTITY.SET_ENTITY_ROTATION(obj, 0.0, 90.0, pHeading, 2, true)
+                    end)
+                    table.insert(S.spawned_stunt_objects, obj)
+                end
+                STREAMING.SET_MODEL_AS_NO_LONGER_NEEDED(cageHash)
+            end
+
+        elseif cageHash == getHash("prop_rub_cage01a") then
+            -- 3. Gaiola de Metal: Spawna 2 gaiolas cruzadas em 90 graus no eixo Z para fechar o espaco
+            if requestAndLoadModel(cageHash, 80) then
+                local baseZ = coords.z - 1.0
+                local obj1 = safeCreateStuntProp(cageHash, coords.x, coords.y, baseZ, false)
+                local obj2 = safeCreateStuntProp(cageHash, coords.x, coords.y, baseZ, false)
+                if isValidEntity(obj1) and isValidEntity(obj2) then
+                    pcall(function()
+                        ENTITY.SET_ENTITY_ROTATION(obj1, 0.0, 0.0, pHeading, 2, true)
+                        ENTITY.SET_ENTITY_ROTATION(obj2, 0.0, 0.0, pHeading + 90.0, 2, true)
+                    end)
+                    table.insert(S.spawned_stunt_objects, obj1)
+                    table.insert(S.spawned_stunt_objects, obj2)
+                end
+                STREAMING.SET_MODEL_AS_NO_LONGER_NEEDED(cageHash)
+            end
+
+        elseif cageHash == getHash("prop_fnclink_03e") then
+            -- 4. Cerca de Arame: Spawna 4 paineis de cerca formando uma caixa quadrada perfeita (0, 90, 180 e 270 graus)
+            if requestAndLoadModel(cageHash, 80) then
+                local posX = coords.x - 1.0
+                local posY = coords.y - 1.0
+                local posZ = coords.z - 1.0
+
+                local obj1 = safeCreateStuntProp(cageHash, posX, posY, posZ, false)
+                local obj2 = safeCreateStuntProp(cageHash, posX, posY, posZ, false)
+
+                local posX2 = posX + 2.9
+                local posY2 = posY + 2.9
+
+                local obj3 = safeCreateStuntProp(cageHash, posX2, posY2, posZ, false)
+                local obj4 = safeCreateStuntProp(cageHash, posX2, posY2, posZ, false)
+
+                if isValidEntity(obj1) and isValidEntity(obj2) and isValidEntity(obj3) and isValidEntity(obj4) then
+                    pcall(function()
+                        ENTITY.SET_ENTITY_ROTATION(obj1, 0.0, 0.0, 0.0, 2, true)
+                        ENTITY.SET_ENTITY_ROTATION(obj2, 0.0, 0.0, 90.0, 2, true)
+                        ENTITY.SET_ENTITY_ROTATION(obj3, 0.0, 0.0, 180.0, 2, true)
+                        ENTITY.SET_ENTITY_ROTATION(obj4, 0.0, 0.0, 270.0, 2, true)
+                    end)
+                    table.insert(S.spawned_stunt_objects, obj1)
+                    table.insert(S.spawned_stunt_objects, obj2)
+                    table.insert(S.spawned_stunt_objects, obj3)
+                    table.insert(S.spawned_stunt_objects, obj4)
+                end
+                STREAMING.SET_MODEL_AS_NO_LONGER_NEEDED(cageHash)
+            end
+
+        elseif cageHash == getHash("v_med_apecrate") then
+            -- 5. Jaula de Macaco Classica
+            if requestAndLoadModel(cageHash, 80) then
+                local zFloor = coords.z - 0.95
+                local obj = safeCreateStuntProp(cageHash, coords.x, coords.y, zFloor, true)
+                if isValidEntity(obj) then
+                    pcall(function()
+                        ENTITY.SET_ENTITY_HEADING(obj, pHeading)
+                    end)
+                    table.insert(S.spawned_stunt_objects, obj)
+                end
+                STREAMING.SET_MODEL_AS_NO_LONGER_NEEDED(cageHash)
+            end
         end
+
+        local pName = (actualPid == myLocalPid) and "Voce" or getPlayerName(actualPid)
+        notify.success("Gaiola", string.format("Gaiola Stand aplicada em %s!", pName))
     end)
 end
+
+local function spawnApeCrateCageOnPlayer(targetPid)
+    spawnAdvancedCageOnPlayer(targetPid, "v_med_apecrate")
+end
+
 
 ------------------------------------------------------------
 -- ANGEL SELF FLOATIE
@@ -3462,6 +3570,10 @@ local function renderTabArenaObjectSpawner()
     imgui.separator()
     imgui.spacing()
 
+    imgui.text("Alvo do Spawn:")
+    renderPlayerTargetSelector(S.selectedPropSpawnPid, function(pid) S.selectedPropSpawnPid = pid end, "prop_sp_target")
+    imgui.spacing()
+
     imgui.text("Distancia: " .. string.format("%.1f m", S.customSpawnDistance) .. " | Altura: " .. string.format("%.1f m", S.customSpawnHeight))
     if imgui.button("5m##sp_d5") then S.customSpawnDistance = 5.0 end
     imgui.same_line()
@@ -3488,15 +3600,14 @@ local function renderTabArenaObjectSpawner()
     if imgui.button("Remover Projeto Maze Bank##rem_mazebank_btn") then clearMazeBankProject() end
 
     imgui.spacing(); imgui.separator(); imgui.spacing()
-    imgui.text("Props Populares:")
-    if imgui.button("Tubo 4X Speed##sp_t4xsp") then spawnSinglePropAtPlayer("ar_prop_ar_tube_4x_speed") end
+    imgui.text("Props Populares (Spawn no Alvo):")
+    if imgui.button("Tubo 4X Speed##sp_t4xsp") then spawnSinglePropAtPlayer("ar_prop_ar_tube_4x_speed", S.customSpawnDistance, S.customSpawnHeight, S.customSpawnYaw, S.customSpawnFreeze, S.selectedPropSpawnPid) end
     imgui.same_line()
-    if imgui.button("Portal Neon 8X##sp_ng8_1") then spawnSinglePropAtPlayer("ar_prop_ar_neon_gate8x_01a") end
+    if imgui.button("Portal Neon 8X##sp_ng8_1") then spawnSinglePropAtPlayer("ar_prop_ar_neon_gate8x_01a", S.customSpawnDistance, S.customSpawnHeight, S.customSpawnYaw, S.customSpawnFreeze, S.selectedPropSpawnPid) end
     imgui.same_line()
-    if imgui.button("Anel Speed Ring##sp_ring") then spawnSinglePropAtPlayer("ar_prop_ar_speed_ring") end
+    if imgui.button("Anel Speed Ring##sp_ring") then spawnSinglePropAtPlayer("ar_prop_ar_speed_ring", S.customSpawnDistance, S.customSpawnHeight, S.customSpawnYaw, S.customSpawnFreeze, S.selectedPropSpawnPid) end
     imgui.same_line()
-    if imgui.button("Mega Loop##sp_loop") then spawnSinglePropAtPlayer("ar_prop_ar_jump_loop") end
-
+    if imgui.button("Mega Loop##sp_loop") then spawnSinglePropAtPlayer("ar_prop_ar_jump_loop", S.customSpawnDistance, S.customSpawnHeight, S.customSpawnYaw, S.customSpawnFreeze, S.selectedPropSpawnPid) end
     imgui.spacing()
     if imgui.button("Desfazer Ultimo Objeto##undo_obj_spawner") then undoLastStuntObject() end
     imgui.same_line()
@@ -3507,7 +3618,7 @@ end
 local function renderTabPlayerAttachments()
     if not imgui.begin_tab_item("Anexar nos Players") then return end
     imgui.spacing()
-    imgui.text("Anexar Objetos, Aderecos e Armadilhas nos Jogadores")
+    imgui.text("Anexar Objetos, Aderecos e Gaiolas Inescapaveis nos Jogadores")
     imgui.separator()
     imgui.spacing()
 
@@ -3525,10 +3636,35 @@ local function renderTabPlayerAttachments()
         renderPlayerTargetSelector(S.selectedAttachmentPid, function(pid) S.selectedAttachmentPid = pid end, "att_target")
     else
         imgui.spacing()
-        imgui.text(">> MODO COLETIVO ATIVO: Os objetos serao aplicados em TODOS os jogadores! <<")
+        imgui.text(">> MODO COLETIVO ATIVO: Os objetos e gaiolas serao aplicados em TODOS os jogadores! <<")
     end
 
     imgui.spacing(); imgui.separator(); imgui.spacing()
+    imgui.text(">>> GAIOLAS INESCAPAVEIS (STAND C++ ENGINE) <<<")
+    
+    local function applyCage(cageHashOrName)
+        if S.attachPresetModeAll then
+            for _, pid in ipairs(getActivePlayersList()) do spawnAdvancedCageOnPlayer(pid, cageHashOrName) end
+            notify.success("Gaiolas", "Gaiolas aplicadas em TODOS os jogadores!")
+        else
+            spawnAdvancedCageOnPlayer(S.selectedAttachmentPid, cageHashOrName)
+        end
+    end
+
+    if imgui.button("Container Dourado Fechado##cage_gold") then applyCage("prop_gold_cont_01") end
+    imgui.same_line()
+    if imgui.button("Tubo Vertical Stunt 90 graus##cage_tube") then applyCage("stt_prop_stunt_tube_s") end
+    imgui.same_line()
+    if imgui.button("Gaiolas Cruzadas 90 graus##cage_cross") then applyCage("prop_rub_cage01a") end
+
+    if imgui.button("Caixa 4 Cercas de Arame##cage_fences") then applyCage("prop_fnclink_03e") end
+    imgui.same_line()
+    if imgui.button("Jaula de Macaco##cage_ape") then applyCage("v_med_apecrate") end
+    imgui.same_line()
+    if imgui.button(">> GAIOLA ALEATORIA <<##cage_rand") then applyCage("random") end
+
+    imgui.spacing(); imgui.separator(); imgui.spacing()
+    imgui.text("Anexar Aderecos e Props no Corpo do Jogador:")
     local function applyProp(modelOrHash, boneId, offX, offY, offZ, rotX, rotY, rotZ)
         if S.attachPresetModeAll then
             for _, pid in ipairs(getActivePlayersList()) do attachPropToPlayer(pid, modelOrHash, boneId, offX, offY, offZ, rotX, rotY, rotZ) end
@@ -3538,16 +3674,11 @@ local function renderTabPlayerAttachments()
         end
     end
 
-    if imgui.button("Jaula de Macaco##att_apecrate_btn") then
-        if S.attachPresetModeAll then for _, pid in ipairs(getActivePlayersList()) do spawnApeCrateCageOnPlayer(pid) end
-        else spawnApeCrateCageOnPlayer(S.selectedAttachmentPid) end
-    end
-    imgui.same_line()
     if imgui.button("Cone na Cabeca##att_cone") then applyProp("prop_mp_cone_01", 24818, 0.0, 0.0, 0.70, 0.0, 90.0, 0.0) end
     imgui.same_line()
     if imgui.button("Privada##att_toilet") then applyProp("prop_ld_toilet_01", 11816, 0.0, 0.0, -0.25, 0.0, 90.0, 0.0) end
     imgui.same_line()
-    if imgui.button("Gaiola##att_cage") then applyProp("prop_feeder1_cr", 11816, 0.0, 0.0, -0.6, 0.0, 90.0, 0.0) end
+    if imgui.button("Gaiola Cabeça##att_cage") then applyProp("prop_feeder1_cr", 11816, 0.0, 0.0, -0.6, 0.0, 90.0, 0.0) end
 
     if imgui.button("Fogueira Ardente##att_fire") then applyProp("prop_beach_fire", 11816, 0.0, 0.0, -0.3, 0.0, 90.0, 0.0) end
     imgui.same_line()
