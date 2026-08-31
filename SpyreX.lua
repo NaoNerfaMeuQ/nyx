@@ -523,24 +523,56 @@ local function getCameraDirection()
     return { x = -math.sin(cz) * num, y = math.cos(cz) * num, z = math.sin(cx) }
 end
 
+local function showHelpPromptThisFrame(text)
+    pcall(function()
+        if HUD and HUD.BEGIN_TEXT_COMMAND_DISPLAY_HELP then
+            HUD.BEGIN_TEXT_COMMAND_DISPLAY_HELP("STRING")
+            HUD.ADD_TEXT_COMPONENT_SUBSTRING_PLAYER_NAME(text)
+            HUD.END_TEXT_COMMAND_DISPLAY_HELP(0, false, false, -1)
+        end
+    end)
+end
+
 local function drawText3D(x, y, z, text)
     pcall(function()
-        if GRAPHICS and GRAPHICS.SET_DRAW_ORIGIN then GRAPHICS.SET_DRAW_ORIGIN(x, y, z, 0) end
-        HUD.SET_TEXT_SCALE(0.38, 0.38)
-        HUD.SET_TEXT_FONT(0)
-        HUD.SET_TEXT_PROPORTIONAL(true)
-        HUD.SET_TEXT_COLOUR(255, 255, 255, 255)
-        HUD.SET_TEXT_DROPSHADOW(0, 0, 0, 0, 255)
-        HUD.SET_TEXT_EDGE(2, 0, 0, 0, 150)
-        HUD.SET_TEXT_DROP_SHADOW()
-        HUD.SET_TEXT_OUTLINE()
-        HUD.SET_TEXT_CENTRE(true)
-        if HUD.BEGIN_TEXT_COMMAND_DISPLAY_TEXT then
-            HUD.BEGIN_TEXT_COMMAND_DISPLAY_TEXT("STRING")
-            HUD.ADD_TEXT_COMPONENT_SUBSTRING_PLAYER_NAME(text)
-            HUD.END_TEXT_COMMAND_DISPLAY_TEXT(0.0, 0.0)
+        local onScreen, _x, _y = false, 0.0, 0.0
+        if GRAPHICS and GRAPHICS.GET_SCREEN_COORD_FROM_WORLD_COORD then
+            onScreen, _x, _y = GRAPHICS.GET_SCREEN_COORD_FROM_WORLD_COORD(x, y, z)
         end
-        if GRAPHICS and GRAPHICS.CLEAR_DRAW_ORIGIN then GRAPHICS.CLEAR_DRAW_ORIGIN() end
+        if onScreen then
+            if HUD then
+                HUD.SET_TEXT_SCALE(0.35, 0.35)
+                HUD.SET_TEXT_FONT(0)
+                HUD.SET_TEXT_PROPORTIONAL(1)
+                HUD.SET_TEXT_COLOUR(255, 255, 255, 255)
+                HUD.SET_TEXT_DROPSHADOW(0, 0, 0, 0, 255)
+                HUD.SET_TEXT_EDGE(2, 0, 0, 0, 150)
+                HUD.SET_TEXT_DROP_SHADOW()
+                HUD.SET_TEXT_OUTLINE()
+                HUD.SET_TEXT_CENTRE(1)
+                if HUD.BEGIN_TEXT_COMMAND_DISPLAY_TEXT then
+                    HUD.BEGIN_TEXT_COMMAND_DISPLAY_TEXT("STRING")
+                    HUD.ADD_TEXT_COMPONENT_SUBSTRING_PLAYER_NAME(text)
+                    HUD.END_TEXT_COMMAND_DISPLAY_TEXT(_x, _y)
+                end
+            end
+        else
+            if GRAPHICS and GRAPHICS.SET_DRAW_ORIGIN then GRAPHICS.SET_DRAW_ORIGIN(x, y, z, 0) end
+            if HUD then
+                HUD.SET_TEXT_SCALE(0.35, 0.35)
+                HUD.SET_TEXT_FONT(0)
+                HUD.SET_TEXT_PROPORTIONAL(1)
+                HUD.SET_TEXT_COLOUR(255, 255, 255, 255)
+                HUD.SET_TEXT_OUTLINE()
+                HUD.SET_TEXT_CENTRE(1)
+                if HUD.BEGIN_TEXT_COMMAND_DISPLAY_TEXT then
+                    HUD.BEGIN_TEXT_COMMAND_DISPLAY_TEXT("STRING")
+                    HUD.ADD_TEXT_COMPONENT_SUBSTRING_PLAYER_NAME(text)
+                    HUD.END_TEXT_COMMAND_DISPLAY_TEXT(0.0, 0.0)
+                end
+            end
+            if GRAPHICS and GRAPHICS.CLEAR_DRAW_ORIGIN then GRAPHICS.CLEAR_DRAW_ORIGIN() end
+        end
     end)
 end
 
@@ -589,36 +621,61 @@ local function detachVehicle(veh)
 end
 
 local function getTargetVehicle(maxDist)
-    maxDist = maxDist or 25.0
+    maxDist = maxDist or 20.0
     local ped = getLocalPed()
     if not isValidEntity(ped) then return nil end
     local pCoords = ENTITY.GET_ENTITY_COORDS(ped, true)
     local myVeh = PED.GET_VEHICLE_PED_IS_IN(ped, false)
+    local bestVeh = nil
+    local bestDist = maxDist
 
-    local veh = VEHICLE.GET_CLOSEST_VEHICLE(pCoords.x, pCoords.y, pCoords.z, maxDist, 0, 70)
-    if isValidEntity(veh) and veh ~= myVeh then return veh end
-
-    local heading = ENTITY.GET_ENTITY_HEADING(ped)
-    local rad = math.rad(heading)
-    local fwdX = -math.sin(rad)
-    local fwdY = math.cos(rad)
-
-    for i = 1, 6 do
-        local cx = pCoords.x + fwdX * (i * 4.0)
-        local cy = pCoords.y + fwdY * (i * 4.0)
-        local fVeh = VEHICLE.GET_CLOSEST_VEHICLE(cx, cy, pCoords.z, 8.0, 0, 70)
-        if not isValidEntity(fVeh) then fVeh = VEHICLE.GET_CLOSEST_VEHICLE(cx, cy, pCoords.z, 8.0, 0, 0) end
-        if isValidEntity(fVeh) and fVeh ~= myVeh then return fVeh end
+    -- 1. Scan via entities handle pool (fastest & most reliable)
+    if entities and entities.get_all_vehicles_as_handles then
+        pcall(function()
+            local allVehs = entities.get_all_vehicles_as_handles()
+            if allVehs then
+                for _, v in ipairs(allVehs) do
+                    if isValidEntity(v) and v ~= myVeh then
+                        local vc = ENTITY.GET_ENTITY_COORDS(v, true)
+                        local dx = pCoords.x - vc.x
+                        local dy = pCoords.y - vc.y
+                        local dz = pCoords.z - vc.z
+                        local dist = math.sqrt(dx*dx + dy*dy + dz*dz)
+                        if dist < bestDist then
+                            bestDist = dist
+                            bestVeh = v
+                        end
+                    end
+                end
+            end
+        end)
     end
 
-    local forward = getCameraDirection()
-    local rayEnd = { x = pCoords.x + forward.x * maxDist, y = pCoords.y + forward.y * maxDist, z = pCoords.z + forward.z * maxDist }
-    local handle = SHAPETEST.START_EXPENSIVE_SYNCHRONOUS_SHAPE_TEST_LOS_PROBE(pCoords.x, pCoords.y, pCoords.z + 0.5, rayEnd.x, rayEnd.y, rayEnd.z, 2, ped, 7)
-    local _, hit, endCoords, surfaceNorm, entityHit = SHAPETEST.GET_SHAPE_TEST_RESULT(handle)
-    if hit and entityHit and entityHit ~= 0 and entityHit ~= myVeh and ENTITY.IS_ENTITY_A_VEHICLE(entityHit) then
-        return entityHit
-    end
-    return nil
+    if isValidEntity(bestVeh) then return bestVeh end
+
+    -- 2. Raycast in camera direction
+    pcall(function()
+        local forward = getCameraDirection()
+        local rayEnd = { x = pCoords.x + forward.x * maxDist, y = pCoords.y + forward.y * maxDist, z = pCoords.z + forward.z * maxDist }
+        if SHAPETEST and SHAPETEST.START_EXPENSIVE_SYNCHRONOUS_SHAPE_TEST_LOS_PROBE then
+            local handle = SHAPETEST.START_EXPENSIVE_SYNCHRONOUS_SHAPE_TEST_LOS_PROBE(pCoords.x, pCoords.y, pCoords.z + 0.5, rayEnd.x, rayEnd.y, rayEnd.z, 2, ped, 7)
+            local _, hit, _, _, entityHit = SHAPETEST.GET_SHAPE_TEST_RESULT(handle)
+            if hit and entityHit and entityHit ~= 0 and entityHit ~= myVeh and ENTITY.IS_ENTITY_A_VEHICLE(entityHit) then
+                bestVeh = entityHit
+            end
+        end
+    end)
+
+    if isValidEntity(bestVeh) then return bestVeh end
+
+    -- 3. Native fallbacks with different flags
+    pcall(function()
+        local v = VEHICLE.GET_CLOSEST_VEHICLE(pCoords.x, pCoords.y, pCoords.z, maxDist, 0, 71)
+        if not isValidEntity(v) then v = VEHICLE.GET_CLOSEST_VEHICLE(pCoords.x, pCoords.y, pCoords.z, maxDist, 0, 0) end
+        if isValidEntity(v) and v ~= myVeh then bestVeh = v end
+    end)
+
+    return bestVeh
 end
 
 local function getAllNearbyVehicles(radius)
@@ -696,17 +753,23 @@ local function LaunchVehicle(veh, force)
         if ENTITY.SET_ENTITY_DYNAMIC then ENTITY.SET_ENTITY_DYNAMIC(veh, true) end
 
         local camDir = getCameraDirection()
-        local vx = camDir.x * (force or S.launchForce)
-        local vy = camDir.y * (force or S.launchForce)
-        local vz = camDir.z * (force or S.launchForce) + 15.0
+        local actualForce = force or S.launchForce or 150.0
+        local vx = camDir.x * actualForce
+        local vy = camDir.y * actualForce
+        local vz = camDir.z * actualForce + 8.0
 
         if S.igniteOnLaunch then
             local vCoords = ENTITY.GET_ENTITY_COORDS(veh, true)
-            FIRE.ADD_EXPLOSION(vCoords.x, vCoords.y, vCoords.z, 3, 1.0, true, false, 0.0, false)
+            if FIRE and FIRE.ADD_EXPLOSION then
+                FIRE.ADD_EXPLOSION(vCoords.x, vCoords.y, vCoords.z, 3, 1.0, true, false, 0.0, false)
+            end
         end
 
         ENTITY.SET_ENTITY_VELOCITY(veh, vx, vy, vz)
-        ENTITY.SET_ENTITY_ANGULAR_VELOCITY(veh, 10.0, 5.0, 0.0)
+        ENTITY.SET_ENTITY_ANGULAR_VELOCITY(veh, math.random(-5, 5), math.random(-5, 5), math.random(-5, 5))
+        if VEHICLE and VEHICLE.SET_VEHICLE_FORWARD_SPEED then
+            VEHICLE.SET_VEHICLE_FORWARD_SPEED(veh, actualForce * 0.8)
+        end
     end)
 end
 
@@ -714,6 +777,7 @@ local function SlamVehicle(veh)
     if not isValidEntity(veh) then return end
     getControlOfEntity(veh)
     pcall(function()
+        detachVehicle(veh)
         ENTITY.SET_ENTITY_COLLISION(veh, true, true)
         if ENTITY.SET_ENTITY_DYNAMIC then ENTITY.SET_ENTITY_DYNAMIC(veh, true) end
         ENTITY.SET_ENTITY_VELOCITY(veh, 0.0, 0.0, -150.0)
@@ -734,7 +798,7 @@ local function HoldVehicleLoop(veh)
         return
     end
 
-    if not isValidEntity(veh) then veh = getTargetVehicle(30.0) end
+    if not isValidEntity(veh) then veh = getTargetVehicle(20.0) end
     if not isValidEntity(veh) then
         notify.warn("Telecinese", "Nenhum veiculo proximo encontrado para segurar!")
         return
@@ -752,6 +816,14 @@ local function HoldVehicleLoop(veh)
         pcall(function()
             ENTITY.SET_ENTITY_COLLISION(S.heldVehicle, true, true)
             if ENTITY.SET_ENTITY_NO_COLLISION_ENTITY then ENTITY.SET_ENTITY_NO_COLLISION_ENTITY(S.heldVehicle, ped, false) end
+            if ENTITY.ATTACH_ENTITY_TO_ENTITY then
+                ENTITY.ATTACH_ENTITY_TO_ENTITY(
+                    S.heldVehicle, ped, 0,
+                    0.0, 0.6, 2.4,
+                    0.0, 0.0, 0.0,
+                    false, false, false, false, 2, true
+                )
+            end
         end)
 
         if S.makeInvincible then safeSetInvincible(S.heldVehicle, true) end
@@ -760,31 +832,42 @@ local function HoldVehicleLoop(veh)
             getControlOfEntity(S.heldVehicle)
             local pCoords = ENTITY.GET_ENTITY_COORDS(ped, true)
             local pHeading = ENTITY.GET_ENTITY_HEADING(ped)
-            local rad = math.rad(pHeading)
-            local dirX = -math.sin(rad)
-            local dirY =  math.cos(rad)
-            local targetX = pCoords.x + (dirX * 0.1)
-            local targetY = pCoords.y + (dirY * 0.1)
-            local targetZ = pCoords.z + 1.25
 
-            pcall(function()
-                ENTITY.SET_ENTITY_COORDS_NO_OFFSET(S.heldVehicle, targetX, targetY, targetZ, true, true, true)
-                ENTITY.SET_ENTITY_HEADING(S.heldVehicle, pHeading)
-                ENTITY.SET_ENTITY_VELOCITY(S.heldVehicle, 0.0, 0.0, 0.0)
-                ENTITY.SET_ENTITY_ANGULAR_VELOCITY(S.heldVehicle, 0.0, 0.0, 0.0)
-            end)
+            -- Keep attached or update position
+            if not ENTITY.IS_ENTITY_ATTACHED_TO_ENTITY(S.heldVehicle, ped) then
+                pcall(function()
+                    if ENTITY.ATTACH_ENTITY_TO_ENTITY then
+                        ENTITY.ATTACH_ENTITY_TO_ENTITY(
+                            S.heldVehicle, ped, 0,
+                            0.0, 0.6, 2.4,
+                            0.0, 0.0, 0.0,
+                            false, false, false, false, 2, true
+                        )
+                    else
+                        local rad = math.rad(pHeading)
+                        local dirX = -math.sin(rad)
+                        local dirY =  math.cos(rad)
+                        ENTITY.SET_ENTITY_COORDS_NO_OFFSET(S.heldVehicle, pCoords.x + dirX * 0.1, pCoords.y + dirY * 0.1, pCoords.z + 2.4, true, true, true)
+                        ENTITY.SET_ENTITY_HEADING(S.heldVehicle, pHeading)
+                        ENTITY.SET_ENTITY_VELOCITY(S.heldVehicle, 0.0, 0.0, 0.0)
+                    end
+                end)
+            end
 
-            drawText3D(pCoords.x, pCoords.y, targetZ + 1.15, "~g~[SPACE]~w~ Lancar  |  ~r~[E]~w~ Soltar")
+            -- 3D Text + On-screen prompt every frame
+            local vCoords = ENTITY.GET_ENTITY_COORDS(S.heldVehicle, true)
+            drawText3D(vCoords.x, vCoords.y, vCoords.z + 1.2, "~g~[SPACE]~w~ Lancar  |  ~r~[E]~w~ Soltar")
+            showHelpPromptThisFrame("~g~[ESPACO]~w~ Lancar  |  ~r~[E]~w~ Soltar Veiculo")
 
             pcall(function()
                 if S.activeAnimDict and S.activeAnimName and not PED.IS_ENTITY_PLAYING_ANIM(ped, S.activeAnimDict, S.activeAnimName, 3) then
                     safePlayAnim(ped, S.activeAnimDict, S.activeAnimName, 49)
                 end
                 if PAD then
-                    PAD.DISABLE_CONTROL_ACTION(0, 22, true)
-                    PAD.DISABLE_CONTROL_ACTION(0, 38, true)
-                    PAD.DISABLE_CONTROL_ACTION(0, 51, true)
-                    PAD.DISABLE_CONTROL_ACTION(0, 86, true)
+                    PAD.DISABLE_CONTROL_ACTION(0, 22, true) -- JUMP / SPACE
+                    PAD.DISABLE_CONTROL_ACTION(0, 38, true) -- CONTEXT / E
+                    PAD.DISABLE_CONTROL_ACTION(0, 51, true) -- CONTEXT / E
+                    PAD.DISABLE_CONTROL_ACTION(0, 86, true) -- HORN / E
                 end
             end)
 
@@ -797,8 +880,8 @@ local function HoldVehicleLoop(veh)
                        (PAD.IS_CONTROL_JUST_PRESSED and PAD.IS_CONTROL_JUST_PRESSED(0, 22)) then
                         pressLaunch = true
                     end
-                    if (PAD.IS_DISABLED_CONTROL_JUST_PRESSED and (PAD.IS_DISABLED_CONTROL_JUST_PRESSED(0, 38) or PAD.IS_DISABLED_CONTROL_JUST_PRESSED(0, 51))) or
-                       (PAD.IS_CONTROL_JUST_PRESSED and (PAD.IS_CONTROL_JUST_PRESSED(0, 38) or PAD.IS_CONTROL_JUST_PRESSED(0, 51))) then
+                    if (PAD.IS_DISABLED_CONTROL_JUST_PRESSED and (PAD.IS_DISABLED_CONTROL_JUST_PRESSED(0, 38) or PAD.IS_DISABLED_CONTROL_JUST_PRESSED(0, 51) or PAD.IS_DISABLED_CONTROL_JUST_PRESSED(0, 86))) or
+                       (PAD.IS_CONTROL_JUST_PRESSED and (PAD.IS_CONTROL_JUST_PRESSED(0, 38) or PAD.IS_CONTROL_JUST_PRESSED(0, 51) or PAD.IS_CONTROL_JUST_PRESSED(0, 86))) then
                         pressRelease = true
                     end
                 end
@@ -827,6 +910,10 @@ local function HoldVehicleLoop(veh)
         end
 
         S.isHoldingVehicle = false
+        if isValidEntity(S.heldVehicle) then
+            detachVehicle(S.heldVehicle)
+            safeSetInvincible(S.heldVehicle, false)
+        end
         S.heldVehicle = nil
         stopCarryAnim()
     end)
@@ -1411,44 +1498,52 @@ local function startHotkeyLoop()
 
                 if not S.isHoldingVehicle and isValidEntity(ped) and not PED.IS_PED_IN_ANY_VEHICLE(ped, false) then
                     local now = gameTimer()
-                    if (now - lastSearchTime) > 100 then
+                    if (now - lastSearchTime) > 80 then
                         lastSearchTime = now
-                        cachedTargetVeh = getTargetVehicle(25.0)
+                        cachedTargetVeh = getTargetVehicle(10.0)
                     end
 
                     if isValidEntity(cachedTargetVeh) then
+                        local vCoords = ENTITY.GET_ENTITY_COORDS(cachedTargetVeh, true)
                         local pCoords = ENTITY.GET_ENTITY_COORDS(ped, true)
-                        drawText3D(pCoords.x, pCoords.y, pCoords.z + 1.15, "Pressione ~g~[E]~w~ para Pegar Veiculo")
+                        local dist = math.sqrt((pCoords.x - vCoords.x)^2 + (pCoords.y - vCoords.y)^2 + (pCoords.z - vCoords.z)^2)
 
-                        pcall(function()
-                            if PAD then
-                                PAD.DISABLE_CONTROL_ACTION(0, 38, true)
-                                PAD.DISABLE_CONTROL_ACTION(0, 51, true)
-                                PAD.DISABLE_CONTROL_ACTION(0, 86, true)
-                            end
-                        end)
+                        if dist <= 12.0 then
+                            drawText3D(vCoords.x, vCoords.y, vCoords.z + 1.1, "Pressione ~g~[E]~w~ para Pegar Veiculo")
+                            showHelpPromptThisFrame("Pressione ~g~[E]~w~ para Pegar o Veiculo")
 
-                        local pressedE = false
-                        pcall(function()
-                            if PAD then
-                                if (PAD.IS_DISABLED_CONTROL_JUST_PRESSED and (PAD.IS_DISABLED_CONTROL_JUST_PRESSED(0, 38) or PAD.IS_DISABLED_CONTROL_JUST_PRESSED(0, 51))) or
-                                   (PAD.IS_CONTROL_JUST_PRESSED and (PAD.IS_CONTROL_JUST_PRESSED(0, 38) or PAD.IS_CONTROL_JUST_PRESSED(0, 51))) then
-                                    pressedE = true
+                            pcall(function()
+                                if PAD then
+                                    PAD.DISABLE_CONTROL_ACTION(0, 38, true)
+                                    PAD.DISABLE_CONTROL_ACTION(0, 51, true)
+                                    PAD.DISABLE_CONTROL_ACTION(0, 86, true)
                                 end
-                            end
-                        end)
+                            end)
 
-                        if pressedE then
-                            local targetToHold = cachedTargetVeh
+                            local pressedE = false
+                            pcall(function()
+                                if PAD then
+                                    if (PAD.IS_DISABLED_CONTROL_JUST_PRESSED and (PAD.IS_DISABLED_CONTROL_JUST_PRESSED(0, 38) or PAD.IS_DISABLED_CONTROL_JUST_PRESSED(0, 51) or PAD.IS_DISABLED_CONTROL_JUST_PRESSED(0, 86))) or
+                                       (PAD.IS_CONTROL_JUST_PRESSED and (PAD.IS_CONTROL_JUST_PRESSED(0, 38) or PAD.IS_CONTROL_JUST_PRESSED(0, 51) or PAD.IS_CONTROL_JUST_PRESSED(0, 86))) then
+                                        pressedE = true
+                                    end
+                                end
+                            end)
+
+                            if pressedE then
+                                local targetToHold = cachedTargetVeh
+                                cachedTargetVeh = nil
+                                HoldVehicleLoop(targetToHold)
+                            end
+                        else
                             cachedTargetVeh = nil
-                            HoldVehicleLoop(targetToHold)
                         end
                     end
                 end
 
                 if S.disableRagdoll then updateRagdollState() end
             end)
-            script.yield(10)
+            script.yield(0)
         end
         S.hotkeyLoopActive = false
     end)
