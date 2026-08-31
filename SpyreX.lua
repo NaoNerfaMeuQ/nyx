@@ -2698,12 +2698,13 @@ local function stopKungFuShow()
     cleanupKungFuDisciples()
     pcall(function()
         local ped = getLocalPed()
-        ENTITY.FREEZE_ENTITY_POSITION(ped, false)
-        if FIRE and FIRE.STOP_ENTITY_FIRE then FIRE.STOP_ENTITY_FIRE(ped) end
-        TASK.CLEAR_PED_TASKS_IMMEDIATELY(ped)
-        PED.SET_PED_CAN_RAGDOLL(ped, not S.disableRagdoll)
+        if isValidEntity(ped) then
+            ENTITY.FREEZE_ENTITY_POSITION(ped, false)
+            if FIRE and FIRE.STOP_ENTITY_FIRE then FIRE.STOP_ENTITY_FIRE(ped) end
+            TASK.CLEAR_PED_TASKS(ped)
+            PED.SET_PED_CAN_RAGDOLL(ped, not S.disableRagdoll)
+        end
     end)
-    notify.info("Kung Fu", "Apresentacao marcial finalizada.")
 end
 
 local function triggerKungFuImpact(x, y, z, elementType)
@@ -2752,20 +2753,20 @@ local function triggerKungFuImpact(x, y, z, elementType)
     end)
 end
 
-local function startKungFuShow(isContinuousLoop)
+local function startKungFuShow()
     if S.kungFuShowRunning then
-        stopKungFuShow()
-        script.yield(150)
+        notify.info("Kung Fu", "Uma apresentacao ja esta em andamento!")
+        return
     end
 
     S.kungFuShowRunning = true
-    S.kungFuLoopActive = isContinuousLoop or false
+    S.kungFuLoopActive = false
     S.kungFuSessionId = S.kungFuSessionId + 1
     local currentSession = S.kungFuSessionId
 
     script.run_in_callback(function()
         local ped = getLocalPed()
-        if not isValidEntity(ped) then return end
+        if not isValidEntity(ped) then S.kungFuShowRunning = false; return end
 
         local pCoords = ENTITY.GET_ENTITY_COORDS(ped, true)
         local heading = ENTITY.GET_ENTITY_HEADING(ped)
@@ -2795,12 +2796,10 @@ local function startKungFuShow(isContinuousLoop)
             return S.kungFuShowRunning and S.kungFuSessionId == currentSession and isValidEntity(getLocalPed())
         end
 
-        repeat
-            -- ============================================================
-            -- FASE 1: DESPERTAR DA MANDALA SAGRADA & SAUDACAO FORMAL
-            -- ============================================================
-            if not checkContinue() then break end
-
+        -- ============================================================
+        -- FASE 1: DESPERTAR DA MANDALA SAGRADA & SAUDACAO FORMAL
+        -- ============================================================
+        if checkContinue() then
             -- Círculo / Mandala sagrada de 8 pontos no chão ao redor do jogador
             triggerChiGroundMandala(pCoords, 4.0, S.kungFuElementType)
             triggerChiVFormation(pCoords, heading, pCoords.z - 0.4, S.kungFuElementType, 1.2)
@@ -2812,20 +2811,25 @@ local function startKungFuShow(isContinuousLoop)
             script.yield(800)
 
             -- Cortes de palma marciais rápidos no solo
-            if not checkContinue() then break end
-            applyKungFuAnimToAll("anim@mp_player_intcelebrationmale@karate_chops", "karate_chops", 0, disciples)
-            script.yield(800)
+            if checkContinue() then
+                applyKungFuAnimToAll("anim@mp_player_intcelebrationmale@karate_chops", "karate_chops", 0, disciples)
+                script.yield(800)
+            end
 
             -- Ativação da aura de Chi em formato de V
-            if not checkContinue() then break end
-            attachChiAuraToAll(disciples, S.kungFuElementType)
-            script.yield(600)
+            if checkContinue() then
+                attachChiAuraToAll(disciples, S.kungFuElementType)
+                script.yield(600)
+            end
+        end
 
-            -- ============================================================
-            -- FASE 2: DECOLAGEM EXPLOSIVA RAPIDA & VORTICE EM V SUBINDO
-            -- ============================================================
-            if not checkContinue() then break end
+        -- ============================================================
+        -- FASE 2: DECOLAGEM EXPLOSIVA RAPIDA & VORTICE EM V SUBINDO
+        -- ============================================================
+        local liftHeight = 5.5
+        local ringAngle = 0.0
 
+        if checkContinue() then
             applyKungFuAnimToAll("rcmme_amanda1", "stand_loop_amanda", 1, disciples)
 
             -- Explosão de decolagem no solo
@@ -2834,10 +2838,7 @@ local function startKungFuShow(isContinuousLoop)
             triggerChiGroundMandala(pCoords, 4.2, S.kungFuElementType)
 
             -- Subida rápida e potente até 5.5m no ar com fogo em V
-            local liftHeight = 5.5
             local liftTicks = 14
-            local ringAngle = 0.0
-
             for step = 1, liftTicks do
                 if not checkContinue() then break end
                 local progress = step / liftTicks
@@ -2857,10 +2858,12 @@ local function startKungFuShow(isContinuousLoop)
                 triggerChiVFormation(pCoords, heading, pCoords.z + curOffset, S.kungFuElementType, 1.1)
                 script.yield(25)
             end
+        end
 
-            -- ============================================================
-            -- FASE 3: KATA FLUIDO COM ANEL DE CHI GIRATORIO EM ORBITA (DINAMICO)
-            -- ============================================================
+        -- ============================================================
+        -- FASE 3: KATA FLUIDO COM ANEL DE CHI GIRATORIO EM ORBITA (DINAMICO)
+        -- ============================================================
+        if checkContinue() then
             local floatTicks = 0
             while floatTicks < 22 and checkContinue() do
                 script.yield(50)
@@ -2876,13 +2879,13 @@ local function startKungFuShow(isContinuousLoop)
                     triggerPtfxAtCoord(S.kungFuElementType == 1 and "core" or "scr_alien", S.kungFuElementType == 1 and "ent_sht_flame" or "scr_alien_teleport", curLocal.x, curLocal.y, curLocal.z - 0.2, 1.3)
                 end
             end
+        end
 
-            -- ============================================================
-            -- FASE 4: COMBO MARCIAL COMPLETO COM IMPACTOS 20MM SINCRONIZADOS
-            -- ============================================================
-            if not checkContinue() then break end
-
-            -- 1. Rajada de socos ferozes com impactos de 20mm nos punhos
+        -- ============================================================
+        -- FASE 4: COMBO MARCIAL COMPLETO COM IMPACTOS 20MM SINCRONIZADOS
+        -- ============================================================
+        if checkContinue() then
+            -- 1. Rajada de socos ferozes com impactos nos punhos
             applyKungFuAnimToAll("anim@mp_player_intcelebrationmale@shadow_boxing", "shadow_boxing", 1, disciples)
 
             local punchTicks = 0
@@ -2903,40 +2906,43 @@ local function startKungFuShow(isContinuousLoop)
                 end
             end
 
-            if not checkContinue() then break end
-            -- 2. Chute acrobático giratório 360 no ar
-            applyKungFuAnimToAll("anim@arena@celeb@flat@solo@no_props@", "kick_flip_a", 0, disciples)
-            triggerOrbitalChiRing(pCoords, 3.8, pCoords.z + liftHeight, ringAngle + 1.2, S.kungFuElementType)
-            script.yield(900)
+            if checkContinue() then
+                -- 2. Chute acrobático giratório 360 no ar
+                applyKungFuAnimToAll("anim@arena@celeb@flat@solo@no_props@", "kick_flip_a", 0, disciples)
+                triggerOrbitalChiRing(pCoords, 3.8, pCoords.z + liftHeight, ringAngle + 1.2, S.kungFuElementType)
+                script.yield(900)
+            end
 
-            if not checkContinue() then break end
-            -- 3. Movimento de chute acrobático estilo capoeira no ar
-            applyKungFuAnimToAll("anim@arena@celeb@flat@solo@no_props@", "capoeira", 0, disciples)
-            triggerOrbitalChiRing(pCoords, 3.8, pCoords.z + liftHeight, ringAngle + 2.0, S.kungFuElementType)
-            script.yield(950)
+            if checkContinue() then
+                -- 3. Movimento de chute acrobático estilo capoeira no ar
+                applyKungFuAnimToAll("anim@arena@celeb@flat@solo@no_props@", "capoeira", 0, disciples)
+                triggerOrbitalChiRing(pCoords, 3.8, pCoords.z + liftHeight, ringAngle + 2.0, S.kungFuElementType)
+                script.yield(950)
+            end
 
-            if not checkContinue() then break end
-            -- 4. Golpe final cortante de karatê com explosões 20mm nos lados
-            applyKungFuAnimToAll("anim@mp_player_intcelebrationmale@karate_chops", "karate_chops", 0, disciples)
-            triggerOrbitalChiRing(pCoords, 3.5, pCoords.z + liftHeight, ringAngle + 2.8, S.kungFuElementType)
+            if checkContinue() then
+                -- 4. Golpe final cortante de karatê com explosões nos lados
+                applyKungFuAnimToAll("anim@mp_player_intcelebrationmale@karate_chops", "karate_chops", 0, disciples)
+                triggerOrbitalChiRing(pCoords, 3.5, pCoords.z + liftHeight, ringAngle + 2.8, S.kungFuElementType)
 
-            pcall(function()
-                local fwdX = -math.sin(math.rad(heading))
-                local fwdY = math.cos(math.rad(heading))
-                local rX = fwdY
-                local rY = -fwdX
-                if FIRE and FIRE.ADD_EXPLOSION then
-                    FIRE.ADD_EXPLOSION(pCoords.x + fwdX * 2.0 + rX * 1.5, pCoords.y + fwdY * 2.0 + rY * 1.5, pCoords.z + liftHeight, 38, 0.0, false, false, 0.0)
-                    FIRE.ADD_EXPLOSION(pCoords.x + fwdX * 2.0 - rX * 1.5, pCoords.y + fwdY * 2.0 - rY * 1.5, pCoords.z + liftHeight, 38, 0.0, false, false, 0.0)
-                end
-            end)
-            script.yield(900)
+                pcall(function()
+                    local fwdX = -math.sin(math.rad(heading))
+                    local fwdY = math.cos(math.rad(heading))
+                    local rX = fwdY
+                    local rY = -fwdX
+                    if FIRE and FIRE.ADD_EXPLOSION then
+                        FIRE.ADD_EXPLOSION(pCoords.x + fwdX * 2.0 + rX * 1.5, pCoords.y + fwdY * 2.0 + rY * 1.5, pCoords.z + liftHeight, 38, 0.0, false, false, 0.0)
+                        FIRE.ADD_EXPLOSION(pCoords.x + fwdX * 2.0 - rX * 1.5, pCoords.y + fwdY * 2.0 - rY * 1.5, pCoords.z + liftHeight, 38, 0.0, false, false, 0.0)
+                    end
+                end)
+                script.yield(900)
+            end
+        end
 
-            -- ============================================================
-            -- FASE 5: DESCIDA SUAVE E POUSO DE GRÃO-MESTRE
-            -- ============================================================
-            if not checkContinue() then break end
-
+        -- ============================================================
+        -- FASE 5: DESCIDA SUAVE E POUSO DE GRÃO-MESTRE
+        -- ============================================================
+        if checkContinue() then
             applyKungFuAnimToAll("rcmme_amanda1", "stand_loop_amanda", 1, disciples)
 
             -- Descida suave de volta ao solo (rápida e precisa)
@@ -2979,13 +2985,10 @@ local function startKungFuShow(isContinuousLoop)
             stopAllKungFuPtfx()
             applyKungFuAnimToAll("anim@mp_player_intcelebrationmale@ninja", "ninja", 0, disciples)
             script.yield(1600)
-
-        until not S.kungFuLoopActive or not checkContinue()
-
-        if checkContinue() then
-            stopKungFuShow()
-            notify.success("Kung Fu", "Apresentacao concluida com honra e perfeicao!")
         end
+
+        stopKungFuShow()
+        notify.success("Kung Fu", "Apresentacao concluida com honra e perfeicao!")
     end)
 end
 
@@ -3063,18 +3066,8 @@ local function renderTabKungFuMaster()
     imgui.separator()
     imgui.spacing()
 
-    if S.kungFuShowRunning then
-        if imgui.button(">> PARAR APRESENTACAO DE KUNG FU <<##stop_kf_btn") then
-            stopKungFuShow()
-        end
-    else
-        if imgui.button(">> INICIAR SHOW COMPLETO DE KUNG FU (5 ATOS) <<##start_kf_btn") then
-            startKungFuShow(false)
-        end
-        imgui.same_line()
-        if imgui.button(">> MODO KATA CONTINUO (TREINO INFINITO) <<##loop_kf_btn") then
-            startKungFuShow(true)
-        end
+    if imgui.button(">> INICIAR SHOW COMPLETO DE KUNG FU (5 ATOS) <<##start_kf_btn") then
+        startKungFuShow()
     end
 
     imgui.spacing(); imgui.separator(); imgui.spacing()
@@ -3113,11 +3106,6 @@ local function renderTabKungFuMaster()
 
     imgui.spacing()
     if imgui.button(">> Combo Marcial Completo (Chutes & Cortes) <<##kf_m6") then playIndividualKungFuMove(6) end
-
-    imgui.spacing()
-    if imgui.button("Limpar Discipulos & Efeitos##kf_clear_btn") then
-        stopKungFuShow()
-    end
 
     imgui.end_tab_item()
 end
