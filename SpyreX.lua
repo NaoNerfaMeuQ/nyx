@@ -22,7 +22,6 @@ local S = {
     liftHeight = 10.0,
     launchForce = 150.0,
     holdDistance = 12.0,
-    igniteOnLaunch = false,
     makeInvincible = true,
     disableRagdoll = false,
     isHoldingVehicle = false,
@@ -523,58 +522,7 @@ local function getCameraDirection()
     return { x = -math.sin(cz) * num, y = math.cos(cz) * num, z = math.sin(cx) }
 end
 
-local function showHelpPromptThisFrame(text)
-    pcall(function()
-        if HUD and HUD.BEGIN_TEXT_COMMAND_DISPLAY_HELP then
-            HUD.BEGIN_TEXT_COMMAND_DISPLAY_HELP("STRING")
-            HUD.ADD_TEXT_COMPONENT_SUBSTRING_PLAYER_NAME(text)
-            HUD.END_TEXT_COMMAND_DISPLAY_HELP(0, false, false, -1)
-        end
-    end)
-end
 
-local function drawText3D(x, y, z, text)
-    pcall(function()
-        local onScreen, _x, _y = false, 0.0, 0.0
-        if GRAPHICS and GRAPHICS.GET_SCREEN_COORD_FROM_WORLD_COORD then
-            onScreen, _x, _y = GRAPHICS.GET_SCREEN_COORD_FROM_WORLD_COORD(x, y, z)
-        end
-        if onScreen then
-            if HUD then
-                HUD.SET_TEXT_SCALE(0.35, 0.35)
-                HUD.SET_TEXT_FONT(0)
-                HUD.SET_TEXT_PROPORTIONAL(1)
-                HUD.SET_TEXT_COLOUR(255, 255, 255, 255)
-                HUD.SET_TEXT_DROPSHADOW(0, 0, 0, 0, 255)
-                HUD.SET_TEXT_EDGE(2, 0, 0, 0, 150)
-                HUD.SET_TEXT_DROP_SHADOW()
-                HUD.SET_TEXT_OUTLINE()
-                HUD.SET_TEXT_CENTRE(1)
-                if HUD.BEGIN_TEXT_COMMAND_DISPLAY_TEXT then
-                    HUD.BEGIN_TEXT_COMMAND_DISPLAY_TEXT("STRING")
-                    HUD.ADD_TEXT_COMPONENT_SUBSTRING_PLAYER_NAME(text)
-                    HUD.END_TEXT_COMMAND_DISPLAY_TEXT(_x, _y)
-                end
-            end
-        else
-            if GRAPHICS and GRAPHICS.SET_DRAW_ORIGIN then GRAPHICS.SET_DRAW_ORIGIN(x, y, z, 0) end
-            if HUD then
-                HUD.SET_TEXT_SCALE(0.35, 0.35)
-                HUD.SET_TEXT_FONT(0)
-                HUD.SET_TEXT_PROPORTIONAL(1)
-                HUD.SET_TEXT_COLOUR(255, 255, 255, 255)
-                HUD.SET_TEXT_OUTLINE()
-                HUD.SET_TEXT_CENTRE(1)
-                if HUD.BEGIN_TEXT_COMMAND_DISPLAY_TEXT then
-                    HUD.BEGIN_TEXT_COMMAND_DISPLAY_TEXT("STRING")
-                    HUD.ADD_TEXT_COMPONENT_SUBSTRING_PLAYER_NAME(text)
-                    HUD.END_TEXT_COMMAND_DISPLAY_TEXT(0.0, 0.0)
-                end
-            end
-            if GRAPHICS and GRAPHICS.CLEAR_DRAW_ORIGIN then GRAPHICS.CLEAR_DRAW_ORIGIN() end
-        end
-    end)
-end
 
 local function updateRagdollState()
     pcall(function()
@@ -750,26 +698,18 @@ local function LaunchVehicle(veh, force)
         detachVehicle(veh)
         safeSetInvincible(veh, false)
         ENTITY.SET_ENTITY_COLLISION(veh, true, true)
-        if ENTITY.SET_ENTITY_DYNAMIC then ENTITY.SET_ENTITY_DYNAMIC(veh, true) end
+        if ENTITY.SET_ENTITY_DYNAMIC then
+            ENTITY.SET_ENTITY_DYNAMIC(veh, true)
+        end
 
         local camDir = getCameraDirection()
         local actualForce = force or S.launchForce or 150.0
         local vx = camDir.x * actualForce
         local vy = camDir.y * actualForce
-        local vz = camDir.z * actualForce + 8.0
-
-        if S.igniteOnLaunch then
-            local vCoords = ENTITY.GET_ENTITY_COORDS(veh, true)
-            if FIRE and FIRE.ADD_EXPLOSION then
-                FIRE.ADD_EXPLOSION(vCoords.x, vCoords.y, vCoords.z, 3, 1.0, true, false, 0.0, false)
-            end
-        end
+        local vz = camDir.z * actualForce + 15.0
 
         ENTITY.SET_ENTITY_VELOCITY(veh, vx, vy, vz)
-        ENTITY.SET_ENTITY_ANGULAR_VELOCITY(veh, math.random(-5, 5), math.random(-5, 5), math.random(-5, 5))
-        if VEHICLE and VEHICLE.SET_VEHICLE_FORWARD_SPEED then
-            VEHICLE.SET_VEHICLE_FORWARD_SPEED(veh, actualForce * 0.8)
-        end
+        ENTITY.SET_ENTITY_ANGULAR_VELOCITY(veh, 10.0, 5.0, 0.0)
     end)
 end
 
@@ -794,19 +734,16 @@ local function HoldVehicleLoop(veh)
         end
         S.heldVehicle = nil
         stopCarryAnim()
-        notify.info("Telecinese", "Veiculo solto.")
         return
     end
 
-    if not isValidEntity(veh) then veh = getTargetVehicle(20.0) end
+    if not isValidEntity(veh) then veh = getTargetVehicle(25.0) end
     if not isValidEntity(veh) then
-        notify.warn("Telecinese", "Nenhum veiculo proximo encontrado para segurar!")
         return
     end
 
     S.isHoldingVehicle = true
     S.heldVehicle = veh
-    notify.success("Telecinese", "Veiculo pego acima da cabeca! [ESPACO] Lancar | [E] Soltar.")
 
     script.run_in_callback(function()
         playCarryAnim()
@@ -816,14 +753,6 @@ local function HoldVehicleLoop(veh)
         pcall(function()
             ENTITY.SET_ENTITY_COLLISION(S.heldVehicle, true, true)
             if ENTITY.SET_ENTITY_NO_COLLISION_ENTITY then ENTITY.SET_ENTITY_NO_COLLISION_ENTITY(S.heldVehicle, ped, false) end
-            if ENTITY.ATTACH_ENTITY_TO_ENTITY then
-                ENTITY.ATTACH_ENTITY_TO_ENTITY(
-                    S.heldVehicle, ped, 0,
-                    0.0, 0.6, 2.4,
-                    0.0, 0.0, 0.0,
-                    false, false, false, false, 2, true
-                )
-            end
         end)
 
         if S.makeInvincible then safeSetInvincible(S.heldVehicle, true) end
@@ -832,42 +761,28 @@ local function HoldVehicleLoop(veh)
             getControlOfEntity(S.heldVehicle)
             local pCoords = ENTITY.GET_ENTITY_COORDS(ped, true)
             local pHeading = ENTITY.GET_ENTITY_HEADING(ped)
+            local rad = math.rad(pHeading)
+            local dirX = -math.sin(rad)
+            local dirY =  math.cos(rad)
+            local targetX = pCoords.x + (dirX * 0.1)
+            local targetY = pCoords.y + (dirY * 0.1)
+            local targetZ = pCoords.z + 1.25
 
-            -- Keep attached or update position
-            if not ENTITY.IS_ENTITY_ATTACHED_TO_ENTITY(S.heldVehicle, ped) then
-                pcall(function()
-                    if ENTITY.ATTACH_ENTITY_TO_ENTITY then
-                        ENTITY.ATTACH_ENTITY_TO_ENTITY(
-                            S.heldVehicle, ped, 0,
-                            0.0, 0.6, 2.4,
-                            0.0, 0.0, 0.0,
-                            false, false, false, false, 2, true
-                        )
-                    else
-                        local rad = math.rad(pHeading)
-                        local dirX = -math.sin(rad)
-                        local dirY =  math.cos(rad)
-                        ENTITY.SET_ENTITY_COORDS_NO_OFFSET(S.heldVehicle, pCoords.x + dirX * 0.1, pCoords.y + dirY * 0.1, pCoords.z + 2.4, true, true, true)
-                        ENTITY.SET_ENTITY_HEADING(S.heldVehicle, pHeading)
-                        ENTITY.SET_ENTITY_VELOCITY(S.heldVehicle, 0.0, 0.0, 0.0)
-                    end
-                end)
-            end
-
-            -- 3D Text + On-screen prompt every frame
-            local vCoords = ENTITY.GET_ENTITY_COORDS(S.heldVehicle, true)
-            drawText3D(vCoords.x, vCoords.y, vCoords.z + 1.2, "~g~[SPACE]~w~ Lancar  |  ~r~[E]~w~ Soltar")
-            showHelpPromptThisFrame("~g~[ESPACO]~w~ Lancar  |  ~r~[E]~w~ Soltar Veiculo")
+            pcall(function()
+                ENTITY.SET_ENTITY_COORDS_NO_OFFSET(S.heldVehicle, targetX, targetY, targetZ, true, true, true)
+                ENTITY.SET_ENTITY_HEADING(S.heldVehicle, pHeading)
+                ENTITY.SET_ENTITY_VELOCITY(S.heldVehicle, 0.0, 0.0, 0.0)
+                ENTITY.SET_ENTITY_ANGULAR_VELOCITY(S.heldVehicle, 0.0, 0.0, 0.0)
+            end)
 
             pcall(function()
                 if S.activeAnimDict and S.activeAnimName and not PED.IS_ENTITY_PLAYING_ANIM(ped, S.activeAnimDict, S.activeAnimName, 3) then
                     safePlayAnim(ped, S.activeAnimDict, S.activeAnimName, 49)
                 end
                 if PAD then
-                    PAD.DISABLE_CONTROL_ACTION(0, 22, true) -- JUMP / SPACE
-                    PAD.DISABLE_CONTROL_ACTION(0, 38, true) -- CONTEXT / E
-                    PAD.DISABLE_CONTROL_ACTION(0, 51, true) -- CONTEXT / E
-                    PAD.DISABLE_CONTROL_ACTION(0, 86, true) -- HORN / E
+                    PAD.DISABLE_CONTROL_ACTION(0, 22, true)
+                    PAD.DISABLE_CONTROL_ACTION(0, 38, true)
+                    PAD.DISABLE_CONTROL_ACTION(0, 51, true)
                 end
             end)
 
@@ -880,8 +795,8 @@ local function HoldVehicleLoop(veh)
                        (PAD.IS_CONTROL_JUST_PRESSED and PAD.IS_CONTROL_JUST_PRESSED(0, 22)) then
                         pressLaunch = true
                     end
-                    if (PAD.IS_DISABLED_CONTROL_JUST_PRESSED and (PAD.IS_DISABLED_CONTROL_JUST_PRESSED(0, 38) or PAD.IS_DISABLED_CONTROL_JUST_PRESSED(0, 51) or PAD.IS_DISABLED_CONTROL_JUST_PRESSED(0, 86))) or
-                       (PAD.IS_CONTROL_JUST_PRESSED and (PAD.IS_CONTROL_JUST_PRESSED(0, 38) or PAD.IS_CONTROL_JUST_PRESSED(0, 51) or PAD.IS_CONTROL_JUST_PRESSED(0, 86))) then
+                    if (PAD.IS_DISABLED_CONTROL_JUST_PRESSED and (PAD.IS_DISABLED_CONTROL_JUST_PRESSED(0, 38) or PAD.IS_DISABLED_CONTROL_JUST_PRESSED(0, 51))) or
+                       (PAD.IS_CONTROL_JUST_PRESSED and (PAD.IS_CONTROL_JUST_PRESSED(0, 38) or PAD.IS_CONTROL_JUST_PRESSED(0, 51))) then
                         pressRelease = true
                     end
                 end
@@ -892,7 +807,6 @@ local function HoldVehicleLoop(veh)
                 S.isHoldingVehicle = false
                 S.heldVehicle = nil
                 LaunchVehicle(target, S.launchForce)
-                notify.success("Telecinese", "Veiculo LANCADO!")
                 break
             end
 
@@ -902,7 +816,6 @@ local function HoldVehicleLoop(veh)
                 S.heldVehicle = nil
                 detachVehicle(target)
                 safeSetInvincible(target, false)
-                notify.info("Telecinese", "Veiculo solto.")
                 break
             end
 
@@ -979,8 +892,6 @@ local function startCarryingPlayer(targetPed)
 
         while S.isCarryingPlayer and isValidEntity(S.carriedPlayerPed) do
             myPed = getLocalPed()
-            local myPos = ENTITY.GET_ENTITY_COORDS(myPed, true)
-            drawText3D(myPos.x, myPos.y, myPos.z + 1.15, "~r~[E]~w~ Soltar Jogador do Colo")
 
             pcall(function()
                 if PAD then
@@ -1498,33 +1409,32 @@ local function startHotkeyLoop()
 
                 if not S.isHoldingVehicle and isValidEntity(ped) and not PED.IS_PED_IN_ANY_VEHICLE(ped, false) then
                     local now = gameTimer()
-                    if (now - lastSearchTime) > 80 then
+                    if (now - lastSearchTime) > 100 then
                         lastSearchTime = now
-                        cachedTargetVeh = getTargetVehicle(10.0)
+                        cachedTargetVeh = getTargetVehicle(12.0)
                     end
 
                     if isValidEntity(cachedTargetVeh) then
-                        local vCoords = ENTITY.GET_ENTITY_COORDS(cachedTargetVeh, true)
                         local pCoords = ENTITY.GET_ENTITY_COORDS(ped, true)
-                        local dist = math.sqrt((pCoords.x - vCoords.x)^2 + (pCoords.y - vCoords.y)^2 + (pCoords.z - vCoords.z)^2)
+                        local vCoords = ENTITY.GET_ENTITY_COORDS(cachedTargetVeh, true)
+                        local dx = pCoords.x - vCoords.x
+                        local dy = pCoords.y - vCoords.y
+                        local dz = pCoords.z - vCoords.z
+                        local dist = math.sqrt(dx*dx + dy*dy + dz*dz)
 
-                        if dist <= 12.0 then
-                            drawText3D(vCoords.x, vCoords.y, vCoords.z + 1.1, "Pressione ~g~[E]~w~ para Pegar Veiculo")
-                            showHelpPromptThisFrame("Pressione ~g~[E]~w~ para Pegar o Veiculo")
-
+                        if dist <= 14.0 then
                             pcall(function()
                                 if PAD then
                                     PAD.DISABLE_CONTROL_ACTION(0, 38, true)
                                     PAD.DISABLE_CONTROL_ACTION(0, 51, true)
-                                    PAD.DISABLE_CONTROL_ACTION(0, 86, true)
                                 end
                             end)
 
                             local pressedE = false
                             pcall(function()
                                 if PAD then
-                                    if (PAD.IS_DISABLED_CONTROL_JUST_PRESSED and (PAD.IS_DISABLED_CONTROL_JUST_PRESSED(0, 38) or PAD.IS_DISABLED_CONTROL_JUST_PRESSED(0, 51) or PAD.IS_DISABLED_CONTROL_JUST_PRESSED(0, 86))) or
-                                       (PAD.IS_CONTROL_JUST_PRESSED and (PAD.IS_CONTROL_JUST_PRESSED(0, 38) or PAD.IS_CONTROL_JUST_PRESSED(0, 51) or PAD.IS_CONTROL_JUST_PRESSED(0, 86))) then
+                                    if (PAD.IS_DISABLED_CONTROL_JUST_PRESSED and (PAD.IS_DISABLED_CONTROL_JUST_PRESSED(0, 38) or PAD.IS_DISABLED_CONTROL_JUST_PRESSED(0, 51))) or
+                                       (PAD.IS_CONTROL_JUST_PRESSED and (PAD.IS_CONTROL_JUST_PRESSED(0, 38) or PAD.IS_CONTROL_JUST_PRESSED(0, 51))) then
                                         pressedE = true
                                     end
                                 end
@@ -4401,8 +4311,6 @@ local function renderTabAreaChaos()
     imgui.same_line()
     if imgui.button(">> LANCAR PANTO (STRIKE!) <<##launch_bowl_btn") then launchBowlingPanto() end
     imgui.same_line()
-    if imgui.button("Limpar Boliche##clear_bowl_btn") then clearBusBowling() end
-    imgui.same_line()
     if imgui.button("Muralha Fortaleza de Onibus##fort_btn") then triggerBusFortressWall() end
 
     imgui.spacing()
@@ -4475,12 +4383,6 @@ local function renderTabStuntTracks()
     if imgui.button("Tubo Acelerador##ramp_tube") then spawnInstantFrontRamp("stt_prop_stunt_tube_l") end
 
     imgui.spacing(); imgui.separator(); imgui.spacing()
-    imgui.text("Gerenciamento de Objetos Spawados:")
-    if imgui.button("Desfazer Ultimo Objeto Criado##undo_stunt_btn") then undoLastStuntObject() end
-    imgui.same_line()
-    if imgui.button("Limpar Todas as Rampas e Pistas Criadas##clear_stunts_btn") then clearAllStuntObjects() end
-
-    imgui.spacing(); imgui.separator(); imgui.spacing()
     imgui.text("Altura das Pistas Aereas no Ceu (Z): " .. math.floor(S.stunt_altitude) .. " metros")
     if imgui.button("50m##alt50") then S.stunt_altitude = 50.0 end
     imgui.same_line()
@@ -4517,16 +4419,12 @@ local function renderTabArenaObjectSpawner()
     imgui.spacing(); imgui.separator(); imgui.spacing()
     imgui.text("Ponto Fixo Customizado (OVNI / p_spinning_anus_s):")
     if imgui.button(">> SPAWNAR OVNI NO PONTO FIXO <<##sp_fixed_ufo") then spawnFixedCoordsUfo() end
-    imgui.same_line()
-    if imgui.button("Remover OVNI Fixo##rem_fixed_ufo") then removeFixedCoordsUfo() end
 
     imgui.spacing(); imgui.separator(); imgui.spacing()
     imgui.text(">>> PROJETO MAZE BANK (4x Portais Neon 8X + Nucleo OVNI) <<<")
     if imgui.button(">> SPAWNAR PROJETO MAZE BANK <<##sp_mazebank_btn") then spawnMazeBankProject() end
     imgui.same_line()
     if imgui.button(">> TELEPORTAR TODOS AO TOPO DO MAZE BANK <<##tp_all_to_mazebank_btn") then teleportAllPlayersToMazeBank() end
-    imgui.same_line()
-    if imgui.button("Remover Projeto Maze Bank##rem_mazebank_btn") then clearMazeBankProject() end
 
     imgui.spacing(); imgui.separator(); imgui.spacing()
     imgui.text("Props Populares (Spawn no Alvo):")
@@ -4537,10 +4435,6 @@ local function renderTabArenaObjectSpawner()
     if imgui.button("Anel Speed Ring##sp_ring") then spawnSinglePropAtPlayer("ar_prop_ar_speed_ring", S.customSpawnDistance, S.customSpawnHeight, S.customSpawnYaw, S.customSpawnFreeze, S.selectedPropSpawnPid) end
     imgui.same_line()
     if imgui.button("Mega Loop##sp_loop") then spawnSinglePropAtPlayer("ar_prop_ar_jump_loop", S.customSpawnDistance, S.customSpawnHeight, S.customSpawnYaw, S.customSpawnFreeze, S.selectedPropSpawnPid) end
-    imgui.spacing()
-    if imgui.button("Desfazer Ultimo Objeto##undo_obj_spawner") then undoLastStuntObject() end
-    imgui.same_line()
-    if imgui.button("Limpar Todos os Objetos Criados##clear_all_obj_spawner") then clearAllStuntObjects() end
     imgui.end_tab_item()
 end
 
@@ -4679,9 +4573,6 @@ local function renderTabOptionsAndHotkeys()
     imgui.text("Configuracoes & Comportamento:")
     imgui.separator()
     imgui.spacing()
-
-    local c1, v1 = imgui.checkbox("Explodir / Incendiar Veiculos ao Lancar##ign_chk", S.igniteOnLaunch)
-    if c1 then S.igniteOnLaunch = v1 end
 
     local c2, v2 = imgui.checkbox("Tornar Veiculo Invencivel ao Manipular##inv_chk", S.makeInvincible)
     if c2 then S.makeInvincible = v2 end
