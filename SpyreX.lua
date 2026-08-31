@@ -123,7 +123,18 @@ local S = {
 
     -- Carry anim state
     activeAnimDict = nil,
-    activeAnimName = nil
+    activeAnimName = nil,
+
+    -- Kung Fu Performance
+    kungFuShowRunning = false,
+    kungFuElementType = 1, -- 1 = Fogo, 2 = Raios, 3 = Mistico / Espiritual
+    kungFuWithDisciples = true,
+    kungFuDisciplesCount = 2,
+    activeKungFuDisciples = {},
+    activeKungFuPtfx = {},
+    kungFuLoopActive = false,
+    kungFuSessionId = 0
+
 }
 
 local Presets = {
@@ -447,6 +458,10 @@ local function purgeAllJetBlips()
         end
     end)
 end
+
+------------------------------------------------------------
+-- ENTITY MANAGEMENT HELPERS
+------------------------------------------------------------
 
 local function safeDeleteEntity(ent)
     if not ent or ent == 0 then return end
@@ -1192,34 +1207,99 @@ local function startVehicleShieldLoop()
     end)
 end
 
+local spawnedBowlingPins = {}
+local bowlingPanto = nil
+
+local function clearBusBowling()
+    pcall(function()
+        for _, b in ipairs(spawnedBowlingPins) do
+            if isValidEntity(b) then safeDeleteEntity(b) end
+        end
+        spawnedBowlingPins = {}
+        if isValidEntity(bowlingPanto) then
+            safeDeleteEntity(bowlingPanto)
+            bowlingPanto = nil
+        end
+    end)
+end
+
 local function setupBusBowling()
     script.run_in_callback(function()
-        notify.info("SpyreX", "Criando Boliche Vertical de Onibus...")
-        local pCoords = ENTITY.GET_ENTITY_COORDS(getLocalPed(), true)
-        local fwd = getCameraDirection()
-        local busHash, pantoHash = getHash("bus"), getHash("panto")
+        clearBusBowling()
+        notify.info("SpyreX", "Montando Pista de Boliche (10 Pinos)...")
+
+        local ped = getLocalPed()
+        local pCoords = ENTITY.GET_ENTITY_COORDS(ped, true)
+        local heading = ENTITY.GET_ENTITY_HEADING(ped)
+        local rad = math.rad(heading)
+        local fwdX = -math.sin(rad)
+        local fwdY = math.cos(rad)
+        local rightX = fwdY
+        local rightY = -fwdX
+
+        local busHash = getHash("bus")
+        local pantoHash = getHash("panto")
 
         STREAMING.REQUEST_MODEL(busHash)
         STREAMING.REQUEST_MODEL(pantoHash)
         local timeout = 0
-        while (not STREAMING.HAS_MODEL_LOADED(busHash) or not STREAMING.HAS_MODEL_LOADED(pantoHash)) and timeout < 30 do
-            script.yield(10); timeout = timeout + 1
+        while (not STREAMING.HAS_MODEL_LOADED(busHash) or not STREAMING.HAS_MODEL_LOADED(pantoHash)) and timeout < 40 do
+            script.yield(10)
+            timeout = timeout + 1
         end
 
-        for i = 1, 6 do
-            local bx = pCoords.x + fwd.x * (25.0 + i * 4.0) + (i % 2 == 0 and 2.5 or -2.5)
-            local by = pCoords.y + fwd.y * (25.0 + i * 4.0)
-            local bVeh = VEHICLE.CREATE_VEHICLE(busHash, bx, by, pCoords.z + 0.5, 0.0, true, false, false)
-            if isValidEntity(bVeh) then ENTITY.SET_ENTITY_ROTATION(bVeh, 90.0, 0.0, 0.0, 2, true) end
+        -- Formação triangular clássica de 10 pinos de boliche (Ônibus em pé)
+        local pinOffsets = {
+            { fwd = 25.0, side = 0.0 },                                      -- Pino 1 (Frente)
+            { fwd = 30.0, side = -3.5 }, { fwd = 30.0, side = 3.5 },          -- Fila 2 (2 pinos)
+            { fwd = 35.0, side = -7.0 }, { fwd = 35.0, side = 0.0 }, { fwd = 35.0, side = 7.0 }, -- Fila 3 (3 pinos)
+            { fwd = 40.0, side = -10.5 }, { fwd = 40.0, side = -3.5 }, { fwd = 40.0, side = 3.5 }, { fwd = 40.0, side = 10.5 } -- Fila 4 (4 pinos)
+        }
+
+        for _, pos in ipairs(pinOffsets) do
+            local bx = pCoords.x + fwdX * pos.fwd + rightX * pos.side
+            local by = pCoords.y + fwdY * pos.fwd + rightY * pos.side
+            local bz = pCoords.z + 5.0
+
+            local bus = VEHICLE.CREATE_VEHICLE(busHash, bx, by, bz, heading, true, false, false)
+            if isValidEntity(bus) then
+                pcall(function()
+                    ENTITY.SET_ENTITY_AS_MISSION_ENTITY(bus, true, true)
+                    ENTITY.SET_ENTITY_ROTATION(bus, 90.0, 0.0, heading, 2, true)
+                    ENTITY.SET_ENTITY_VELOCITY(bus, 0.0, 0.0, 0.0)
+                    safeSetInvincible(bus, false)
+                end)
+                table.insert(spawnedBowlingPins, bus)
+            end
         end
 
-        local panto = VEHICLE.CREATE_VEHICLE(pantoHash, pCoords.x + fwd.x * 6.0, pCoords.y + fwd.y * 6.0, pCoords.z + 0.5, 0.0, true, false, false)
+        -- Spawna o Panto e coloca na Telecinese flutuando na frente para mirar!
+        local px = pCoords.x + fwdX * 3.0
+        local py = pCoords.y + fwdY * 3.0
+        local pz = pCoords.z + 2.5
+        local panto = VEHICLE.CREATE_VEHICLE(pantoHash, px, py, pz, heading, true, false, false)
         if isValidEntity(panto) then
-            safeSetInvincible(panto, true)
-            ENTITY.SET_ENTITY_VELOCITY(panto, fwd.x * 120.0, fwd.y * 120.0, 5.0)
+            pcall(function()
+                ENTITY.SET_ENTITY_AS_MISSION_ENTITY(panto, true, true)
+            end)
+            bowlingPanto = panto
+            HoldVehicleLoop(panto)
         end
-        notify.success("SpyreX", "Boliche de Onibus Lancado!")
+
+        notify.success("SpyreX", "Boliche Montado! Mire e aperte [ESPACO] ou clique em 'Lancar Panto'!")
     end)
+end
+
+local function launchBowlingPanto()
+    if isValidEntity(S.heldVehicle) then
+        LaunchVehicle(S.heldVehicle, 350.0)
+        notify.success("SpyreX", "Strike! Panto arremessado contra os pinos!")
+    elseif isValidEntity(bowlingPanto) then
+        LaunchVehicle(bowlingPanto, 350.0)
+        notify.success("SpyreX", "Strike! Panto arremessado contra os pinos!")
+    else
+        notify.warn("SpyreX", "Monte o Boliche primeiro!")
+    end
 end
 
 local function triggerBusFortressWall()
@@ -2294,6 +2374,768 @@ local function toggleFastTimeCycle()
         notify.info("Timelapse", "Ciclo Rapido de Horas DESATIVADO.")
     end
 end
+
+------------------------------------------------------------
+-- APRESENTACAO DE KUNG FU & MESTRE DO CHI
+------------------------------------------------------------
+
+local function requestPtfxAsset(assetName)
+    if not assetName or assetName == "" then return false end
+    pcall(function()
+        if STREAMING and STREAMING.REQUEST_NAMED_PTFX_ASSET then
+            STREAMING.REQUEST_NAMED_PTFX_ASSET(assetName)
+        end
+    end)
+    local timeout = 0
+    while STREAMING and STREAMING.HAS_NAMED_PTFX_ASSET_LOADED and not STREAMING.HAS_NAMED_PTFX_ASSET_LOADED(assetName) and timeout < 30 do
+        script.yield(10)
+        timeout = timeout + 1
+    end
+    return true
+end
+
+local function stopAllKungFuPtfx()
+    pcall(function()
+        for _, fx in ipairs(S.activeKungFuPtfx) do
+            if fx and GRAPHICS and GRAPHICS.DOES_PARTICLE_FX_LOOPED_EXIST and GRAPHICS.DOES_PARTICLE_FX_LOOPED_EXIST(fx) then
+                if GRAPHICS.STOP_PARTICLE_FX_LOOPED then GRAPHICS.STOP_PARTICLE_FX_LOOPED(fx, false) end
+                if GRAPHICS.REMOVE_PARTICLE_FX then GRAPHICS.REMOVE_PARTICLE_FX(fx, false) end
+            end
+        end
+        S.activeKungFuPtfx = {}
+    end)
+end
+
+local function attachPtfxToPedBone(ped, assetName, effectName, boneId, offX, offY, offZ, rotX, rotY, rotZ, scale)
+    if not isValidEntity(ped) then return nil end
+    local fxHandle = nil
+    pcall(function()
+        requestPtfxAsset(assetName)
+        if GRAPHICS and GRAPHICS.USE_PARTICLE_FX_ASSET then
+            GRAPHICS.USE_PARTICLE_FX_ASSET(assetName)
+        end
+        if GRAPHICS and GRAPHICS.START_NETWORKED_PARTICLE_FX_LOOPED_ON_ENTITY_BONE then
+            fxHandle = GRAPHICS.START_NETWORKED_PARTICLE_FX_LOOPED_ON_ENTITY_BONE(
+                effectName, ped,
+                offX or 0.0, offY or 0.0, offZ or 0.0,
+                rotX or 0.0, rotY or 0.0, rotZ or 0.0,
+                boneId or 0, scale or 0.8,
+                false, false, false, 0, 0, 0, 0
+            )
+        elseif GRAPHICS and GRAPHICS.START_PARTICLE_FX_LOOPED_ON_ENTITY_BONE then
+            fxHandle = GRAPHICS.START_PARTICLE_FX_LOOPED_ON_ENTITY_BONE(
+                effectName, ped,
+                offX or 0.0, offY or 0.0, offZ or 0.0,
+                rotX or 0.0, rotY or 0.0, rotZ or 0.0,
+                boneId or 0, scale or 0.8,
+                false, false, false
+            )
+        end
+        if fxHandle and fxHandle ~= 0 then
+            table.insert(S.activeKungFuPtfx, fxHandle)
+        end
+    end)
+    return fxHandle
+end
+
+local function triggerPtfxAtCoord(assetName, effectName, x, y, z, scale)
+    pcall(function()
+        requestPtfxAsset(assetName)
+        if GRAPHICS and GRAPHICS.USE_PARTICLE_FX_ASSET then
+            GRAPHICS.USE_PARTICLE_FX_ASSET(assetName)
+        end
+        if GRAPHICS and GRAPHICS.START_NETWORKED_PARTICLE_FX_NON_LOOPED_AT_COORD then
+            GRAPHICS.START_NETWORKED_PARTICLE_FX_NON_LOOPED_AT_COORD(
+                effectName, x, y, z, 0.0, 0.0, 0.0, scale or 1.5, false, false, false
+            )
+        elseif GRAPHICS and GRAPHICS.START_PARTICLE_FX_NON_LOOPED_AT_COORD then
+            GRAPHICS.START_PARTICLE_FX_NON_LOOPED_AT_COORD(
+                effectName, x, y, z, 0.0, 0.0, 0.0, scale or 1.5, false, false, false
+            )
+        end
+    end)
+end
+
+local function cleanupKungFuDisciples()
+    pcall(function()
+        for _, d in ipairs(S.activeKungFuDisciples) do
+            if isValidEntity(d) then
+                safeDeleteEntity(d)
+            end
+        end
+        S.activeKungFuDisciples = {}
+    end)
+end
+
+local function spawnKungFuDisciples(pCoords, heading)
+    cleanupKungFuDisciples()
+    local disciples = {}
+    local rad = math.rad(heading)
+    local fwdX = -math.sin(rad)
+    local fwdY = math.cos(rad)
+    local rightX = fwdY
+    local rightY = -fwdX
+
+    -- Modelos de Mestres / Monges / Lutadores Orientais
+    local discipleModels = { "g_m_m_chigoon_01", "g_m_m_chigoon_02", "mp_m_freemode_01" }
+    local hash = getHash(discipleModels[math.random(#discipleModels)])
+    STREAMING.REQUEST_MODEL(hash)
+    local timeout = 0
+    while not STREAMING.HAS_MODEL_LOADED(hash) and timeout < 30 do script.yield(10); timeout = timeout + 1 end
+
+    local offsets = {
+        { fwd = -2.2, side = -2.0 },
+        { fwd = -2.2, side = 2.0 },
+        { fwd = -4.0, side = -3.8 },
+        { fwd = -4.0, side = 3.8 }
+    }
+
+    local maxCount = S.kungFuDisciplesCount or 2
+    for i = 1, math.min(maxCount, #offsets) do
+        local pos = offsets[i]
+        local dx = pCoords.x + fwdX * pos.fwd + rightX * pos.side
+        local dy = pCoords.y + fwdY * pos.fwd + rightY * pos.side
+        local dz = pCoords.z
+
+        local ped = nil
+        pcall(function()
+            ped = PED.CREATE_PED(26, hash, dx, dy, dz, heading, true, false)
+        end)
+
+        if isValidEntity(ped) then
+            pcall(function()
+                ENTITY.SET_ENTITY_AS_MISSION_ENTITY(ped, true, true)
+                ENTITY.SET_ENTITY_INVINCIBLE(ped, true)
+                if ENTITY.SET_ENTITY_PROOFS then
+                    ENTITY.SET_ENTITY_PROOFS(ped, true, true, true, true, true, true, true, true)
+                end
+                PED.SET_PED_CAN_RAGDOLL(ped, false)
+                if PED.SET_PED_CAN_RAGDOLL_FROM_PLAYER_IMPACT then
+                    PED.SET_PED_CAN_RAGDOLL_FROM_PLAYER_IMPACT(ped, false)
+                end
+                if PED.SET_PED_CONFIG_FLAG then
+                    PED.SET_PED_CONFIG_FLAG(ped, 281, true) -- no ragdoll from fire
+                    PED.SET_PED_CONFIG_FLAG(ped, 430, true) -- no fire reactions
+                    PED.SET_PED_CONFIG_FLAG(ped, 208, true) -- no pain reactions
+                    PED.SET_PED_CONFIG_FLAG(ped, 118, true) -- no panic
+                end
+                if FIRE and FIRE.STOP_ENTITY_FIRE then
+                    FIRE.STOP_ENTITY_FIRE(ped)
+                end
+                PED.SET_BLOCKING_OF_NON_TEMPORARY_EVENTS(ped, true)
+                PED.SET_PED_COMBAT_ATTRIBUTES(ped, 46, true)
+                PED.SET_PED_CAN_BE_TARGETTED(ped, false)
+                ENTITY.SET_ENTITY_COLLISION(ped, true, true)
+            end)
+            table.insert(disciples, ped)
+            table.insert(S.activeKungFuDisciples, ped)
+        end
+    end
+    return disciples
+end
+
+local function applyKungFuAnimToAll(dict, anim, flag, disciples)
+    pcall(function()
+        local myPed = getLocalPed()
+        safePlayAnim(myPed, dict, anim, flag or 1)
+        if disciples then
+            for _, d in ipairs(disciples) do
+                if isValidEntity(d) then
+                    safePlayAnim(d, dict, anim, flag or 1)
+                end
+            end
+        end
+    end)
+end
+
+local function triggerChiGroundMandala(centerCoords, radius, elemType)
+    local asset = "core"
+    local fxName = "ent_sht_flame"
+    local scale = 1.0
+
+    if elemType == 1 then -- Fogo
+        asset = "core"
+        fxName = "ent_sht_flame"
+        scale = 0.8
+    elseif elemType == 2 then -- Raios
+        asset = "core"
+        fxName = "ent_amb_sparking_wires"
+        scale = 1.1
+    elseif elemType == 3 then -- Místico
+        asset = "scr_rcbarry2"
+        fxName = "scr_clown_appears"
+        scale = 0.5
+    end
+
+    local pts = 8
+    for i = 0, pts - 1 do
+        local angle = (i / pts) * (math.pi * 2)
+        local ox = centerCoords.x + math.cos(angle) * radius
+        local oy = centerCoords.y + math.sin(angle) * radius
+        local oz = centerCoords.z - 0.4
+        triggerPtfxAtCoord(asset, fxName, ox, oy, oz, scale)
+    end
+end
+
+local function triggerOrbitalChiRing(centerCoords, radius, currentZ, ringAngle, elemType)
+    local asset = "core"
+    local fxName = "ent_sht_flame"
+    local scale = 0.9
+
+    if elemType == 1 then -- Fogo
+        asset = "core"
+        fxName = "ent_sht_flame"
+        scale = 0.75
+    elseif elemType == 2 then -- Raios
+        asset = "core"
+        fxName = "ent_amb_sparking_wires"
+        scale = 1.0
+    elseif elemType == 3 then -- Místico
+        asset = "scr_alien"
+        fxName = "scr_alien_teleport"
+        scale = 0.85
+    end
+
+    local pts = 6
+    for i = 0, pts - 1 do
+        local angle = ringAngle + (i / pts) * (math.pi * 2)
+        local ox = centerCoords.x + math.cos(angle) * radius
+        local oy = centerCoords.y + math.sin(angle) * radius
+        triggerPtfxAtCoord(asset, fxName, ox, oy, currentZ, scale)
+    end
+end
+
+local function triggerChiVFormation(centerCoords, heading, currentZ, elemType, scale)
+    local asset = (elemType == 3) and "scr_rcbarry2" or "core"
+    local fxName = (elemType == 3) and "scr_clown_appears" or ((elemType == 1) and "ent_sht_flame" or "ent_amb_sparking_wires")
+    scale = scale or 1.0
+
+    local rad = math.rad(heading)
+    local fwdX = -math.sin(rad)
+    local fwdY = math.cos(rad)
+    local rightX = fwdY
+    local rightY = -fwdX
+
+    -- Pontos em V abrindo a partir do centro para trás (formato de asas / V flamejante)
+    local vOffsets = {
+        { fwd = 0.0, side = 0.0 },
+        { fwd = -1.2, side = -1.1 }, { fwd = -1.2, side = 1.1 },
+        { fwd = -2.4, side = -2.2 }, { fwd = -2.4, side = 2.2 },
+        { fwd = -3.6, side = -3.3 }, { fwd = -3.6, side = 3.3 }
+    }
+
+    for _, v in ipairs(vOffsets) do
+        local vx = centerCoords.x + fwdX * v.fwd + rightX * v.side
+        local vy = centerCoords.y + fwdY * v.fwd + rightY * v.side
+        triggerPtfxAtCoord(asset, fxName, vx, vy, currentZ, scale)
+    end
+end
+
+local function attachChiAuraToAll(disciples, elemType)
+    elemType = elemType or S.kungFuElementType or 1
+    local myPed = getLocalPed()
+    local allPeds = { myPed }
+    if disciples then
+        for _, d in ipairs(disciples) do
+            if isValidEntity(d) then table.insert(allPeds, d) end
+        end
+    end
+
+    local asset = "core"
+    local fxHand = "ent_sht_flame"
+    local fxWing = "ent_sht_flame"
+    local scale = 0.75
+
+    if elemType == 1 then -- Fogo / Chamas
+        asset = "core"
+        fxHand = "ent_sht_flame"
+        fxWing = "ent_sht_flame"
+        scale = 0.8
+    elseif elemType == 2 then -- Raios / Eletricidade
+        asset = "core"
+        fxHand = "ent_amb_sparking_wires"
+        fxWing = "ent_amb_sparking_wires"
+        scale = 0.95
+    elseif elemType == 3 then -- Místico / Alien / Espiritual
+        asset = "scr_rcbarry2"
+        fxHand = "scr_clown_appears"
+        fxWing = "scr_clown_death"
+        scale = 0.5
+    end
+
+    for _, p in ipairs(allPeds) do
+        -- Protege contra chamas e fogo
+        pcall(function()
+            if FIRE and FIRE.STOP_ENTITY_FIRE then FIRE.STOP_ENTITY_FIRE(p) end
+            if ENTITY.SET_ENTITY_PROOFS then ENTITY.SET_ENTITY_PROOFS(p, true, true, true, true, true, true, true, true) end
+        end)
+
+        -- ASAS / FORMATO DE "V" EM CHAMAS NAS COSTAS E OMBROS (Em vez de chama vertical no topo)
+        -- Haste Esquerda do V (Inclinada 45 graus para esquerda e cima)
+        attachPtfxToPedBone(p, asset, fxWing, 24818, -0.28, -0.18, 0.15, -20.0, -40.0, -35.0, scale * 1.15)
+        attachPtfxToPedBone(p, asset, fxWing, 64729, 0.15, -0.05, 0.1, -15.0, -45.0, -25.0, scale * 0.9)
+
+        -- Haste Direita do V (Inclinada 45 graus para direita e cima)
+        attachPtfxToPedBone(p, asset, fxWing, 24818, 0.28, -0.18, 0.15, -20.0, 40.0, 35.0, scale * 1.15)
+        attachPtfxToPedBone(p, asset, fxWing, 10706, -0.15, -0.05, 0.1, -15.0, 45.0, 25.0, scale * 0.9)
+
+        -- Mãos (SKEL_L_Hand: 18905, SKEL_R_Hand: 57005)
+        attachPtfxToPedBone(p, asset, fxHand, 18905, 0.05, 0.0, 0.0, 0.0, 0.0, 0.0, scale * 0.9)
+        attachPtfxToPedBone(p, asset, fxHand, 57005, 0.05, 0.0, 0.0, 0.0, 0.0, 0.0, scale * 0.9)
+
+        -- Pés (SKEL_L_Foot: 14201, SKEL_R_Foot: 52397)
+        attachPtfxToPedBone(p, asset, fxHand, 14201, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, scale * 0.8)
+        attachPtfxToPedBone(p, asset, fxHand, 52397, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, scale * 0.8)
+    end
+end
+
+local function stopKungFuShow()
+    S.kungFuShowRunning = false
+    S.kungFuLoopActive = false
+    S.kungFuSessionId = S.kungFuSessionId + 1
+
+    stopAllKungFuPtfx()
+    cleanupKungFuDisciples()
+    pcall(function()
+        local ped = getLocalPed()
+        ENTITY.FREEZE_ENTITY_POSITION(ped, false)
+        if FIRE and FIRE.STOP_ENTITY_FIRE then FIRE.STOP_ENTITY_FIRE(ped) end
+        TASK.CLEAR_PED_TASKS_IMMEDIATELY(ped)
+        PED.SET_PED_CAN_RAGDOLL(ped, not S.disableRagdoll)
+    end)
+    notify.info("Kung Fu", "Apresentacao marcial finalizada.")
+end
+
+local function triggerKungFuImpact(x, y, z, elementType)
+    script.run_in_callback(function()
+        -- 1. Flash branco no ponto de impacto
+        pcall(function()
+            if GRAPHICS and GRAPHICS.SET_FLASH then
+                GRAPHICS.SET_FLASH(0, 0, 0.15, 200, 100)
+            end
+        end)
+
+        -- 2. Particle de impacto baseado no elemento
+        local ptfxDict, ptfxName
+        if elementType == 1 then
+            ptfxDict, ptfxName = "core", "ent_sht_flame"
+        elseif elementType == 2 then
+            ptfxDict, ptfxName = "core", "ent_amb_sparks_electrical_cracker"
+        else
+            ptfxDict, ptfxName = "scr_alien", "scr_alien_teleport"
+        end
+
+        requestPtfxAsset(ptfxDict)
+        if GRAPHICS and GRAPHICS.USE_PARTICLE_FX_ASSET then GRAPHICS.USE_PARTICLE_FX_ASSET(ptfxDict) end
+        pcall(function()
+            if GRAPHICS and GRAPHICS.START_PARTICLE_FX_NON_LOOPED_AT_COORD then
+                GRAPHICS.START_PARTICLE_FX_NON_LOOPED_AT_COORD(ptfxName, x, y, z, 0.0, 0.0, 0.0, 2.5, false, false, false)
+            end
+        end)
+
+        -- 3. Onda de choque circular expandindo no chao (3 aneis em 180ms)
+        requestPtfxAsset("scr_arena_war")
+        if GRAPHICS and GRAPHICS.USE_PARTICLE_FX_ASSET then GRAPHICS.USE_PARTICLE_FX_ASSET("scr_arena_war") end
+        for wave = 1, 3 do
+            pcall(function()
+                if GRAPHICS and GRAPHICS.START_PARTICLE_FX_NON_LOOPED_AT_COORD then
+                    GRAPHICS.START_PARTICLE_FX_NON_LOOPED_AT_COORD(
+                        "scr_ar_ground_pound", x, y, z - 0.3,
+                        0.0, 0.0, 0.0,
+                        0.4 + wave * 0.5,
+                        false, false, false
+                    )
+                end
+            end)
+            script.yield(60)
+        end
+    end)
+end
+
+local function startKungFuShow(isContinuousLoop)
+    if S.kungFuShowRunning then
+        stopKungFuShow()
+        script.yield(150)
+    end
+
+    S.kungFuShowRunning = true
+    S.kungFuLoopActive = isContinuousLoop or false
+    S.kungFuSessionId = S.kungFuSessionId + 1
+    local currentSession = S.kungFuSessionId
+
+    script.run_in_callback(function()
+        local ped = getLocalPed()
+        if not isValidEntity(ped) then return end
+
+        local pCoords = ENTITY.GET_ENTITY_COORDS(ped, true)
+        local heading = ENTITY.GET_ENTITY_HEADING(ped)
+
+        notify.success("Kung Fu", "Apresentacao do Mestre de Kung Fu iniciada!")
+
+        -- Imunidade total ao jogador local
+        pcall(function()
+            ENTITY.SET_ENTITY_INVINCIBLE(ped, true)
+            if ENTITY.SET_ENTITY_PROOFS then
+                ENTITY.SET_ENTITY_PROOFS(ped, true, true, true, true, true, true, true, true)
+            end
+            PED.SET_PED_CAN_RAGDOLL(ped, false)
+            if FIRE and FIRE.STOP_ENTITY_FIRE then FIRE.STOP_ENTITY_FIRE(ped) end
+        end)
+
+        -- Spawn dos discípulos sincronizados se ativado
+        local disciples = {}
+        if S.kungFuWithDisciples then
+            disciples = spawnKungFuDisciples(pCoords, heading)
+        end
+
+        local allPeds = { ped }
+        for _, d in ipairs(disciples) do table.insert(allPeds, d) end
+
+        local function checkContinue()
+            return S.kungFuShowRunning and S.kungFuSessionId == currentSession and isValidEntity(getLocalPed())
+        end
+
+        repeat
+            -- ============================================================
+            -- FASE 1: DESPERTAR DA MANDALA SAGRADA & SAUDACAO FORMAL
+            -- ============================================================
+            if not checkContinue() then break end
+
+            -- Círculo / Mandala sagrada de 8 pontos no chão ao redor do jogador
+            triggerChiGroundMandala(pCoords, 4.0, S.kungFuElementType)
+            triggerChiVFormation(pCoords, heading, pCoords.z - 0.4, S.kungFuElementType, 1.2)
+            triggerPtfxAtCoord("scr_rcbarry2", "scr_clown_appears", pCoords.x, pCoords.y, pCoords.z - 0.5, 2.4)
+            triggerPtfxAtCoord("scr_alien", "scr_alien_teleport", pCoords.x, pCoords.y, pCoords.z - 0.5, 1.8)
+
+            -- Saudação formal Bruce Lee
+            applyKungFuAnimToAll("anim@mp_player_intcelebrationmale@bruce_lee", "bruce_lee", 0, disciples)
+            script.yield(800)
+
+            -- Cortes de palma marciais rápidos no solo
+            if not checkContinue() then break end
+            applyKungFuAnimToAll("anim@mp_player_intcelebrationmale@karate_chops", "karate_chops", 0, disciples)
+            script.yield(800)
+
+            -- Ativação da aura de Chi em formato de V
+            if not checkContinue() then break end
+            attachChiAuraToAll(disciples, S.kungFuElementType)
+            script.yield(600)
+
+            -- ============================================================
+            -- FASE 2: DECOLAGEM EXPLOSIVA RAPIDA & VORTICE EM V SUBINDO
+            -- ============================================================
+            if not checkContinue() then break end
+
+            applyKungFuAnimToAll("rcmme_amanda1", "stand_loop_amanda", 1, disciples)
+
+            -- Explosão de decolagem no solo
+            triggerPtfxAtCoord("scr_arena_war", "scr_ar_ground_pound", pCoords.x, pCoords.y, pCoords.z - 0.5, 2.5)
+            triggerPtfxAtCoord("scr_rcbarry2", "scr_clown_death", pCoords.x, pCoords.y, pCoords.z - 0.5, 2.0)
+            triggerChiGroundMandala(pCoords, 4.2, S.kungFuElementType)
+
+            -- Subida rápida e potente até 5.5m no ar com fogo em V
+            local liftHeight = 5.5
+            local liftTicks = 14
+            local ringAngle = 0.0
+
+            for step = 1, liftTicks do
+                if not checkContinue() then break end
+                local progress = step / liftTicks
+                local smoothFactor = progress * progress * (3.0 - 2.0 * progress)
+                local curOffset = smoothFactor * liftHeight
+
+                for _, p in ipairs(allPeds) do
+                    if isValidEntity(p) then
+                        local curC = ENTITY.GET_ENTITY_COORDS(p, true)
+                        ENTITY.FREEZE_ENTITY_POSITION(p, true)
+                        ENTITY.SET_ENTITY_COORDS_NO_OFFSET(p, curC.x, curC.y, (pCoords.z + curOffset), false, false, false)
+                    end
+                end
+
+                ringAngle = ringAngle + 0.45
+                triggerOrbitalChiRing(pCoords, 3.2, pCoords.z + curOffset, ringAngle, S.kungFuElementType)
+                triggerChiVFormation(pCoords, heading, pCoords.z + curOffset, S.kungFuElementType, 1.1)
+                script.yield(25)
+            end
+
+            -- ============================================================
+            -- FASE 3: KATA FLUIDO COM ANEL DE CHI GIRATORIO EM ORBITA (DINAMICO)
+            -- ============================================================
+            local floatTicks = 0
+            while floatTicks < 22 and checkContinue() do
+                script.yield(50)
+                floatTicks = floatTicks + 1
+                ringAngle = ringAngle + 0.4
+                -- Anel girando ao redor do jogador no ar
+                triggerOrbitalChiRing(pCoords, 3.5, pCoords.z + liftHeight, ringAngle, S.kungFuElementType)
+
+                if floatTicks % 6 == 0 then
+                    -- Pulsos da mandala no chão diretamente abaixo
+                    triggerChiGroundMandala(pCoords, 4.0, S.kungFuElementType)
+                    local curLocal = ENTITY.GET_ENTITY_COORDS(getLocalPed(), true)
+                    triggerPtfxAtCoord(S.kungFuElementType == 1 and "core" or "scr_alien", S.kungFuElementType == 1 and "ent_sht_flame" or "scr_alien_teleport", curLocal.x, curLocal.y, curLocal.z - 0.2, 1.3)
+                end
+            end
+
+            -- ============================================================
+            -- FASE 4: COMBO MARCIAL COMPLETO COM IMPACTOS 20MM SINCRONIZADOS
+            -- ============================================================
+            if not checkContinue() then break end
+
+            -- 1. Rajada de socos ferozes com impactos de 20mm nos punhos
+            applyKungFuAnimToAll("anim@mp_player_intcelebrationmale@shadow_boxing", "shadow_boxing", 1, disciples)
+
+            local punchTicks = 0
+            while punchTicks < 24 and checkContinue() do
+                script.yield(45)
+                punchTicks = punchTicks + 1
+                ringAngle = ringAngle + 0.45
+                triggerOrbitalChiRing(pCoords, 3.2, pCoords.z + liftHeight, ringAngle, S.kungFuElementType)
+
+                -- Flash + onda de choque a cada sequencia de socos
+                if punchTicks % 5 == 0 then
+                    local fwdX = -math.sin(math.rad(heading))
+                    local fwdY = math.cos(math.rad(heading))
+                    local hitX = pCoords.x + fwdX * 2.5 + (math.random(-5, 5) / 10.0)
+                    local hitY = pCoords.y + fwdY * 2.5 + (math.random(-5, 5) / 10.0)
+                    local hitZ = pCoords.z + liftHeight + 0.3
+                    triggerKungFuImpact(hitX, hitY, hitZ, S.kungFuElementType)
+                end
+            end
+
+            if not checkContinue() then break end
+            -- 2. Chute acrobático giratório 360 no ar
+            applyKungFuAnimToAll("anim@arena@celeb@flat@solo@no_props@", "kick_flip_a", 0, disciples)
+            triggerOrbitalChiRing(pCoords, 3.8, pCoords.z + liftHeight, ringAngle + 1.2, S.kungFuElementType)
+            script.yield(900)
+
+            if not checkContinue() then break end
+            -- 3. Movimento de chute acrobático estilo capoeira no ar
+            applyKungFuAnimToAll("anim@arena@celeb@flat@solo@no_props@", "capoeira", 0, disciples)
+            triggerOrbitalChiRing(pCoords, 3.8, pCoords.z + liftHeight, ringAngle + 2.0, S.kungFuElementType)
+            script.yield(950)
+
+            if not checkContinue() then break end
+            -- 4. Golpe final cortante de karatê com explosões 20mm nos lados
+            applyKungFuAnimToAll("anim@mp_player_intcelebrationmale@karate_chops", "karate_chops", 0, disciples)
+            triggerOrbitalChiRing(pCoords, 3.5, pCoords.z + liftHeight, ringAngle + 2.8, S.kungFuElementType)
+
+            pcall(function()
+                local fwdX = -math.sin(math.rad(heading))
+                local fwdY = math.cos(math.rad(heading))
+                local rX = fwdY
+                local rY = -fwdX
+                if FIRE and FIRE.ADD_EXPLOSION then
+                    FIRE.ADD_EXPLOSION(pCoords.x + fwdX * 2.0 + rX * 1.5, pCoords.y + fwdY * 2.0 + rY * 1.5, pCoords.z + liftHeight, 38, 0.0, false, false, 0.0)
+                    FIRE.ADD_EXPLOSION(pCoords.x + fwdX * 2.0 - rX * 1.5, pCoords.y + fwdY * 2.0 - rY * 1.5, pCoords.z + liftHeight, 38, 0.0, false, false, 0.0)
+                end
+            end)
+            script.yield(900)
+
+            -- ============================================================
+            -- FASE 5: DESCIDA SUAVE E POUSO DE GRÃO-MESTRE
+            -- ============================================================
+            if not checkContinue() then break end
+
+            applyKungFuAnimToAll("rcmme_amanda1", "stand_loop_amanda", 1, disciples)
+
+            -- Descida suave de volta ao solo (rápida e precisa)
+            local descendTicks = 22
+            for step = 1, descendTicks do
+                if not checkContinue() then break end
+                local progress = step / descendTicks
+                local smoothFactor = (1.0 - progress) * (1.0 - progress) * (3.0 - 2.0 * (1.0 - progress))
+                local curOffset = smoothFactor * liftHeight
+
+                for _, p in ipairs(allPeds) do
+                    if isValidEntity(p) then
+                        local curC = ENTITY.GET_ENTITY_COORDS(p, true)
+                        ENTITY.SET_ENTITY_COORDS_NO_OFFSET(p, curC.x, curC.y, (pCoords.z + curOffset), false, false, false)
+                    end
+                end
+
+                ringAngle = ringAngle + 0.35
+                -- O anel vai se contraindo em direção ao centro conforme o jogador desce (implosão)
+                local currentRadius = 1.0 + smoothFactor * 2.5
+                triggerOrbitalChiRing(pCoords, currentRadius, pCoords.z + curOffset, ringAngle, S.kungFuElementType)
+                script.yield(25)
+            end
+
+            -- Descongela a posição para física natural no solo
+            for _, p in ipairs(allPeds) do
+                if isValidEntity(p) then
+                    ENTITY.FREEZE_ENTITY_POSITION(p, false)
+                    if PED and PED.SET_PED_TO_RAGDOLL then PED.SET_PED_CAN_RAGDOLL(p, false) end
+                end
+            end
+
+            -- Grande onda de choque e pulso da mandala ao pousar
+            triggerChiGroundMandala(pCoords, 4.5, S.kungFuElementType)
+            triggerPtfxAtCoord("scr_alien", "scr_alien_teleport", pCoords.x, pCoords.y, pCoords.z - 0.4, 2.2)
+            triggerPtfxAtCoord("scr_rcbarry2", "scr_clown_appears", pCoords.x, pCoords.y, pCoords.z - 0.4, 2.0)
+            triggerPtfxAtCoord("scr_arena_war", "scr_ar_ground_pound", pCoords.x, pCoords.y, pCoords.z - 0.4, 2.2)
+
+            -- Reverência final de respeito
+            stopAllKungFuPtfx()
+            applyKungFuAnimToAll("anim@mp_player_intcelebrationmale@ninja", "ninja", 0, disciples)
+            script.yield(1600)
+
+        until not S.kungFuLoopActive or not checkContinue()
+
+        if checkContinue() then
+            stopKungFuShow()
+            notify.success("Kung Fu", "Apresentacao concluida com honra e perfeicao!")
+        end
+    end)
+end
+
+local function playIndividualKungFuMove(moveType)
+    script.run_in_callback(function()
+        local ped = getLocalPed()
+        if not isValidEntity(ped) then return end
+        stopAllKungFuPtfx()
+        attachChiAuraToAll(nil, S.kungFuElementType)
+
+        if moveType == 1 then -- Tai Chi
+            safePlayAnim(ped, "rcmme_amanda1", "stand_loop_amanda", 1)
+        elseif moveType == 2 then -- Shadow Boxing
+            safePlayAnim(ped, "anim@mp_player_intcelebrationmale@shadow_boxing", "shadow_boxing", 1)
+            script.yield(400)
+            local pCoords2 = ENTITY.GET_ENTITY_COORDS(ped, true)
+            local fwdX2 = -math.sin(math.rad(ENTITY.GET_ENTITY_HEADING(ped)))
+            local fwdY2 = math.cos(math.rad(ENTITY.GET_ENTITY_HEADING(ped)))
+            triggerKungFuImpact(pCoords2.x + fwdX2 * 2.0, pCoords2.y + fwdY2 * 2.0, pCoords2.z + 0.5, S.kungFuElementType)
+        elseif moveType == 3 then -- Kick Flip 360
+            safePlayAnim(ped, "anim@arena@celeb@flat@solo@no_props@", "kick_flip_a", 0)
+            script.yield(350)
+            local pCoords3 = ENTITY.GET_ENTITY_COORDS(ped, true)
+            triggerKungFuImpact(pCoords3.x, pCoords3.y, pCoords3.z, S.kungFuElementType)
+        elseif moveType == 4 then -- Bruce Lee Pose
+            safePlayAnim(ped, "anim@mp_player_intcelebrationmale@bruce_lee", "bruce_lee", 0)
+        elseif moveType == 5 then -- Levitação Solo (5.5m + Mandala)
+            local pCoords = ENTITY.GET_ENTITY_COORDS(ped, true)
+            safePlayAnim(ped, "rcmme_amanda1", "stand_loop_amanda", 1)
+            triggerChiGroundMandala(pCoords, 4.0, S.kungFuElementType)
+            triggerPtfxAtCoord("scr_arena_war", "scr_ar_ground_pound", pCoords.x, pCoords.y, pCoords.z - 0.5, 2.2)
+
+            -- Subida rápida 5.5m
+            for step = 1, 16 do
+                local curC = ENTITY.GET_ENTITY_COORDS(ped, true)
+                ENTITY.FREEZE_ENTITY_POSITION(ped, true)
+                ENTITY.SET_ENTITY_COORDS_NO_OFFSET(ped, curC.x, curC.y, pCoords.z + (step / 16 * 5.5), false, false, false)
+                triggerOrbitalChiRing(pCoords, 3.2, pCoords.z + (step / 16 * 5.5), step * 0.4, S.kungFuElementType)
+                script.yield(25)
+            end
+            script.yield(1800)
+            -- Descida suave
+            for step = 25, 1, -1 do
+                local curC = ENTITY.GET_ENTITY_COORDS(ped, true)
+                ENTITY.SET_ENTITY_COORDS_NO_OFFSET(ped, curC.x, curC.y, pCoords.z + (step / 25 * 5.5), false, false, false)
+                triggerOrbitalChiRing(pCoords, (step / 25 * 3.0), pCoords.z + (step / 25 * 5.5), step * 0.3, S.kungFuElementType)
+                script.yield(25)
+            end
+            ENTITY.FREEZE_ENTITY_POSITION(ped, false)
+            triggerChiGroundMandala(pCoords, 4.2, S.kungFuElementType)
+            triggerPtfxAtCoord("scr_rcbarry2", "scr_clown_appears", pCoords.x, pCoords.y, pCoords.z - 0.5, 1.8)
+        elseif moveType == 6 then -- Combo Aéreo Completo Solo
+            local pCoords = ENTITY.GET_ENTITY_COORDS(ped, true)
+            safePlayAnim(ped, "anim@arena@celeb@flat@solo@no_props@", "kick_flip_a", 0)
+            script.yield(350)
+            triggerKungFuImpact(pCoords.x, pCoords.y, pCoords.z, S.kungFuElementType)
+            triggerPtfxAtCoord("core", "ent_sht_flame", pCoords.x, pCoords.y, pCoords.z, 2.0)
+            script.yield(550)
+            safePlayAnim(ped, "anim@arena@celeb@flat@solo@no_props@", "capoeira", 0)
+            script.yield(300)
+            triggerKungFuImpact(pCoords.x, pCoords.y, pCoords.z, S.kungFuElementType)
+            triggerPtfxAtCoord("core", "ent_amb_sparking_wires", pCoords.x, pCoords.y, pCoords.z, 2.0)
+            script.yield(600)
+            safePlayAnim(ped, "anim@mp_player_intcelebrationmale@karate_chops", "karate_chops", 0)
+            script.yield(200)
+            triggerKungFuImpact(pCoords.x, pCoords.y, pCoords.z, S.kungFuElementType)
+        end
+    end)
+end
+
+local function renderTabKungFuMaster()
+    if not imgui.begin_tab_item("Mestre Kung Fu") then return end
+    imgui.spacing()
+    imgui.text("Apresentacao Marcial & Mestre do Chi (Kung Fu Show)")
+    imgui.separator()
+    imgui.spacing()
+
+    if S.kungFuShowRunning then
+        if imgui.button(">> PARAR APRESENTACAO DE KUNG FU <<##stop_kf_btn") then
+            stopKungFuShow()
+        end
+    else
+        if imgui.button(">> INICIAR SHOW COMPLETO DE KUNG FU (5 ATOS) <<##start_kf_btn") then
+            startKungFuShow(false)
+        end
+        imgui.same_line()
+        if imgui.button(">> MODO KATA CONTINUO (TREINO INFINITO) <<##loop_kf_btn") then
+            startKungFuShow(true)
+        end
+    end
+
+    imgui.spacing(); imgui.separator(); imgui.spacing()
+    imgui.text("Elemento de Energia do Chi:")
+    if imgui.button((S.kungFuElementType == 1 and "[X] Fogo / Chamas" or "[  ] Fogo / Chamas") .. "##kf_el_1") then S.kungFuElementType = 1 end
+    imgui.same_line()
+    if imgui.button((S.kungFuElementType == 2 and "[X] Raios / Eletricidade" or "[  ] Raios / Eletricidade") .. "##kf_el_2") then S.kungFuElementType = 2 end
+    imgui.same_line()
+    if imgui.button((S.kungFuElementType == 3 and "[X] Mistico / Espiritual" or "[  ] Mistico / Espiritual") .. "##kf_el_3") then S.kungFuElementType = 3 end
+
+    imgui.spacing(); imgui.separator(); imgui.spacing()
+    imgui.text("Apresentacao em Grupo (Discipulos / Dojô):")
+    local cDisc, vDisc = imgui.checkbox("Ativar Discipulos Sincronizados em Formacao##kf_disc_chk", S.kungFuWithDisciples)
+    if cDisc then S.kungFuWithDisciples = vDisc end
+
+    if S.kungFuWithDisciples then
+        imgui.same_line()
+        imgui.text("Quantidade:")
+        imgui.same_line()
+        if imgui.button((S.kungFuDisciplesCount == 2 and "[X] 2 Discipulos" or "[  ] 2 Discipulos") .. "##kf_cnt_2") then S.kungFuDisciplesCount = 2 end
+        imgui.same_line()
+        if imgui.button((S.kungFuDisciplesCount == 4 and "[X] 4 Discipulos" or "[  ] 4 Discipulos") .. "##kf_cnt_4") then S.kungFuDisciplesCount = 4 end
+    end
+
+    imgui.spacing(); imgui.separator(); imgui.spacing()
+    imgui.text("Golpes & Posturas Individuais:")
+    if imgui.button("Kata Tai Chi (Postura da Garca)##kf_m1") then playIndividualKungFuMove(1) end
+    imgui.same_line()
+    if imgui.button("Socos Relampago (Shadow Boxing)##kf_m2") then playIndividualKungFuMove(2) end
+
+    if imgui.button("Chute Giratorio 360 (Acrobatico)##kf_m3") then playIndividualKungFuMove(3) end
+    imgui.same_line()
+    if imgui.button("Postura Bruce Lee (Guarda)##kf_m4") then playIndividualKungFuMove(4) end
+    imgui.same_line()
+    if imgui.button("Levitacao Flutuante de Chi##kf_m5") then playIndividualKungFuMove(5) end
+
+    imgui.spacing()
+    if imgui.button(">> Combo Marcial Completo (Chutes & Cortes) <<##kf_m6") then playIndividualKungFuMove(6) end
+
+    imgui.spacing()
+    if imgui.button("Limpar Discipulos & Efeitos##kf_clear_btn") then
+        stopKungFuShow()
+    end
+
+    imgui.end_tab_item()
+end
+
+------------------------------------------------------------
+-- [PLACEHOLDER: NOVA FEATURE EM BREVE]
+------------------------------------------------------------
+
+local function renderTabNYCTraffic()
+    -- TAB PLACEHOLDER: sera substituida por nova feature
+    if not imgui.begin_tab_item("Extra") then return end
+    imgui.spacing()
+    imgui.text("Funcionalidade em desenvolvimento...")
+    imgui.end_tab_item()
+end
+
+
+
 
 ------------------------------------------------------------
 -- CUTSCENES ONLINE
@@ -3472,7 +4314,11 @@ local function renderTabAreaChaos()
     if cShield then S.vehicleShieldActive = vShield; if S.vehicleShieldActive then startVehicleShieldLoop() end end
 
     imgui.spacing()
-    if imgui.button("Boliche Vertical de Onibus (Panto Launcher)##bus_bowl_btn") then setupBusBowling() end
+    if imgui.button("Montar Boliche Vertical (10 Pinos)##bus_bowl_btn") then setupBusBowling() end
+    imgui.same_line()
+    if imgui.button(">> LANCAR PANTO (STRIKE!) <<##launch_bowl_btn") then launchBowlingPanto() end
+    imgui.same_line()
+    if imgui.button("Limpar Boliche##clear_bowl_btn") then clearBusBowling() end
     imgui.same_line()
     if imgui.button("Muralha Fortaleza de Onibus##fort_btn") then triggerBusFortressWall() end
 
@@ -3778,6 +4624,8 @@ local function renderGUI()
     renderTabAirdrop()
     renderTabVehicleControls()
     renderTabAreaChaos()
+    renderTabKungFuMaster()
+    renderTabNYCTraffic()
     renderTabStuntTracks()
     renderTabArenaObjectSpawner()
     renderTabPlayerAttachments()
