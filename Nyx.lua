@@ -5993,15 +5993,130 @@ if event and event.register_handler and menu_event and menu_event.Unload then
     end)
 end
 
-notify.info("Nyx", "Nyx carregado com sucesso!")
-pcall(function()
-    if AUDIO and AUDIO.PLAY_SOUND_FRONTEND then
-        AUDIO.PLAY_SOUND_FRONTEND(-1, "CHECKPOINT_PERFECT", "HUD_MINI_GAME_SOUNDSET", true)
+local NyxColorThemes = {
+    cyberpunk = {
+        title = "~p~N~q~y~b~x",
+        subtitle = "~w~A ~p~NewWay ~s~Script",
+        shardCol = 0
+    },
+    rainbow = {
+        title = "~r~N~y~y~g~x",
+        subtitle = "~y~A ~g~NewWay ~b~Script",
+        shardCol = 0
+    },
+    electric_blue = {
+        title = "~b~N~c~y~p~x",
+        subtitle = "~w~A ~b~NewWay ~s~Script",
+        shardCol = 0
+    },
+    sunset_fire = {
+        title = "~y~N~o~y~r~x",
+        subtitle = "~w~A ~o~NewWay ~s~Script",
+        shardCol = 0
+    },
+    matrix_green = {
+        title = "~g~N~g~y~w~x",
+        subtitle = "~w~A ~g~NewWay ~s~Script",
+        shardCol = 0
+    },
+    gold_luxury = {
+        title = "~HUD_COLOUR_GOLD~N~y~y~w~x",
+        subtitle = "~w~A ~HUD_COLOUR_GOLD~NewWay ~s~Script",
+        shardCol = 0
+    }
+}
+
+local function showNyxWelcomeMessage(themeNameOrTitle, subtitle, durationMs)
+    local theme = nil
+    local titleFormatted = nil
+    local subtitleFormatted = nil
+    local shardCol = 0
+
+    if type(themeNameOrTitle) == "string" and NyxColorThemes[themeNameOrTitle] then
+        theme = NyxColorThemes[themeNameOrTitle]
+        titleFormatted = theme.title
+        subtitleFormatted = theme.subtitle
+        shardCol = theme.shardCol or 0
+    elseif type(themeNameOrTitle) == "string" and themeNameOrTitle ~= "" then
+        titleFormatted = themeNameOrTitle
+        subtitleFormatted = subtitle or "~w~A ~p~NewWay ~s~Script"
+    else
+        theme = NyxColorThemes.cyberpunk
+        titleFormatted = theme.title
+        subtitleFormatted = theme.subtitle
     end
-    if GRAPHICS and GRAPHICS.ANIMPOSTFX_PLAY then
-        GRAPHICS.ANIMPOSTFX_PLAY("CamPushInNeutral", 800, false)
+
+    durationMs = durationMs or 4000
+
+    -- 1. NewWay UI Notification Toast
+    notify.info("Nyx", "A NewWay Script")
+
+    -- 2. GTA V Feed Post Notification (above mini-map)
+    pcall(function()
+        if HUD and HUD.BEGIN_TEXT_COMMAND_THEFEED_POST then
+            HUD.BEGIN_TEXT_COMMAND_THEFEED_POST("STRING")
+            HUD.ADD_TEXT_COMPONENT_SUBSTRING_PLAYER_NAME(tostring(subtitleFormatted))
+            if HUD.END_TEXT_COMMAND_THEFEED_POST_MESSAGETEXT then
+                HUD.END_TEXT_COMMAND_THEFEED_POST_MESSAGETEXT("CHAR_ALL_PLAYERS_CONF", "CHAR_ALL_PLAYERS_CONF", true, 4, tostring(titleFormatted), "~b~Script Loaded")
+            elseif HUD.END_TEXT_COMMAND_THEFEED_POST_TICKER then
+                HUD.END_TEXT_COMMAND_THEFEED_POST_TICKER(false, true)
+            end
+        end
+    end)
+
+    -- 3. GTA V On-Screen Subtitle Message (bottom center)
+    pcall(function()
+        if HUD and HUD.BEGIN_TEXT_COMMAND_PRINT then
+            HUD.BEGIN_TEXT_COMMAND_PRINT("STRING")
+            HUD.ADD_TEXT_COMPONENT_SUBSTRING_PLAYER_NAME(tostring(titleFormatted) .. " ~s~- " .. tostring(subtitleFormatted))
+            HUD.END_TEXT_COMMAND_PRINT(durationMs, true)
+        end
+    end)
+
+    -- 4. GTA Online Big Shard Screen Banner (Scaleform Center Screen)
+    if script and script.run_in_callback then
+        script.run_in_callback(function()
+            pcall(function()
+                if not GRAPHICS or not GRAPHICS.REQUEST_SCALEFORM_MOVIE then return end
+                local sf = GRAPHICS.REQUEST_SCALEFORM_MOVIE("MP_BIG_MESSAGE_FREEMODE")
+                local maxWait = 0
+                while not GRAPHICS.HAS_SCALEFORM_MOVIE_LOADED(sf) and maxWait < 80 do
+                    script.yield(10)
+                    maxWait = maxWait + 1
+                end
+
+                if GRAPHICS.HAS_SCALEFORM_MOVIE_LOADED(sf) then
+                    GRAPHICS.BEGIN_SCALEFORM_MOVIE_METHOD(sf, "SHOW_SHARD_CENTERED_MP_MESSAGE")
+                    GRAPHICS.SCALEFORM_MOVIE_METHOD_ADD_PARAM_PLAYER_NAME_STRING(tostring(titleFormatted))
+                    GRAPHICS.SCALEFORM_MOVIE_METHOD_ADD_PARAM_PLAYER_NAME_STRING(tostring(subtitleFormatted))
+                    GRAPHICS.SCALEFORM_MOVIE_METHOD_ADD_PARAM_INT(shardCol)
+                    GRAPHICS.END_SCALEFORM_MOVIE_METHOD()
+
+                    local start = (MISC and MISC.GET_GAME_TIMER and MISC.GET_GAME_TIMER()) or 0
+                    while (((MISC and MISC.GET_GAME_TIMER and MISC.GET_GAME_TIMER()) or 0) - start) < durationMs do
+                        GRAPHICS.DRAW_SCALEFORM_MOVIE_FULLSCREEN(sf, 255, 255, 255, 255, 0)
+                        script.yield(0)
+                    end
+                    GRAPHICS.SET_SCALEFORM_MOVIE_AS_NO_LONGER_NEEDED(sf)
+                end
+            end)
+        end)
     end
-end)
+
+    -- 5. Sound & Camera Effects
+    pcall(function()
+        if AUDIO and AUDIO.PLAY_SOUND_FRONTEND then
+            AUDIO.PLAY_SOUND_FRONTEND(-1, "CHECKPOINT_PERFECT", "HUD_MINI_GAME_SOUNDSET", true)
+        end
+        if GRAPHICS and GRAPHICS.ANIMPOSTFX_PLAY then
+            GRAPHICS.ANIMPOSTFX_PLAY("CamPushInNeutral", 800, false)
+        end
+    end)
+end
+
+showNyxWelcomeMessage("cyberpunk", nil, 4000)
+
 if log and log.info then
     log.info("Nyx.lua loaded successfully! Enjoy.")
 end
+

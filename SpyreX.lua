@@ -73,8 +73,6 @@ local S = {
     customAttachBoneId = 24818,
     attachPresetModeAll = false,
     isAttachmentKeeperRunning = false,
-    angelFloatieObject = nil,
-    angelFloatieActive = false,
 
     -- Weather & Time
     halloweenModeActive = false,
@@ -82,10 +80,6 @@ local S = {
     fastTimeActive = false,
     fastTimeLoopRunning = false,
     fastTimeSpeed = 15,
-
-    -- Cutscenes
-    customCutsceneName = "MP_INTRO_LAMAR_DRIVE_SCENE",
-    selectedCutscenePid = -1,
 
     -- Jets (Dogfight)
     activeDogfightJets = {},
@@ -102,14 +96,6 @@ local S = {
     muteEarRapeLocal = true,
     earRapeStepIndex = 0,
     selectedEarRapePid = -2,
-
-    -- Contact Invites
-    contactSelectedPid = -1,
-    contactSubject = "Convite para atividade",
-    contactActivity = "Penthouse",
-    contactIconType = 7,
-    contactDelayMs = 450,
-    contactIsSpamming = false,
 
     -- Airdrop
     airdropLocationMode = 1,
@@ -226,38 +212,8 @@ local Presets = {
         { name = "Taser Eletrico Choque", model = "WEAPON_STUNGUN" },
         { name = "Minigun Alienigena", model = "WEAPON_RAYMINIGUN" },
         { name = "Pistola Gravitacional", model = "WEAPON_RAYPISTOL" },
-        { name = "Lanca Granadas Pesado", model = "WEAPON_GRENADELAUNCHER" },
-        { name = "Lanca Misseis Guiados", model = "WEAPON_HOMINGLAUNCHER" }
-    },
-
-    contacts = {
-        { name = "Abigail", txd = "CHAR_ABIGAIL" },
-        { name = "Amanda", txd = "CHAR_AMANDA" },
-        { name = "Ammu-Nation", txd = "CHAR_AMMUNATION" },
-        { name = "Andreas", txd = "CHAR_ANDREAS" },
-        { name = "Antonia", txd = "CHAR_ANTONIA" },
-        { name = "Arthur", txd = "CHAR_ARTHUR" },
-        { name = "Ashley", txd = "CHAR_ASHLEY" },
-        { name = "Fleeca Bank", txd = "CHAR_BANK_FLEECA" },
-        { name = "Maze Bank", txd = "CHAR_BANK_MAZE" },
-        { name = "Barry", txd = "CHAR_BARRY" },
-        { name = "Beverly", txd = "CHAR_BEVERLY" },
-        { name = "Chef", txd = "CHAR_CHEF" },
-        { name = "Cheng", txd = "CHAR_CHENG" },
-        { name = "Dave", txd = "CHAR_DAVE" },
-        { name = "Denise", txd = "CHAR_DENISE" },
-        { name = "Franklin", txd = "CHAR_FRANKLIN" },
-        { name = "Hao", txd = "CHAR_HAO" },
-        { name = "Jimmy", txd = "CHAR_JIMMY" },
-        { name = "Lamar", txd = "CHAR_LAMAR" },
-        { name = "Lazlow", txd = "CHAR_LAZLOW" },
-        { name = "Lester", txd = "CHAR_LESTER" },
-        { name = "Martin Madrazo", txd = "CHAR_MARTIN" },
-        { name = "Michael", txd = "CHAR_MICHAEL" },
-        { name = "Pegasus", txd = "CHAR_PEGASUS_DELIVERY" },
-        { name = "Ron", txd = "CHAR_RON" },
-        { name = "Simeon", txd = "CHAR_SIMEON" },
-        { name = "Trevor", txd = "CHAR_TREVOR" }
+        { name = "Combat MG Mk2", model = "WEAPON_COMBATMG_MK2" },
+        { name = "Heavy Sniper", model = "WEAPON_HEAVYSNIPER" }
     },
 
     airdropVehicles = {
@@ -403,10 +359,34 @@ local function showFeedNotification(text)
 end
 
 local notify = {
-    success = function(title, msg) showFeedNotification("~g~[" .. tostring(title) .. "] ~s~" .. tostring(msg)) end,
-    info = function(title, msg) showFeedNotification("~b~[" .. tostring(title) .. "] ~s~" .. tostring(msg)) end,
-    warn = function(title, msg) showFeedNotification("~y~[" .. tostring(title) .. "] ~s~" .. tostring(msg)) end,
-    error = function(title, msg) showFeedNotification("~r~[" .. tostring(title) .. "] ~s~" .. tostring(msg)) end
+    success = function(title, msg)
+        pcall(function()
+            if gui and gui.show_message then gui.show_message(title, tostring(msg)) end
+            if log and log.info then log.info("[" .. title .. "] " .. tostring(msg)) end
+        end)
+        showFeedNotification("~g~[" .. tostring(title) .. "] ~s~" .. tostring(msg))
+    end,
+    info = function(title, msg)
+        pcall(function()
+            if gui and gui.show_message then gui.show_message(title, tostring(msg)) end
+            if log and log.info then log.info("[" .. title .. "] " .. tostring(msg)) end
+        end)
+        showFeedNotification("~b~[" .. tostring(title) .. "] ~s~" .. tostring(msg))
+    end,
+    warn = function(title, msg)
+        pcall(function()
+            if gui and gui.show_message then gui.show_message(title, tostring(msg)) end
+            if log and log.warning then log.warning("[" .. title .. "] " .. tostring(msg)) end
+        end)
+        showFeedNotification("~y~[" .. tostring(title) .. "] ~s~" .. tostring(msg))
+    end,
+    error = function(title, msg)
+        pcall(function()
+            if gui and gui.show_message then gui.show_message(title, tostring(msg)) end
+            if log and log.error then log.error("[" .. title .. "] " .. tostring(msg)) end
+        end)
+        showFeedNotification("~r~[" .. tostring(title) .. "] ~s~" .. tostring(msg))
+    end
 }
 
 local function getControlOfEntity(ent)
@@ -868,14 +848,14 @@ local function stopCarryingPlayer()
     end
     S.carriedPlayerPed = nil
     pcall(function() TASK.CLEAR_PED_TASKS(getLocalPed()) end)
-    notify.info("Telecinese", "Jogador solto do colo.")
+    notify.info("Telekinesis", "Player released from carry.")
 end
 
 local function startCarryingPlayer(targetPed)
     if S.isCarryingPlayer then stopCarryingPlayer() return end
     if not isValidEntity(targetPed) then targetPed = getTargetPlayerPed(15.0) end
     if not isValidEntity(targetPed) then
-        notify.warn("Telecinese", "Nenhum jogador proximo para carregar no colo.")
+        notify.warn("Telekinesis", "No nearby player found to carry.")
         return
     end
 
@@ -888,7 +868,7 @@ local function startCarryingPlayer(targetPed)
         pcall(function()
             ENTITY.ATTACH_ENTITY_TO_ENTITY(S.carriedPlayerPed, myPed, 0, 0.0, 0.55, 0.35, 0.0, 0.0, 0.0, false, false, false, false, 2, true)
         end)
-        notify.success("Telecinese", "Carregando jogador no colo! Pressione [E] para Soltar.")
+        notify.success("Telekinesis", "Carrying player in arms! Press [E] to drop.")
 
         while S.isCarryingPlayer and isValidEntity(S.carriedPlayerPed) do
             myPed = getLocalPed()
@@ -926,7 +906,7 @@ local function startSpinPlayerVehLoop()
     S.spinPlayerVehLoopActive = true
 
     script.run_in_callback(function()
-        notify.info("SpyreX", "Player Vehicle Beyblade ATIVADO!")
+        notify.info("SpyreX", "Player Vehicle Beyblade ENABLED!")
         local initialPed = getLocalPed()
         local initialVeh = PED.GET_VEHICLE_PED_IS_IN(initialPed, false)
         if isValidEntity(initialVeh) then S.spinPlayerTargetVeh = initialVeh end
@@ -959,7 +939,7 @@ local function startSpinPlayerVehLoop()
         S.spinPlayerTargetVeh = nil
         S.spinPlayerVehLoopActive = false
         S.spinPlayerVehActive = false
-        notify.info("SpyreX", "Player Vehicle Beyblade DESATIVADO.")
+        notify.info("SpyreX", "Player Vehicle Beyblade DISABLED.")
     end)
 end
 
@@ -968,7 +948,7 @@ local function startSpinAreaVehsLoop()
     S.spinAreaVehsLoopActive = true
 
     script.run_in_callback(function()
-        notify.info("SpyreX", "Area Vehicle Beyblade ATIVADO!")
+        notify.info("SpyreX", "Area Vehicle Beyblade ENABLED!")
         while S.spinAreaVehsActive do
             pcall(function()
                 local myVeh = PED.GET_VEHICLE_PED_IS_IN(getLocalPed(), false)
@@ -988,7 +968,7 @@ local function startSpinAreaVehsLoop()
         end
         S.spinAreaVehsLoopActive = false
         S.spinAreaVehsActive = false
-        notify.info("SpyreX", "Area Vehicle Beyblade DESATIVADO.")
+        notify.info("SpyreX", "Area Vehicle Beyblade DISABLED.")
     end)
 end
 
@@ -997,7 +977,7 @@ local function startInfiniteLevitateLoop()
     S.infiniteLevitateLoopActive = true
 
     script.run_in_callback(function()
-        notify.info("SpyreX", "Area Bounce Mode ATIVADO!")
+        notify.info("SpyreX", "Area Bounce Mode ENABLED!")
         local bounceUp = true
         local tick = 0
 
@@ -1018,7 +998,7 @@ local function startInfiniteLevitateLoop()
         end
         S.infiniteLevitateLoopActive = false
         S.infiniteLevitateActive = false
-        notify.info("SpyreX", "Area Bounce Mode DESATIVADO.")
+        notify.info("SpyreX", "Area Bounce Mode DISABLED.")
     end)
 end
 
@@ -1027,7 +1007,7 @@ local function startVortexLoop()
     S.vortexLoopActive = true
 
     script.run_in_callback(function()
-        notify.info("SpyreX", "Vortice Gravitacional ATIVADO!")
+        notify.info("SpyreX", "Gravitational Vortex ENABLED!")
         local angleOffset = 0.0
 
         while S.vortexActive do
@@ -1059,7 +1039,7 @@ local function startVortexLoop()
         end
         S.vortexLoopActive = false
         S.vortexActive = false
-        notify.info("SpyreX", "Vortice Gravitacional DESATIVADO.")
+        notify.info("SpyreX", "Gravitational Vortex DISABLED.")
     end)
 end
 
@@ -1068,7 +1048,7 @@ local function startUfoDiscoLoop()
     S.ufoDiscoLoopActive = true
 
     script.run_in_callback(function()
-        notify.info("SpyreX", "UFO Party Mode ATIVADO!")
+        notify.info("SpyreX", "UFO Party Mode ENABLED!")
         while S.ufoDiscoActive do
             pcall(function()
                 local ped = getLocalPed()
@@ -1096,7 +1076,7 @@ local function startUfoDiscoLoop()
         end
         S.ufoDiscoLoopActive = false
         S.ufoDiscoActive = false
-        notify.info("SpyreX", "UFO Party Mode DESATIVADO.")
+        notify.info("SpyreX", "UFO Party Mode DISABLED.")
     end)
 end
 
@@ -1105,7 +1085,7 @@ local function startPushRepulsorLoop()
     S.pushRepulsorLoopActive = true
 
     script.run_in_callback(function()
-        notify.info("SpyreX", "Onda de Choque / Repulsor ATIVADO!")
+        notify.info("SpyreX", "Shockwave / Repulsor ENABLED!")
         while S.pushRepulsorActive do
             pcall(function()
                 local pCoords = ENTITY.GET_ENTITY_COORDS(getLocalPed(), true)
@@ -1125,7 +1105,7 @@ local function startPushRepulsorLoop()
         end
         S.pushRepulsorLoopActive = false
         S.pushRepulsorActive = false
-        notify.info("SpyreX", "Repulsor DESATIVADO.")
+        notify.info("SpyreX", "Repulsor DISABLED.")
     end)
 end
 
@@ -1134,7 +1114,7 @@ local function startVehicleRainLoop()
     S.vehicleRainLoopActive = true
 
     script.run_in_callback(function()
-        notify.info("SpyreX", "Chuva de Veiculos do Ceu ATIVADA!")
+        notify.info("SpyreX", "Vehicle Rain from Sky ENABLED!")
         local models = { "blista", "futo", "adder", "insurgent", "zentorno", "bus" }
 
         while S.vehicleRainActive do
@@ -1155,7 +1135,7 @@ local function startVehicleRainLoop()
         end
         S.vehicleRainLoopActive = false
         S.vehicleRainActive = false
-        notify.info("SpyreX", "Chuva de Veiculos DESATIVADA.")
+        notify.info("SpyreX", "Vehicle Rain DISABLED.")
     end)
 end
 
@@ -1164,7 +1144,7 @@ local function startVehicleShieldLoop()
     S.vehicleShieldLoopActive = true
 
     script.run_in_callback(function()
-        notify.info("SpyreX", "Escudo Orbital de Blindados ATIVADO!")
+        notify.info("SpyreX", "Orbital Supercar Shield ENABLED!")
         local pCoords = ENTITY.GET_ENTITY_COORDS(getLocalPed(), true)
         local shieldVehs = {}
         local models = { "kuruma", "zentorno", "adder", "nero", "t20", "turismor" }
@@ -1201,7 +1181,7 @@ local function startVehicleShieldLoop()
         for _, v in ipairs(shieldVehs) do if isValidEntity(v) then safeDeleteEntity(v) end end
         S.vehicleShieldLoopActive = false
         S.vehicleShieldActive = false
-        notify.info("SpyreX", "Escudo Orbital DESATIVADO.")
+        notify.info("SpyreX", "Orbital Supercar Shield DISABLED.")
     end)
 end
 
@@ -1224,7 +1204,7 @@ end
 local function setupBusBowling()
     script.run_in_callback(function()
         clearBusBowling()
-        notify.info("SpyreX", "Montando Pista de Boliche (10 Pinos)...")
+        notify.info("SpyreX", "Setting up Bus Bowling (10 Pins)...")
 
         local ped = getLocalPed()
         local pCoords = ENTITY.GET_ENTITY_COORDS(ped, true)
@@ -1246,12 +1226,12 @@ local function setupBusBowling()
             timeout = timeout + 1
         end
 
-        -- Formação triangular clássica de 10 pinos de boliche (Ônibus em pé)
+        -- 10-pin triangle formation (vertical buses)
         local pinOffsets = {
-            { fwd = 25.0, side = 0.0 },                                      -- Pino 1 (Frente)
-            { fwd = 30.0, side = -3.5 }, { fwd = 30.0, side = 3.5 },          -- Fila 2 (2 pinos)
-            { fwd = 35.0, side = -7.0 }, { fwd = 35.0, side = 0.0 }, { fwd = 35.0, side = 7.0 }, -- Fila 3 (3 pinos)
-            { fwd = 40.0, side = -10.5 }, { fwd = 40.0, side = -3.5 }, { fwd = 40.0, side = 3.5 }, { fwd = 40.0, side = 10.5 } -- Fila 4 (4 pinos)
+            { fwd = 25.0, side = 0.0 },
+            { fwd = 30.0, side = -3.5 }, { fwd = 30.0, side = 3.5 },
+            { fwd = 35.0, side = -7.0 }, { fwd = 35.0, side = 0.0 }, { fwd = 35.0, side = 7.0 },
+            { fwd = 40.0, side = -10.5 }, { fwd = 40.0, side = -3.5 }, { fwd = 40.0, side = 3.5 }, { fwd = 40.0, side = 10.5 }
         }
 
         for _, pos in ipairs(pinOffsets) do
@@ -1271,7 +1251,7 @@ local function setupBusBowling()
             end
         end
 
-        -- Spawna o Panto e coloca na Telecinese flutuando na frente para mirar!
+        -- Spawn Panto and float in front with telekinesis to aim!
         local px = pCoords.x + fwdX * 3.0
         local py = pCoords.y + fwdY * 3.0
         local pz = pCoords.z + 2.5
@@ -1284,25 +1264,25 @@ local function setupBusBowling()
             HoldVehicleLoop(panto)
         end
 
-        notify.success("SpyreX", "Boliche Montado! Mire e aperte [ESPACO] ou clique em 'Lancar Panto'!")
+        notify.success("SpyreX", "Bowling Alley Setup! Aim and press [SPACE] or click 'Launch Bowling Panto'!")
     end)
 end
 
 local function launchBowlingPanto()
     if isValidEntity(S.heldVehicle) then
         LaunchVehicle(S.heldVehicle, 350.0)
-        notify.success("SpyreX", "Strike! Panto arremessado contra os pinos!")
+        notify.success("SpyreX", "Strike! Panto launched at bowling pins!")
     elseif isValidEntity(bowlingPanto) then
         LaunchVehicle(bowlingPanto, 350.0)
-        notify.success("SpyreX", "Strike! Panto arremessado contra os pinos!")
+        notify.success("SpyreX", "Strike! Panto launched at bowling pins!")
     else
-        notify.warn("SpyreX", "Monte o Boliche primeiro!")
+        notify.warn("SpyreX", "Setup Bowling Alley first!")
     end
 end
 
 local function triggerBusFortressWall()
     script.run_in_callback(function()
-        notify.info("SpyreX", "Construindo Muralha Fortaleza de Onibus...")
+        notify.info("SpyreX", "Building Bus Fortress Wall...")
         local pCoords = ENTITY.GET_ENTITY_COORDS(getLocalPed(), true)
         local busHash = getHash("bus")
         STREAMING.REQUEST_MODEL(busHash)
@@ -1313,7 +1293,7 @@ local function triggerBusFortressWall()
             local bVeh = VEHICLE.CREATE_VEHICLE(busHash, pCoords.x + (i * 3.8), pCoords.y + 12.0, pCoords.z + 0.5, 0.0, true, false, false)
             if isValidEntity(bVeh) then ENTITY.FREEZE_ENTITY_POSITION(bVeh, true) end
         end
-        notify.success("SpyreX", "Fortaleza de Onibus Concluida!")
+        notify.success("SpyreX", "Bus Fortress Wall Complete!")
     end)
 end
 
@@ -1322,7 +1302,7 @@ local function startVehicleSnakeLoop()
     S.vehicleSnakeLoopActive = true
 
     script.run_in_callback(function()
-        notify.info("SpyreX", "Follow the Leader (Cobra de Veiculos) ATIVADO!")
+        notify.info("SpyreX", "Follow the Leader (Vehicle Snake) ENABLED!")
         while S.vehicleSnakeActive do
             pcall(function()
                 local pCoords = ENTITY.GET_ENTITY_COORDS(getLocalPed(), true)
@@ -1346,7 +1326,7 @@ local function startVehicleSnakeLoop()
         end
         S.vehicleSnakeLoopActive = false
         S.vehicleSnakeActive = false
-        notify.info("SpyreX", "Follow the Leader DESATIVADO.")
+        notify.info("SpyreX", "Follow the Leader DISABLED.")
     end)
 end
 
@@ -1355,7 +1335,7 @@ local function startZombiePedOutbreakLoop()
     S.zombiePedOutbreakLoopActive = true
 
     script.run_in_callback(function()
-        notify.info("SpyreX", "Apocalipse Zumbi Iniciado!")
+        notify.info("SpyreX", "Zombie Apocalypse Started!")
         local ped = getLocalPed()
         local pCoords = ENTITY.GET_ENTITY_COORDS(ped, true)
         local zModels = { "u_m_y_zombie_01", "s_m_y_clown_01", "a_m_m_hillbilly_01" }
@@ -1391,7 +1371,7 @@ local function startZombiePedOutbreakLoop()
         while S.zombiePedOutbreakActive do script.yield(500) end
         S.zombiePedOutbreakLoopActive = false
         S.zombiePedOutbreakActive = false
-        notify.info("SpyreX", "Apocalipse Zumbi Finalizado.")
+        notify.info("SpyreX", "Zombie Apocalypse Ended.")
     end)
 end
 
@@ -1466,27 +1446,56 @@ startHotkeyLoop()
 ------------------------------------------------------------
 
 local function safeCreateStuntProp(hash, x, y, z, dynamic)
-    local isDyn = (dynamic == true)
+    local isDyn = (dynamic == nil) and false or (dynamic == true)
     local obj = 0
+
+    -- 1. Criação via nativo oficial GTA Online (isNetwork = true, bScriptHostObj = false, dynamic = isDyn)
     pcall(function()
-        if OBJECT and OBJECT.CREATE_OBJECT_NO_OFFSET then obj = OBJECT.CREATE_OBJECT_NO_OFFSET(hash, x, y, z, true, true, isDyn) end
+        if OBJECT and OBJECT.CREATE_OBJECT_NO_OFFSET then
+            obj = OBJECT.CREATE_OBJECT_NO_OFFSET(hash, x, y, z, true, false, isDyn)
+        end
     end)
+
+    -- 2. Tenta CREATE_OBJECT nativo com bScriptHostObj = false
     if not obj or obj == 0 or not isValidEntity(obj) then
         pcall(function()
-            if OBJECT and OBJECT.CREATE_OBJECT then obj = OBJECT.CREATE_OBJECT(hash, x, y, z, true, true, isDyn) end
+            if OBJECT and OBJECT.CREATE_OBJECT then
+                obj = OBJECT.CREATE_OBJECT(hash, x, y, z, true, false, isDyn)
+            end
         end)
     end
+
+    -- 3. Tenta CREATE_OBJECT_NO_OFFSET com bScriptHostObj = true
     if not obj or obj == 0 or not isValidEntity(obj) then
         pcall(function()
-            if entities and entities.create_object then obj = entities.create_object(hash, { x = x, y = y, z = z }) end
+            if OBJECT and OBJECT.CREATE_OBJECT_NO_OFFSET then
+                obj = OBJECT.CREATE_OBJECT_NO_OFFSET(hash, x, y, z, true, true, isDyn)
+            end
         end)
     end
+
+    -- 4. Fallback entities.create_object se nativos falharem
+    if not obj or obj == 0 or not isValidEntity(obj) then
+        pcall(function()
+            if entities and entities.create_object then
+                obj = entities.create_object(hash, { x = x, y = y, z = z })
+            end
+        end)
+    end
+
+    -- 5. Registro de Rede Imediato para Todos os Clientes da Sessão
     if isValidEntity(obj) then
         pcall(function()
+            ENTITY.SET_ENTITY_AS_MISSION_ENTITY(obj, true, true)
             ENTITY.SET_ENTITY_VISIBLE(obj, true, false)
-            if ENTITY.SET_ENTITY_LOD_DIST then ENTITY.SET_ENTITY_LOD_DIST(obj, 0xFFFF) end
-            
-            -- Requisita colisao da malha 3D nas coordenadas para solidez imediata
+            if ENTITY.SET_ENTITY_LOCALLY_VISIBLE then
+                ENTITY.SET_ENTITY_LOCALLY_VISIBLE(obj)
+            end
+            if ENTITY.SET_ENTITY_LOD_DIST then
+                ENTITY.SET_ENTITY_LOD_DIST(obj, 0xFFFF)
+            end
+
+            -- Requisita colisão da malha 3D nas coordenadas para solidez imediata
             if STREAMING and STREAMING.REQUEST_COLLISION_AT_COORD then
                 STREAMING.REQUEST_COLLISION_AT_COORD(x, y, z)
             end
@@ -1506,28 +1515,28 @@ local function safeCreateStuntProp(hash, x, y, z, dynamic)
                 ENTITY.SET_ENTITY_COLLISION(obj, true, true)
             end
 
-            -- Registro de Rede GTA Online com Migracao de Host/Player Habilitada
             if NETWORK then
-                if NETWORK.NETWORK_REGISTER_ENTITY_AS_NETWORKED then NETWORK.NETWORK_REGISTER_ENTITY_AS_NETWORKED(obj) end
+                if NETWORK.NETWORK_REGISTER_ENTITY_AS_NETWORKED then
+                    NETWORK.NETWORK_REGISTER_ENTITY_AS_NETWORKED(obj)
+                end
                 if NETWORK.OBJ_TO_NET then
                     local netId = NETWORK.OBJ_TO_NET(obj)
                     if netId and netId ~= 0 then
-                        if NETWORK.SET_NETWORK_ID_EXISTS_ON_ALL_MACHINES then NETWORK.SET_NETWORK_ID_EXISTS_ON_ALL_MACHINES(netId, true) end
-                        if NETWORK.SET_NETWORK_ID_CAN_MIGRATE then NETWORK.SET_NETWORK_ID_CAN_MIGRATE(netId, true) end
-                        if NETWORK.SET_NETWORK_ID_ALWAYS_EXISTS_FOR_PLAYER then NETWORK.SET_NETWORK_ID_ALWAYS_EXISTS_FOR_PLAYER(netId, -1, true) end
+                        if NETWORK.SET_NETWORK_ID_EXISTS_ON_ALL_MACHINES then
+                            NETWORK.SET_NETWORK_ID_EXISTS_ON_ALL_MACHINES(netId, true)
+                        end
+                        if NETWORK.SET_NETWORK_ID_CAN_MIGRATE then
+                            NETWORK.SET_NETWORK_ID_CAN_MIGRATE(netId, true)
+                        end
+                        if NETWORK.SET_NETWORK_ID_ALWAYS_EXISTS_FOR_PLAYER then
+                            NETWORK.SET_NETWORK_ID_ALWAYS_EXISTS_FOR_PLAYER(netId, -1, true)
+                        end
                     end
                 end
             end
-
-            -- Permite persistir na sessao mesmo se o criador sair da sala (desassocia do script local)
-            if ENTITY.SET_ENTITY_AS_MISSION_ENTITY then
-                ENTITY.SET_ENTITY_AS_MISSION_ENTITY(obj, false, true)
-            end
-            if ENTITY.SET_ENTITY_AS_NO_LONGER_NEEDED then
-                ENTITY.SET_ENTITY_AS_NO_LONGER_NEEDED(obj)
-            end
         end)
     end
+
     return obj
 end
 
@@ -1543,7 +1552,7 @@ local function clearAllStuntObjects()
         end
     end
     S.spawned_stunt_objects = {}
-    notify.info("Estruturas", string.format("Todas as %d estruturas foram removidas!", count))
+    notify.info("Structures", string.format("All %d structures have been removed!", count))
 end
 
 local function undoLastStuntObject()
@@ -1554,22 +1563,22 @@ local function undoLastStuntObject()
                 ENTITY.SET_ENTITY_AS_MISSION_ENTITY(lastObj, true, true)
                 ENTITY.DELETE_ENTITY(lastObj)
             end)
-            notify.info("Estruturas", "Ultimo objeto removido com sucesso!")
+            notify.info("Structures", "Last object removed successfully!")
             return
         end
     end
-    notify.warn("Estruturas", "Nenhum objeto recente para remover.")
+    notify.warn("Structures", "No recent object to undo.")
 end
 
 local function spawnStuntTrack(presetList, presetName)
-    if S.is_spawning_stunt then notify.warn("Estruturas", "Construcao de pista ja em andamento...") return end
+    if S.is_spawning_stunt then notify.warn("Structures", "Track construction already in progress...") return end
     S.is_spawning_stunt = true
 
     script.run_in_callback(function()
         local my_ped = getLocalPed()
         local my_pos = ENTITY.GET_ENTITY_COORDS(my_ped, true)
         local center_z = my_pos.z + S.stunt_altitude
-        notify.info("Estruturas", "Construindo " .. presetName .. " a " .. math.floor(S.stunt_altitude) .. "m no ceu...")
+        notify.info("Structures", "Building " .. presetName .. " at " .. math.floor(S.stunt_altitude) .. "m in the sky...")
         local count = 0
 
         for _, item in ipairs(presetList) do
@@ -1579,7 +1588,7 @@ local function spawnStuntTrack(presetList, presetName)
                 local t = 0
                 while not STREAMING.HAS_MODEL_LOADED(h) and t < 100 do script.yield(10); t = t + 1 end
                 if STREAMING.HAS_MODEL_LOADED(h) then
-                    local obj = safeCreateStuntProp(h, my_pos.x + item.rel_x, my_pos.y + item.rel_y, center_z + item.rel_z)
+                    local obj = safeCreateStuntProp(h, my_pos.x + item.rel_x, my_pos.y + item.rel_y, center_z + item.rel_z, false)
                     if isValidEntity(obj) then
                         pcall(function()
                             ENTITY.SET_ENTITY_ROTATION(obj, 180.0, 0.0, item.yaw, 2, true)
@@ -1587,9 +1596,6 @@ local function spawnStuntTrack(presetList, presetName)
                             ENTITY.SET_ENTITY_COLLISION(obj, true, true)
                             if ENTITY.SET_ENTITY_SHOULD_FREEZE_WAITING_ON_COLLISION then
                                 ENTITY.SET_ENTITY_SHOULD_FREEZE_WAITING_ON_COLLISION(obj, true)
-                            end
-                            if ENTITY.SET_ENTITY_AS_NO_LONGER_NEEDED then
-                                ENTITY.SET_ENTITY_AS_NO_LONGER_NEEDED(obj)
                             end
                         end)
                         table.insert(S.spawned_stunt_objects, obj)
@@ -1601,12 +1607,12 @@ local function spawnStuntTrack(presetList, presetName)
             script.yield(20)
         end
         S.is_spawning_stunt = false
-        notify.success("Estruturas", string.format("%s construida com sucesso! (%d Estruturas)", presetName, count))
+        notify.success("Structures", string.format("%s built successfully! (%d Objects)", presetName, count))
     end)
 end
 
 local function spawnTotalSupremeChaos()
-    if S.is_spawning_stunt then notify.warn("Estruturas", "Construcao de pistas ja em andamento...") return end
+    if S.is_spawning_stunt then notify.warn("Structures", "Track construction already in progress...") return end
     S.is_spawning_stunt = true
 
     script.run_in_callback(function()
@@ -1618,7 +1624,7 @@ local function spawnTotalSupremeChaos()
         local sinH = math.sin(rad)
         local skyZ = pCoords.z + S.stunt_altitude
 
-        notify.info("Estruturas", "GERANDO CAOS TOTAL (TUDO: ASFALTO + CEU)...")
+        notify.info("Structures", "GENERATING TOTAL SUPREME CHAOS (SKY + GROUND)...")
         local allPieces = {}
 
         local groundSpots = {
@@ -1691,7 +1697,7 @@ local function spawnTotalSupremeChaos()
                 local t = 0
                 while not STREAMING.HAS_MODEL_LOADED(h) and t < 40 do script.yield(5); t = t + 1 end
                 if STREAMING.HAS_MODEL_LOADED(h) then
-                    local obj = safeCreateStuntProp(h, piece.x, piece.y, piece.z)
+                    local obj = safeCreateStuntProp(h, piece.x, piece.y, piece.z, false)
                     if isValidEntity(obj) then
                         pcall(function()
                             ENTITY.SET_ENTITY_ROTATION(obj, piece.pitch or 0.0, piece.roll or 0.0, piece.yaw or 0.0, 2, true)
@@ -1699,9 +1705,6 @@ local function spawnTotalSupremeChaos()
                             ENTITY.SET_ENTITY_COLLISION(obj, true, true)
                             if ENTITY.SET_ENTITY_SHOULD_FREEZE_WAITING_ON_COLLISION then
                                 ENTITY.SET_ENTITY_SHOULD_FREEZE_WAITING_ON_COLLISION(obj, true)
-                            end
-                            if ENTITY.SET_ENTITY_AS_NO_LONGER_NEEDED then
-                                ENTITY.SET_ENTITY_AS_NO_LONGER_NEEDED(obj)
                             end
                         end)
                         table.insert(S.spawned_stunt_objects, obj)
@@ -1713,7 +1716,7 @@ local function spawnTotalSupremeChaos()
             script.yield(10)
         end
         S.is_spawning_stunt = false
-        notify.success("Estruturas", string.format("MEGA CAOS TOTAL ATIVADO! (%d Estruturas no Ceu e Asfalto)", count))
+        notify.success("Structures", string.format("TOTAL SUPREME CHAOS SPAWNED! (%d Structures on Sky and Ground)", count))
     end)
 end
 
@@ -1731,7 +1734,7 @@ local function spawnInstantFrontRamp(rampModel)
         local t = 0
         while not STREAMING.HAS_MODEL_LOADED(h) and t < 60 do script.yield(10); t = t + 1 end
         if STREAMING.HAS_MODEL_LOADED(h) then
-            local obj = safeCreateStuntProp(h, rx, ry, my_pos.z - 0.2)
+            local obj = safeCreateStuntProp(h, rx, ry, my_pos.z - 0.2, false)
             if isValidEntity(obj) then
                 pcall(function()
                     ENTITY.SET_ENTITY_ROTATION(obj, 0.0, 0.0, heading, 2, true)
@@ -1740,13 +1743,10 @@ local function spawnInstantFrontRamp(rampModel)
                     if ENTITY.SET_ENTITY_SHOULD_FREEZE_WAITING_ON_COLLISION then
                         ENTITY.SET_ENTITY_SHOULD_FREEZE_WAITING_ON_COLLISION(obj, true)
                     end
-                    if ENTITY.SET_ENTITY_AS_NO_LONGER_NEEDED then
-                        ENTITY.SET_ENTITY_AS_NO_LONGER_NEEDED(obj)
-                    end
                 end)
                 table.insert(S.spawned_stunt_objects, obj)
                 STREAMING.SET_MODEL_AS_NO_LONGER_NEEDED(h)
-                notify.success("Estruturas", "Rampa acrobatica gerada a sua frente!")
+                notify.success("Structures", "Acrobatic ramp spawned in front of you!")
             end
         end
     end)
@@ -1757,7 +1757,7 @@ local function spawnSinglePropAtPlayer(modelNameOrHash, customDist, customZ, cus
         local myLocalPid = getLocalPid()
         local actualPid = (targetPid == nil or targetPid == -1) and myLocalPid or targetPid
         local ped = getPlayerPed(actualPid)
-        if not isValidEntity(ped) then notify.warn("Props", "Jogador alvo nao encontrado!"); return end
+        if not isValidEntity(ped) then notify.warn("Props", "Target player not found!"); return end
         
         local my_pos = ENTITY.GET_ENTITY_COORDS(ped, true)
         local heading = ENTITY.GET_ENTITY_HEADING(ped)
@@ -1771,7 +1771,7 @@ local function spawnSinglePropAtPlayer(modelNameOrHash, customDist, customZ, cus
         local ry = my_pos.y + (math.cos(rad) * dist)
         local rz = my_pos.z + zOffset
         local h = getHash(modelNameOrHash)
-        if not h or h == 0 then notify.warn("Props", "Modelo invalido: " .. tostring(modelNameOrHash)) return end
+        if not h or h == 0 then notify.warn("Props", "Invalid model: " .. tostring(modelNameOrHash)) return end
 
         STREAMING.REQUEST_MODEL(h)
         local t = 0
@@ -1788,8 +1788,8 @@ local function spawnSinglePropAtPlayer(modelNameOrHash, customDist, customZ, cus
                 end)
                 table.insert(S.spawned_stunt_objects, obj)
                 STREAMING.SET_MODEL_AS_NO_LONGER_NEEDED(h)
-                local pName = (actualPid == myLocalPid) and "a sua frente" or ("na frente de " .. getPlayerName(actualPid))
-                notify.success("Props", string.format("Objeto [%s] gerado %s!", tostring(modelNameOrHash), pName))
+                local pName = (actualPid == myLocalPid) and "in front of you" or ("in front of " .. getPlayerName(actualPid))
+                notify.success("Props", string.format("Object [%s] spawned %s!", tostring(modelNameOrHash), pName))
             end
         end
     end)
@@ -1821,7 +1821,7 @@ local function spawnFixedCoordsUfo()
                 S.fixedUfoObject = obj
                 table.insert(S.spawned_stunt_objects, obj)
                 STREAMING.SET_MODEL_AS_NO_LONGER_NEEDED(h)
-                notify.success("OVNI", "OVNI gerado nas coordenadas [-75.015, -818.215, 326.176]!")
+                notify.success("UFO", "UFO spawned at fixed coordinates [-75.015, -818.215, 326.176]!")
             end
         end
     end)
@@ -1831,7 +1831,7 @@ local function removeFixedCoordsUfo()
     if isValidEntity(S.fixedUfoObject) then
         pcall(function() ENTITY.SET_ENTITY_AS_MISSION_ENTITY(S.fixedUfoObject, true, true); ENTITY.DELETE_ENTITY(S.fixedUfoObject) end)
         S.fixedUfoObject = nil
-        notify.info("OVNI", "OVNI do Ponto Fixo removido!")
+        notify.info("UFO", "Fixed Point UFO removed!")
     end
 end
 
@@ -1841,7 +1841,7 @@ local function spawnMazeBankProject()
             if isValidEntity(b) then pcall(function() ENTITY.SET_ENTITY_AS_MISSION_ENTITY(b, true, true); ENTITY.DELETE_ENTITY(b) end) end
         end
         S.spawned_mazebank_objects = {}
-        notify.info("Maze Bank", "Construindo Projeto Maze Bank...")
+        notify.info("Maze Bank", "Building Maze Bank Project...")
 
         for _, item in ipairs(Presets.mazeBankProps) do
             local hash = getHash(item.model)
@@ -1866,7 +1866,7 @@ local function spawnMazeBankProject()
             end
             script.yield(20)
         end
-        notify.success("Maze Bank", string.format("Projeto Maze Bank [%d objetos] gerado com sucesso!", #S.spawned_mazebank_objects))
+        notify.success("Maze Bank", string.format("Maze Bank Project [%d objects] spawned successfully!", #S.spawned_mazebank_objects))
     end)
 end
 
@@ -1879,7 +1879,7 @@ local function clearMazeBankProject()
         end
     end
     S.spawned_mazebank_objects = {}
-    notify.info("Maze Bank", string.format("Projeto Maze Bank (%d objetos) removido do mapa!", count))
+    notify.info("Maze Bank", string.format("Maze Bank Project (%d objects) removed from map!", count))
 end
 
 local function teleportAllPlayersToMazeBank()
@@ -1909,7 +1909,7 @@ local function teleportAllPlayersToMazeBank()
                 count = count + 1
             end
         end
-        notify.success("Maze Bank", string.format("Voce e %d jogadores teleportados para o topo do Maze Bank!", count))
+        notify.success("Maze Bank", string.format("You and %d players teleported to the top of Maze Bank!", count))
     end)
 end
 
@@ -1917,7 +1917,6 @@ end
 -- PLAYER PROP ATTACHMENT SUITE
 ------------------------------------------------------------
 
--- Configuração idêntica à das rampas e loops com suporte a sincronização de rede para todos
 local function configureStuntEntity(obj, targetPid)
     if not isValidEntity(obj) then return end
     pcall(function()
@@ -1970,7 +1969,6 @@ local function attachEntityDirect(obj, ped, boneId, offX, offY, offZ, rotX, rotY
     end)
 
     local attached = false
-    -- 1. Padrão nativo do GTA V (p9 = true para atualização imediata na árvore de sync)
     pcall(function()
         ENTITY.ATTACH_ENTITY_TO_ENTITY(
             obj, ped, boneIndex,
@@ -1981,7 +1979,6 @@ local function attachEntityDirect(obj, ped, boneId, offX, offY, offZ, rotX, rotY
         attached = true
     end)
 
-    -- 2. Fallback com p9 = false
     if not attached then
         pcall(function()
             ENTITY.ATTACH_ENTITY_TO_ENTITY(
@@ -1994,7 +1991,6 @@ local function attachEntityDirect(obj, ped, boneId, offX, offY, offZ, rotX, rotY
         end)
     end
 
-    -- 3. Fallback com 16 parâmetros (p15 = 1)
     if not attached then
         pcall(function()
             ENTITY.ATTACH_ENTITY_TO_ENTITY(
@@ -2007,7 +2003,6 @@ local function attachEntityDirect(obj, ped, boneId, offX, offY, offZ, rotX, rotY
         end)
     end
 
-    -- 4. Fallback básico (vertexIndex = 0)
     if not attached then
         pcall(function()
             ENTITY.ATTACH_ENTITY_TO_ENTITY(
@@ -2036,7 +2031,6 @@ local function startAttachmentKeeperLoop()
                     for _, item in ipairs(list) do
                         hasAny = true
                         pcall(function()
-                            -- Só recria se o objeto foi completamente destruído pelo jogo
                             if not isValidEntity(item.obj) and not PLAYER.IS_PLAYER_DEAD(ped) then
                                 local hash = item.hash or getHash(item.modelName)
                                 if hash and hash ~= 0 then
@@ -2068,10 +2062,10 @@ local function attachPropToPlayer(targetPid, modelName, boneId, offX, offY, offZ
         local myLocalPid = getLocalPid()
         local actualPid = (targetPid == nil or targetPid == -1) and myLocalPid or targetPid
         local ped = getPlayerPed(actualPid)
-        if not isValidEntity(ped) then notify.warn("Anexar", "Jogador nao encontrado!"); return end
+        if not isValidEntity(ped) then notify.warn("Attachments", "Player not found!"); return end
 
         local hash = getHash(modelName)
-        if not hash or hash == 0 then notify.warn("Anexar", "Modelo invalido!"); return end
+        if not hash or hash == 0 then notify.warn("Attachments", "Invalid model!"); return end
 
         STREAMING.REQUEST_MODEL(hash)
         local t = 0
@@ -2084,19 +2078,15 @@ local function attachPropToPlayer(targetPid, modelName, boneId, offX, offY, offZ
                 while not STREAMING.HAS_MODEL_LOADED(hash) and t < 60 do script.yield(10); t = t + 1 end
             end
         end
-        if not STREAMING.HAS_MODEL_LOADED(hash) then notify.warn("Anexar", "Falha ao carregar modelo: " .. tostring(modelName)); return end
+        if not STREAMING.HAS_MODEL_LOADED(hash) then notify.warn("Attachments", "Failed to load model: " .. tostring(modelName)); return end
 
         local coords = getTargetCoordsSafe(actualPid, ped)
 
-        -- 1. Cria o objeto no mundo networked (exatamente como em MAC_Fun_Script)
         local obj = safeCreateStuntProp(hash, coords.x, coords.y, coords.z, false)
         STREAMING.SET_MODEL_AS_NO_LONGER_NEEDED(hash)
-        if not isValidEntity(obj) then notify.error("Anexar", "Falha ao instanciar o objeto no mundo."); return end
+        if not isValidEntity(obj) then notify.error("Attachments", "Failed to instantiate object in world."); return end
 
-        -- 2. Configura a entidade com suporte a rede
         configureStuntEntity(obj, actualPid)
-
-        -- 3. Anexa diretamente ao osso do Ped
         attachEntityDirect(obj, ped, boneId or 24818, offX, offY, offZ, rotX, rotY, rotZ)
 
         if not S.attached_player_props[actualPid] then S.attached_player_props[actualPid] = {} end
@@ -2108,8 +2098,8 @@ local function attachPropToPlayer(targetPid, modelName, boneId, offX, offY, offZ
         })
 
         startAttachmentKeeperLoop()
-        local pName = (actualPid == myLocalPid) and "Voce" or getPlayerName(actualPid)
-        notify.success("Anexar", string.format("Objeto [%s] fixado em %s!", tostring(modelName), pName))
+        local pName = (actualPid == myLocalPid) and "You" or getPlayerName(actualPid)
+        notify.success("Attachments", string.format("Object [%s] attached to %s!", tostring(modelName), pName))
     end)
 end
 
@@ -2127,7 +2117,7 @@ local function removePlayerAttachedProps(targetPid)
         end
         S.attached_player_props[actualPid] = nil
     end
-    notify.info("Anexar", string.format("%d objetos removidos do jogador!", count))
+    notify.info("Attachments", string.format("%d objects removed from player!", count))
 end
 
 local function removeAllAttachedProps()
@@ -2142,7 +2132,7 @@ local function removeAllAttachedProps()
         end
     end
     S.attached_player_props = {}
-    notify.info("Anexar", string.format("Todos os %d objetos anexados foram removidos!", count))
+    notify.info("Attachments", string.format("All %d attached objects removed!", count))
 end
 
 local STAND_CAGE_MODELS = {
@@ -2158,7 +2148,7 @@ local function spawnAdvancedCageOnPlayer(targetPid, cageType)
         local myLocalPid = getLocalPid()
         local actualPid = (targetPid == nil or targetPid == -1) and myLocalPid or targetPid
         local ped = getPlayerPed(actualPid)
-        if not isValidEntity(ped) then notify.warn("Gaiola", "Jogador nao encontrado!"); return end
+        if not isValidEntity(ped) then notify.warn("Cages", "Player not found!"); return end
 
         local cageHash = cageType
         if not cageHash or cageHash == 0 or cageHash == "random" then
@@ -2171,7 +2161,6 @@ local function spawnAdvancedCageOnPlayer(targetPid, cageType)
         local pHeading = ENTITY.GET_ENTITY_HEADING(ped)
 
         if cageHash == getHash("prop_gold_cont_01") then
-            -- 1. Container de Ouro: Spawna 1 container centrado na coordenada do jogador e congela
             if requestAndLoadModel(cageHash, 80) then
                 local obj = safeCreateStuntProp(cageHash, coords.x, coords.y, coords.z, false)
                 if isValidEntity(obj) then
@@ -2184,7 +2173,6 @@ local function spawnAdvancedCageOnPlayer(targetPid, cageType)
             end
 
         elseif cageHash == getHash("stt_prop_stunt_tube_s") then
-            -- 2. Tubo de Duble: Spawna 1 tubo rotacionado em 90 graus no eixo Y (em pe)
             if requestAndLoadModel(cageHash, 80) then
                 local obj = safeCreateStuntProp(cageHash, coords.x, coords.y, coords.z, false)
                 if isValidEntity(obj) then
@@ -2197,7 +2185,6 @@ local function spawnAdvancedCageOnPlayer(targetPid, cageType)
             end
 
         elseif cageHash == getHash("prop_rub_cage01a") then
-            -- 3. Gaiola de Metal: Spawna 2 gaiolas cruzadas em 90 graus no eixo Z para fechar o espaco
             if requestAndLoadModel(cageHash, 80) then
                 local baseZ = coords.z - 1.0
                 local obj1 = safeCreateStuntProp(cageHash, coords.x, coords.y, baseZ, false)
@@ -2214,7 +2201,6 @@ local function spawnAdvancedCageOnPlayer(targetPid, cageType)
             end
 
         elseif cageHash == getHash("prop_fnclink_03e") then
-            -- 4. Cerca de Arame: Spawna 4 paineis de cerca formando uma caixa quadrada perfeita (0, 90, 180 e 270 graus)
             if requestAndLoadModel(cageHash, 80) then
                 local posX = coords.x - 1.0
                 local posY = coords.y - 1.0
@@ -2245,7 +2231,6 @@ local function spawnAdvancedCageOnPlayer(targetPid, cageType)
             end
 
         elseif cageHash == getHash("v_med_apecrate") then
-            -- 5. Jaula de Macaco Classica
             if requestAndLoadModel(cageHash, 80) then
                 local zFloor = coords.z - 0.95
                 local obj = safeCreateStuntProp(cageHash, coords.x, coords.y, zFloor, true)
@@ -2259,8 +2244,8 @@ local function spawnAdvancedCageOnPlayer(targetPid, cageType)
             end
         end
 
-        local pName = (actualPid == myLocalPid) and "Voce" or getPlayerName(actualPid)
-        notify.success("Gaiola", string.format("Gaiola Stand aplicada em %s!", pName))
+        local pName = (actualPid == myLocalPid) and "You" or getPlayerName(actualPid)
+        notify.success("Cages", string.format("Stand Cage applied to %s!", pName))
     end)
 end
 
@@ -2268,47 +2253,8 @@ local function spawnApeCrateCageOnPlayer(targetPid)
     spawnAdvancedCageOnPlayer(targetPid, "v_med_apecrate")
 end
 
-
 ------------------------------------------------------------
--- ANGEL SELF FLOATIE
-------------------------------------------------------------
-
-local function removeAngelFloatie(silent)
-    S.angelFloatieActive = false
-    if isValidEntity(S.angelFloatieObject) then
-        pcall(function()
-            if ENTITY.IS_ENTITY_ATTACHED and ENTITY.IS_ENTITY_ATTACHED(S.angelFloatieObject) then ENTITY.DETACH_ENTITY(S.angelFloatieObject, true, true) end
-            safeDeleteEntity(S.angelFloatieObject)
-        end)
-    end
-    S.angelFloatieObject = nil
-    if not silent then notify.info("Angel Floatie", "Boia removida.") end
-end
-
-local function toggleAngelFloatie()
-    if S.angelFloatieActive and isValidEntity(S.angelFloatieObject) then removeAngelFloatie(false); return end
-    local ped = getLocalPed()
-    if not isValidEntity(ped) then return end
-
-    local modelHash = getHash("prop_beach_ring_01")
-    STREAMING.REQUEST_MODEL(modelHash)
-    local t = 0
-    while not STREAMING.HAS_MODEL_LOADED(modelHash) and t < 80 do script.yield(10); t = t + 1 end
-    if not STREAMING.HAS_MODEL_LOADED(modelHash) then return end
-
-    local coords = ENTITY.GET_ENTITY_COORDS(ped, true)
-    local obj = safeCreateStuntProp(modelHash, coords.x, coords.y, coords.z, false)
-    STREAMING.SET_MODEL_AS_NO_LONGER_NEEDED(modelHash)
-    if not isValidEntity(obj) then return end
-
-    S.angelFloatieObject = obj
-    attachEntityDirect(obj, ped, 11816, 0.0, 0.0, 0.0, 0.0, 90.0, 0.0)
-    S.angelFloatieActive = true
-    notify.success("Angel Floatie", "Boia anexada a sua cintura!")
-end
-
-------------------------------------------------------------
--- CLIMA & CICLO RAPIDO DE HORAS (TIMELAPSE)
+-- CLIMATE & FAST TIME CYCLE (TIMELAPSE)
 ------------------------------------------------------------
 
 local function setSessionWeather(weatherName, setMidnight)
@@ -2321,7 +2267,7 @@ local function setSessionWeather(weatherName, setMidnight)
             if MISC.SET_OVERRIDE_WEATHER then MISC.SET_OVERRIDE_WEATHER(wName) end
         end
         if setMidnight and CLOCK and CLOCK.SET_CLOCK_TIME then CLOCK.SET_CLOCK_TIME(0, 0, 0) end
-        notify.success("Clima", string.format("Clima [%s] aplicado!", wName))
+        notify.success("Weather", string.format("Weather [%s] applied!", wName))
     end)
 end
 
@@ -2329,7 +2275,7 @@ local function toggleHalloweenWeather()
     S.halloweenModeActive = not S.halloweenModeActive
     if S.halloweenModeActive then
         setSessionWeather("HALLOWEEN", true)
-        notify.success("Clima", "Modo Halloween ATIVADO: Ceu laranja, relampagos e nevoa!")
+        notify.success("Weather", "Halloween Mode ENABLED: Orange skies, lightning and fog!")
         if not S.halloweenLoopRunning then
             S.halloweenLoopRunning = true
             script.run_in_callback(function()
@@ -2346,7 +2292,7 @@ local function toggleHalloweenWeather()
     else
         pcall(function() if MISC and MISC.CLEAR_OVERRIDE_WEATHER then MISC.CLEAR_OVERRIDE_WEATHER() end end)
         setSessionWeather("EXTRASUNNY", false)
-        notify.info("Clima", "Modo Halloween DESATIVADO.")
+        notify.info("Weather", "Halloween Mode DISABLED.")
     end
 end
 
@@ -2374,9 +2320,9 @@ local function toggleFastTimeCycle()
                 S.fastTimeLoopRunning = false
             end)
         end
-        notify.success("Timelapse", "Ciclo Rapido de Horas (Timelapse) ATIVADO!")
+        notify.success("Timelapse", "Fast Time Cycle (Timelapse) ENABLED!")
     else
-        notify.info("Timelapse", "Ciclo Rapido de Horas DESATIVADO.")
+        notify.info("Timelapse", "Fast Time Cycle DISABLED.")
     end
 end
 
@@ -3065,117 +3011,54 @@ local function playIndividualKungFuMove(moveType)
 end
 
 local function renderTabKungFuMaster()
-    if not imgui.begin_tab_item("Mestre Kung Fu") then return end
+    if not imgui.begin_tab_item("Kung Fu Master") then return end
     imgui.spacing()
-    imgui.text("Apresentacao Marcial & Mestre do Chi (Kung Fu Show)")
+    imgui.text("Martial Arts Performance & Chi Master (Kung Fu Show)")
     imgui.separator()
     imgui.spacing()
 
-    if imgui.button(">> INICIAR SHOW COMPLETO DE KUNG FU (5 ATOS) <<##start_kf_btn") then
+    if imgui.button("START FULL KUNG FU SHOW (5 ACTS)##start_kf_btn") then
         startKungFuShow()
     end
 
     imgui.spacing(); imgui.separator(); imgui.spacing()
-    imgui.text("Elemento de Energia do Chi:")
-    if imgui.button((S.kungFuElementType == 1 and "[X] Fogo / Chamas" or "[  ] Fogo / Chamas") .. "##kf_el_1") then S.kungFuElementType = 1 end
+    imgui.text("Chi Energy Element:")
+    if imgui.button((S.kungFuElementType == 1 and "[X] Fire / Flames" or "Fire / Flames") .. "##kf_el_1") then S.kungFuElementType = 1 end
     imgui.same_line()
-    if imgui.button((S.kungFuElementType == 2 and "[X] Raios / Eletricidade" or "[  ] Raios / Eletricidade") .. "##kf_el_2") then S.kungFuElementType = 2 end
+    if imgui.button((S.kungFuElementType == 2 and "[X] Lightning / Electricity" or "Lightning / Electricity") .. "##kf_el_2") then S.kungFuElementType = 2 end
     imgui.same_line()
-    if imgui.button((S.kungFuElementType == 3 and "[X] Mistico / Espiritual" or "[  ] Mistico / Espiritual") .. "##kf_el_3") then S.kungFuElementType = 3 end
+    if imgui.button((S.kungFuElementType == 3 and "[X] Mystic / Spiritual" or "Mystic / Spiritual") .. "##kf_el_3") then S.kungFuElementType = 3 end
 
     imgui.spacing(); imgui.separator(); imgui.spacing()
-    imgui.text("Apresentacao em Grupo (Discipulos / Dojô):")
-    local cDisc, vDisc = imgui.checkbox("Ativar Discipulos Sincronizados em Formacao##kf_disc_chk", S.kungFuWithDisciples)
+    imgui.text("Group Performance (Disciples / Dojo):")
+    local cDisc, vDisc = imgui.checkbox("Enable Synchronized Disciples in Formation##kf_disc_chk", S.kungFuWithDisciples)
     if cDisc then S.kungFuWithDisciples = vDisc end
 
     if S.kungFuWithDisciples then
         imgui.same_line()
-        imgui.text("Quantidade:")
+        imgui.text("Quantity:")
         imgui.same_line()
-        if imgui.button((S.kungFuDisciplesCount == 2 and "[X] 2 Discipulos" or "[  ] 2 Discipulos") .. "##kf_cnt_2") then S.kungFuDisciplesCount = 2 end
+        if imgui.button((S.kungFuDisciplesCount == 2 and "[X] 2 Disciples" or "2 Disciples") .. "##kf_cnt_2") then S.kungFuDisciplesCount = 2 end
         imgui.same_line()
-        if imgui.button((S.kungFuDisciplesCount == 4 and "[X] 4 Discipulos" or "[  ] 4 Discipulos") .. "##kf_cnt_4") then S.kungFuDisciplesCount = 4 end
+        if imgui.button((S.kungFuDisciplesCount == 4 and "[X] 4 Disciples" or "4 Disciples") .. "##kf_cnt_4") then S.kungFuDisciplesCount = 4 end
     end
 
     imgui.spacing(); imgui.separator(); imgui.spacing()
-    imgui.text("Golpes & Posturas Individuais:")
-    if imgui.button("Kata Tai Chi (Postura da Garca)##kf_m1") then playIndividualKungFuMove(1) end
+    imgui.text("Individual Moves & Stances:")
+    if imgui.button("Tai Chi Kata (Crane Stance)##kf_m1") then playIndividualKungFuMove(1) end
     imgui.same_line()
-    if imgui.button("Socos Relampago (Shadow Boxing)##kf_m2") then playIndividualKungFuMove(2) end
+    if imgui.button("Lightning Punches (Shadow Boxing)##kf_m2") then playIndividualKungFuMove(2) end
 
-    if imgui.button("Chute Giratorio 360 (Acrobatico)##kf_m3") then playIndividualKungFuMove(3) end
+    if imgui.button("360 Kick Flip (Acrobatic)##kf_m3") then playIndividualKungFuMove(3) end
     imgui.same_line()
-    if imgui.button("Postura Bruce Lee (Guarda)##kf_m4") then playIndividualKungFuMove(4) end
+    if imgui.button("Bruce Lee Stance (Guard)##kf_m4") then playIndividualKungFuMove(4) end
     imgui.same_line()
-    if imgui.button("Levitacao Flutuante de Chi##kf_m5") then playIndividualKungFuMove(5) end
+    if imgui.button("Floating Chi Levitation##kf_m5") then playIndividualKungFuMove(5) end
 
     imgui.spacing()
-    if imgui.button(">> Combo Marcial Completo (Chutes & Cortes) <<##kf_m6") then playIndividualKungFuMove(6) end
+    if imgui.button("Full Martial Combo (Kicks & Chops)##kf_m6") then playIndividualKungFuMove(6) end
 
     imgui.end_tab_item()
-end
-
-------------------------------------------------------------
--- [PLACEHOLDER: NOVA FEATURE EM BREVE]
-------------------------------------------------------------
-
-local function renderTabNYCTraffic()
-    -- TAB PLACEHOLDER: sera substituida por nova feature
-    if not imgui.begin_tab_item("Extra") then return end
-    imgui.spacing()
-    imgui.text("Funcionalidade em desenvolvimento...")
-    imgui.end_tab_item()
-end
-
-
-
-
-------------------------------------------------------------
--- CUTSCENES ONLINE
-------------------------------------------------------------
-
-local function playOnlineCutscene(cutsceneName, targetPid)
-    script.run_in_callback(function()
-        if not cutsceneName or cutsceneName == "" then return end
-        local myLocalPid = getLocalPid()
-        local actualPid = (targetPid == nil or targetPid == -1) and myLocalPid or targetPid
-        local isLocal = (actualPid == myLocalPid)
-        local pName = isLocal and "Voce" or getPlayerName(actualPid)
-
-        notify.info("Cutscenes", string.format("Carregando cutscene [%s] para %s...", cutsceneName, pName))
-        if not isLocal then
-            local targetPed = getPlayerPed(actualPid)
-            if isValidEntity(targetPed) then
-                pcall(function()
-                    local tc = ENTITY.GET_ENTITY_COORDS(targetPed, true)
-                    if tc and CUTSCENE and CUTSCENE.SET_CUTSCENE_ORIGIN then CUTSCENE.SET_CUTSCENE_ORIGIN(tc.x, tc.y, tc.z, 0.0, 0) end
-                end)
-            end
-        end
-
-        if CUTSCENE and CUTSCENE.REQUEST_CUTSCENE then CUTSCENE.REQUEST_CUTSCENE(cutsceneName, 8) end
-        local timeout = 0
-        while CUTSCENE and not CUTSCENE.HAS_CUTSCENE_LOADED() and timeout < 300 do script.yield(10); timeout = timeout + 1 end
-        if CUTSCENE and not CUTSCENE.HAS_CUTSCENE_LOADED() then notify.error("Cutscenes", "A cutscene nao carregou: " .. cutsceneName); return end
-
-        notify.success("Cutscenes", string.format("Cutscene [%s] iniciada para %s!", cutsceneName, pName))
-        if CUTSCENE and CUTSCENE.START_CUTSCENE then CUTSCENE.START_CUTSCENE(0) end
-        while CUTSCENE and CUTSCENE.IS_CUTSCENE_PLAYING and CUTSCENE.IS_CUTSCENE_PLAYING() do script.yield(0) end
-        pcall(function() if CUTSCENE and CUTSCENE.REMOVE_CUTSCENE then CUTSCENE.REMOVE_CUTSCENE() end end)
-    end)
-end
-
-local function stopCurrentCutscene()
-    script.run_in_callback(function()
-        pcall(function()
-            if CUTSCENE then
-                if CUTSCENE.STOP_CUTSCENE_IMMEDIATELY then CUTSCENE.STOP_CUTSCENE_IMMEDIATELY()
-                elseif CUTSCENE.STOP_CUTSCENE then CUTSCENE.STOP_CUTSCENE(true) end
-                if CUTSCENE.REMOVE_CUTSCENE then CUTSCENE.REMOVE_CUTSCENE() end
-            end
-            notify.info("Cutscenes", "Cutscene interrompida.")
-        end)
-    end)
 end
 
 ------------------------------------------------------------
@@ -3236,12 +3119,12 @@ local function clearActiveDogfightJets()
     end)
 
     purgeAllJetBlips()
-    notify.info("Jatos", "Todos os cacas e pilotos foram removidos do mapa.")
+    notify.info("Jets", "All fighter jets and pilots have been removed from the map.")
 end
 
 local function triggerDogfightAttack(targetPid, count)
     if isEnemyJetsSpawning then
-        notify.warn("Jatos", "Aguarde, cacas anteriores ainda sendo posicionados!")
+        notify.warn("Jets", "Please wait, previous jets are still spawning!")
         return
     end
 
@@ -3249,7 +3132,7 @@ local function triggerDogfightAttack(targetPid, count)
     local actualPid = (targetPid == nil or targetPid == -1) and myLocalPid or targetPid
     local targetPed = getPlayerPed(actualPid)
     local targetCoords = getTargetCoordsSafe(actualPid, targetPed)
-    local targetName = (actualPid == myLocalPid) and "Voce Mesmo" or getPlayerName(actualPid)
+    local targetName = (actualPid == myLocalPid) and "You" or getPlayerName(actualPid)
     local jetCount = 5
 
     isEnemyJetsSpawning = true
@@ -3260,7 +3143,6 @@ local function triggerDogfightAttack(targetPid, count)
                 targetPed = getLocalPed()
             end
 
-            -- Remove esquadrao anterior
             if #S.activeDogfightJets > 0 then
                 clearActiveDogfightJets()
                 script.yield(100)
@@ -3281,12 +3163,12 @@ local function triggerDogfightAttack(targetPid, count)
             end
 
             if not STREAMING.HAS_MODEL_LOADED(jetHash) or not STREAMING.HAS_MODEL_LOADED(pilotHash) then
-                notify.error("Jatos", "Falha ao carregar modelos dos cacas.")
+                notify.error("Jets", "Failed to load fighter jet models.")
                 isEnemyJetsSpawning = false
                 return
             end
 
-            notify.warn("Jatos", string.format("Enviando %d cacas atacando %s!", jetCount, targetName))
+            notify.warn("Jets", string.format("Sending %d fighter jets attacking %s!", jetCount, targetName))
             S.dogfightAttackRunning = true
 
             for i = 1, jetCount do
@@ -3328,7 +3210,7 @@ local function triggerDogfightAttack(targetPid, count)
                             if HUD.SET_BLIP_AS_SHORT_RANGE then HUD.SET_BLIP_AS_SHORT_RANGE(blip, false) end
                             if HUD.BEGIN_TEXT_COMMAND_SET_BLIP_NAME then
                                 HUD.BEGIN_TEXT_COMMAND_SET_BLIP_NAME("STRING")
-                                HUD.ADD_TEXT_COMPONENT_SUBSTRING_PLAYER_NAME("Caca Inimigo")
+                                HUD.ADD_TEXT_COMPONENT_SUBSTRING_PLAYER_NAME("Enemy Jet")
                                 HUD.END_TEXT_COMMAND_SET_BLIP_NAME(blip)
                             end
                         end
@@ -3375,7 +3257,6 @@ local function triggerDogfightAttack(targetPid, count)
                         end)
                     end
 
-                    -- Loop assincrono dedicado para cada jato
                     script.run_in_callback(function()
                         local lastAssignedPed = targetPed
                         local shootCooldown = 0
@@ -3430,7 +3311,6 @@ local function triggerDogfightAttack(targetPid, count)
                             script.yield(150)
                         end
 
-                        -- Ao morrer ou explodir, remove seu blip e limpa na hora
                         pcall(function()
                             if blip and HUD and HUD.DOES_BLIP_EXIST and HUD.DOES_BLIP_EXIST(blip) then
                                 HUD.SET_BLIP_DISPLAY(blip, 0)
@@ -3453,18 +3333,18 @@ end
 
 local function triggerDogfightAttackAllSession()
     if isEnemyJetsSpawning then
-        notify.warn("Jatos", "Aguarde, cacas anteriores ainda sendo posicionados!")
+        notify.warn("Jets", "Please wait, previous jets are still spawning!")
         return
     end
 
     local players = getActivePlayersList()
     if #players == 0 then
-        notify.warn("Jatos", "Nenhum jogador encontrado na sessao.")
+        notify.warn("Jets", "No players found in session.")
         return
     end
 
     isEnemyJetsSpawning = true
-    notify.warn("Jatos", string.format("Ataque Global! Enviando 2 cacas para cada um dos %d jogadores...", #players))
+    notify.warn("Jets", string.format("Global Attack! Sending 2 jets for each of the %d players...", #players))
 
     script.run_in_callback(function()
         pcall(function()
@@ -3488,7 +3368,7 @@ local function triggerDogfightAttackAllSession()
             end
 
             if not STREAMING.HAS_MODEL_LOADED(jetHash) or not STREAMING.HAS_MODEL_LOADED(pilotHash) then
-                notify.error("Jatos", "Falha ao carregar modelos dos cacas.")
+                notify.error("Jets", "Failed to load fighter jet models.")
                 isEnemyJetsSpawning = false
                 return
             end
@@ -3538,7 +3418,7 @@ local function triggerDogfightAttackAllSession()
                                 if HUD.SET_BLIP_AS_SHORT_RANGE then HUD.SET_BLIP_AS_SHORT_RANGE(blip, false) end
                                 if HUD.BEGIN_TEXT_COMMAND_SET_BLIP_NAME then
                                     HUD.BEGIN_TEXT_COMMAND_SET_BLIP_NAME("STRING")
-                                    HUD.ADD_TEXT_COMPONENT_SUBSTRING_PLAYER_NAME("Caca Inimigo")
+                                    HUD.ADD_TEXT_COMPONENT_SUBSTRING_PLAYER_NAME("Enemy Jet")
                                     HUD.END_TEXT_COMMAND_SET_BLIP_NAME(blip)
                                 end
                             end
@@ -3656,13 +3536,13 @@ local function triggerDogfightAttackAllSession()
             STREAMING.SET_MODEL_AS_NO_LONGER_NEEDED(jetHash)
             STREAMING.SET_MODEL_AS_NO_LONGER_NEEDED(pilotHash)
             isEnemyJetsSpawning = false
-            notify.success("Jatos", "Esquadrao global da sessao posicionado com sucesso!")
+            notify.success("Jets", "Global session squadron deployed successfully!")
         end)
     end)
 end
 
 ------------------------------------------------------------
--- EAR RAPE & TROLL SONORO / VISUAL
+-- EAR RAPE & AUDIO / VISUAL TROLL
 ------------------------------------------------------------
 
 local function stopTrollAudioHarassment()
@@ -3673,7 +3553,7 @@ local function stopTrollAudioHarassment()
         if GRAPHICS and GRAPHICS.ANIMPOSTFX_STOP_ALL then GRAPHICS.ANIMPOSTFX_STOP_ALL() end
         if CAM and CAM.STOP_GAMEPLAY_CAM_SHAKING then CAM.STOP_GAMEPLAY_CAM_SHAKING(true) end
     end)
-    notify.info("Ear Rape", "Ear Rape e Terremoto desativados.")
+    notify.info("Ear Rape", "Ear Rape and Earthquake disabled.")
 end
 
 local function runSingleEarRapeStep(targetPid)
@@ -3685,7 +3565,7 @@ local function runSingleEarRapeStep(targetPid)
     local shooterPed = (isValidEntity(targetPed) and targetPed or 0)
     S.earRapeStepIndex = S.earRapeStepIndex + 1
 
-    -- 1. SONS LOCAIS E UI (FRONTEND + 3D)
+    -- 1. LOCAL & UI SOUNDS (FRONTEND + 3D)
     pcall(function()
         local sndIdx = (S.earRapeStepIndex % #Presets.earRapeSounds) + 1
         local snd = Presets.earRapeSounds[sndIdx]
@@ -3703,7 +3583,7 @@ local function runSingleEarRapeStep(targetPid)
         end
     end)
 
-    -- 2. SONS DIVERSIFICADOS EM REDE (1 TIRO SEGURO NO ALTO A CADA TICK)
+    -- 2. DIVERSE NETWORKED SOUNDS (1 SAFE BULLET IN AIR PER TICK)
     pcall(function()
         if MISC and MISC.SHOOT_SINGLE_BULLET_BETWEEN_COORDS then
             local totalWeapons = #Presets.networkedEarRapeWeapons
@@ -3723,30 +3603,30 @@ local function runSingleEarRapeStep(targetPid)
         end
     end)
 
-    -- 3. EFEITOS VISUAIS E AUDITIVOS CINEMATOGRAFICOS EM REDE NA TELA DO ALVO (SEM SINALIZADORES / FOGOS)
+    -- 3. VISUAL & SOUND NETWORKED EFFECTS ON TARGET SCREEN
     pcall(function()
         if FIRE and FIRE.ADD_EXPLOSION then
             local expType = 70
             local modStep = S.earRapeStepIndex % 4
             if modStep == 0 then
-                expType = 59 -- Raio Vermelho Canhao Orbital do Ceu (Flash sem sinalizador)
+                expType = 59 -- Orbital Cannon Beam
             elseif modStep == 1 then
-                expType = 67 -- Pulso Eletromagnetico EMP (Azul Eletrico)
+                expType = 67 -- EMP Blast
             elseif modStep == 2 then
-                expType = 13 -- Geyser de Agua de Alta Pressao (Gotas na camera)
+                expType = 13 -- High Pressure Water Geyser
             elseif modStep == 3 then
-                expType = 70 -- Tremor de Camera e Som de Impacto Invisivel
+                expType = 70 -- Camera Tremor & Invisible Sound Impact
             end
 
             FIRE.ADD_EXPLOSION(coords.x, coords.y, coords.z - 0.5, expType, 0.0, true, false, 4.5, false)
         end
 
-        -- 4. RELAMPAGO A CADA 4 TICKS (1x por segundo para nao floodar a rede)
+        -- 4. LIGHTNING EVERY 4 TICKS
         if S.trollLightning and (S.earRapeStepIndex % 4 == 0) and MISC and MISC.FORCE_LIGHTNING_FLASH_AT_COORDS then
             MISC.FORCE_LIGHTNING_FLASH_AT_COORDS(coords.x, coords.y, coords.z, 4.5)
         end
 
-        -- 5. TREMOR & FLASHBANG LOCAL SE ESTIVER TESTANDO EM SI MESMO
+        -- 5. LOCAL SHAKE & FLASHBANG
         if isLocal and not S.muteEarRapeLocal then
             if CAM and CAM.SHAKE_GAMEPLAY_CAM then CAM.SHAKE_GAMEPLAY_CAM("LARGE_EXPLOSION_SHAKE", 4.5) end
             if S.trollFlashbang and GRAPHICS and GRAPHICS.ANIMPOSTFX_PLAY then GRAPHICS.ANIMPOSTFX_PLAY("DrugsMichaelAliensFight", 0, true) end
@@ -3757,12 +3637,12 @@ end
 local function triggerEarRapeTremor(targetPid, burstSecs)
     local isAll = (targetPid == -2)
     local actualPid = (targetPid == -1 or targetPid == getLocalPid()) and getLocalPid() or targetPid
-    local pName = isAll and "TODOS os Jogadores da Sessao" or ((actualPid == getLocalPid()) and "Voce Mesmo" or getPlayerName(actualPid))
+    local pName = isAll and "ALL Players in Session" or ((actualPid == getLocalPid()) and "You" or getPlayerName(actualPid))
 
     if burstSecs and burstSecs > 0 then
-        notify.warn("Ear Rape", string.format("Disparando Ear Rape Estavel (%ds) em %s!", burstSecs, pName))
+        notify.warn("Ear Rape", string.format("Triggering Stable Ear Rape (%ds) on %s!", burstSecs, pName))
     else
-        notify.warn("Ear Rape", "Modo Continuo Estavel de Ear Rape ATIVADO em " .. pName .. "!")
+        notify.warn("Ear Rape", "Stable Continuous Ear Rape ENABLED on " .. pName .. "!")
     end
 
     script.run_in_callback(function()
@@ -3784,7 +3664,7 @@ local function triggerEarRapeTremor(targetPid, burstSecs)
                 script.yield(intervalMs)
             end
             stopTrollAudioHarassment()
-            notify.info("Ear Rape", "Burst de Ear Rape finalizado em " .. pName .. ".")
+            notify.info("Ear Rape", "Ear Rape burst finished on " .. pName .. ".")
         else
             S.isTrollAudioActive = true
             S.trollAudioLoop = true
@@ -3808,58 +3688,21 @@ local function triggerEarRapeTremor(targetPid, burstSecs)
 end
 
 ------------------------------------------------------------
--- SPAM DE CONVITES DE CONTATOS & SMS
+-- MILITARY AIRDROP
 ------------------------------------------------------------
 
-local function postContactInvite(contact, targetPid, silent)
-    if not contact then return false end
-    local myLocalPid = getLocalPid()
-    local actualPid = (targetPid == nil or targetPid == -1) and myLocalPid or targetPid
-    local isLocal = (actualPid == myLocalPid)
-
-    if isLocal then
-        pcall(function()
-            if HUD and HUD.BEGIN_TEXT_COMMAND_THEFEED_POST then
-                HUD.BEGIN_TEXT_COMMAND_THEFEED_POST("STRING")
-                HUD.ADD_TEXT_COMPONENT_SUBSTRING_PLAYER_NAME("~b~Convite~s~ para " .. tostring(S.contactActivity))
-                if HUD.END_TEXT_COMMAND_THEFEED_POST_MESSAGETEXT then
-                    HUD.END_TEXT_COMMAND_THEFEED_POST_MESSAGETEXT(contact.txd, contact.txd, true, S.contactIconType or 7, contact.name, S.contactSubject)
-                end
+local function getGroundZSafe(x, y, z)
+    local groundZ = z
+    pcall(function()
+        if MISC and MISC.GET_GROUND_Z_FOR_3D_COORD then
+            local ok, val = MISC.GET_GROUND_Z_FOR_3D_COORD(x, y, z + 50.0, false, false)
+            if ok and val and type(val) == "number" and val ~= 0 then
+                groundZ = val
             end
-        end)
-    else
-        local smsText = string.format("[%s] %s: %s", contact.name, S.contactSubject, S.contactActivity)
-        pcall(function()
-            if players and players.send_sms then
-                players.send_sms(actualPid, smsText)
-            end
-        end)
-    end
-    return true
-end
-
-local function sendAllContactInvites(targetPid)
-    if S.contactIsSpamming then notify.warn("Convites", "Envio em massa ja em andamento!"); return end
-    S.contactIsSpamming = true
-    local myLocalPid = getLocalPid()
-    local actualPid = (targetPid == nil or targetPid == -1) and myLocalPid or targetPid
-    local targetName = (actualPid == myLocalPid) and "Voce Mesmo" or getPlayerName(actualPid)
-
-    notify.info("Convites", "Disparando todos os convites para " .. targetName .. "...")
-    script.run_in_callback(function()
-        for i = 1, #Presets.contacts do
-            if not S.contactIsSpamming then break end
-            postContactInvite(Presets.contacts[i], actualPid, true)
-            script.yield(S.contactDelayMs)
         end
-        S.contactIsSpamming = false
-        notify.success("Convites", "Envio de convites para " .. targetName .. " finalizado!")
     end)
+    return groundZ
 end
-
-------------------------------------------------------------
--- AIRDROP MILITAR
-------------------------------------------------------------
 
 local function cancelActiveAirdrop(silent)
     S.airdropSessionId = S.airdropSessionId + 1
@@ -3872,17 +3715,16 @@ local function cancelActiveAirdrop(silent)
             if isValidEntity(S.ActiveAirdrop.crate) then safeDeleteEntity(S.ActiveAirdrop.crate) end
         end)
         S.ActiveAirdrop = nil
-        if not silent then notify.info("Airdrop", "Airdrop cancelado e removido.") end
+        if not silent then notify.info("Airdrop", "Airdrop cancelled and removed.") end
     end
 end
 
 local function triggerAirdropDrop(dropType, targetPid, locMode)
     cancelActiveAirdrop(true)
-    S.airdropSessionId = S.airdropSessionId + 1
     local mySessionId = S.airdropSessionId
 
     local isLocalTarget = (locMode == 1 or targetPid == -1 or targetPid == getLocalPid())
-    local pName = isLocalTarget and "Voce" or getPlayerName(targetPid)
+    local pName = isLocalTarget and "You" or getPlayerName(targetPid)
     local dropX, dropY, dropZ = 0, 0, 0
 
     if isLocalTarget then
@@ -3890,14 +3732,16 @@ local function triggerAirdropDrop(dropType, targetPid, locMode)
         local forward = getCameraDirection()
         dropX = pCoords.x + forward.x * 15.0
         dropY = pCoords.y + forward.y * 15.0
-        dropZ = pCoords.z
+        dropZ = getGroundZSafe(dropX, dropY, pCoords.z)
     else
         local targetPed = getPlayerPed(targetPid)
         if isValidEntity(targetPed) then
             local tCoords = ENTITY.GET_ENTITY_COORDS(targetPed, true)
-            dropX, dropY, dropZ = tCoords.x, tCoords.y, tCoords.z
+            dropX = tCoords.x
+            dropY = tCoords.y
+            dropZ = getGroundZSafe(dropX, dropY, tCoords.z)
         else
-            notify.error("Airdrop", "Jogador alvo nao encontrado.")
+            notify.error("Airdrop", "Target player not found.")
             return
         end
     end
@@ -3905,35 +3749,93 @@ local function triggerAirdropDrop(dropType, targetPid, locMode)
     local chosenType = tonumber(dropType) or S.airdropDropType or 1
     local chosenVehModel = S.airdropVehicleModel or "oppressor2"
     local chosenVehName = S.airdropVehicleName or "Oppressor Mk II"
-    notify.info("Airdrop", "Sinalizador lancado! Airdrop a caminho de " .. pName .. "...")
+    notify.info("Airdrop", "Flare deployed! Airdrop en route to " .. pName .. "...")
 
     script.run_in_callback(function()
         if S.airdropSessionId ~= mySessionId then return end
+
+        -- Tactical beep countdown
+        local beepDelays = { 320, 260, 200, 150, 110, 80 }
+        for _, delay in ipairs(beepDelays) do
+            if S.airdropSessionId ~= mySessionId then return end
+            pcall(function()
+                if AUDIO and AUDIO.PLAY_SOUND_FRONTEND then
+                    AUDIO.PLAY_SOUND_FRONTEND(-1, "Beep_Red", "DLC_HEIST_HACKING_SNAKE_SOUNDS", true)
+                end
+            end)
+            script.yield(delay)
+        end
+
         local crateHash = getHash("prop_box_wood05a")
-        if not requestAndLoadModel(crateHash, 40) then return end
+        if not requestAndLoadModel(crateHash, 60) then
+            crateHash = getHash("prop_box_ammo04a")
+            if not requestAndLoadModel(crateHash, 60) then
+                crateHash = getHash("prop_crate_01a")
+                requestAndLoadModel(crateHash, 60)
+            end
+        end
         if S.airdropSessionId ~= mySessionId then return end
 
-        local startZ = dropZ + 50.0
+        local startZ = dropZ + 55.0
         local crate = safeCreateStuntProp(crateHash, dropX, dropY, startZ, false)
-        if not isValidEntity(crate) then return end
+        if not isValidEntity(crate) then
+            pcall(function()
+                if OBJECT and OBJECT.CREATE_OBJECT_NO_OFFSET then
+                    crate = OBJECT.CREATE_OBJECT_NO_OFFSET(crateHash, dropX, dropY, startZ, true, false, false)
+                elseif OBJECT and OBJECT.CREATE_OBJECT then
+                    crate = OBJECT.CREATE_OBJECT(crateHash, dropX, dropY, startZ, true, false, false)
+                end
+            end)
+        end
+        if not isValidEntity(crate) then
+            pcall(function()
+                if entities and entities.create_object then
+                    crate = entities.create_object(crateHash, { x = dropX, y = dropY, z = startZ })
+                end
+            end)
+        end
+
+        if not isValidEntity(crate) then
+            notify.error("Airdrop", "Failed to create crate entity.")
+            return
+        end
+
+        pcall(function()
+            ENTITY.SET_ENTITY_AS_MISSION_ENTITY(crate, true, true)
+            ENTITY.SET_ENTITY_INVINCIBLE(crate, true)
+            ENTITY.SET_ENTITY_COLLISION(crate, true, true)
+            if ENTITY.FREEZE_ENTITY_POSITION then ENTITY.FREEZE_ENTITY_POSITION(crate, false) end
+        end)
+
         S.ActiveAirdrop = { crate = crate, ptfx = nil }
 
+        -- Smooth rapid descent
         local curZ = startZ
-        while curZ > (dropZ + 0.3) do
-            if S.airdropSessionId ~= mySessionId or not isValidEntity(crate) then
+        local fallSpeed = 38.0
+        while isValidEntity(crate) and curZ > (dropZ + 0.3) do
+            if S.airdropSessionId ~= mySessionId then
                 safeDeleteEntity(crate)
                 S.ActiveAirdrop = nil
                 return
             end
-            curZ = curZ - 0.75
-            ENTITY.SET_ENTITY_COORDS(crate, dropX, dropY, curZ, false, false, false, true)
-            script.yield(15)
+            curZ = curZ - (fallSpeed * 0.035)
+            pcall(function()
+                ENTITY.SET_ENTITY_COORDS(crate, dropX, dropY, curZ, false, false, false, true)
+                ENTITY.SET_ENTITY_VELOCITY(crate, 0.0, 0.0, -fallSpeed)
+            end)
+            script.yield(30)
         end
 
         if not isValidEntity(crate) or S.airdropSessionId ~= mySessionId then return end
-        pcall(function() ENTITY.PLACE_ENTITY_ON_GROUND_PROPERLY(crate) end)
+        pcall(function()
+            ENTITY.PLACE_ENTITY_ON_GROUND_PROPERLY(crate)
+            ENTITY.SET_ENTITY_INVINCIBLE(crate, false)
+            if AUDIO and AUDIO.PLAY_SOUND_FRONTEND then
+                AUDIO.PLAY_SOUND_FRONTEND(-1, "Airhorn", "DLC_TG_Running_Back_Sounds", true)
+            end
+        end)
 
-        -- Iniciar fumaca / sinalizador vermelho na caixa
+        -- Red smoke / flare on crate
         local ptfxLoop = nil
         pcall(function()
             STREAMING.REQUEST_NAMED_PTFX_ASSET("core")
@@ -3962,7 +3864,7 @@ local function triggerAirdropDrop(dropType, targetPid, locMode)
             S.ActiveAirdrop.ptfx = ptfxLoop
         end
 
-        notify.success("Airdrop", "Airdrop pousou! Siga a fumaca vermelha e aproxime-se para resgatar.")
+        notify.success("Airdrop", "Airdrop landed! Follow the red smoke to claim.")
 
         local expireTime = gameTimer() + 90000
         while gameTimer() < expireTime and isValidEntity(crate) do
@@ -3987,7 +3889,7 @@ local function triggerAirdropDrop(dropType, targetPid, locMode)
                         local pp = ENTITY.GET_ENTITY_COORDS(pPed, true)
                         local dx, dy, dz = pp.x - cPos.x, pp.y - cPos.y, pp.z - cPos.z
                         if math.sqrt(dx*dx + dy*dy) <= 4.5 and math.abs(dz) <= 3.5 then
-                            local openerName = (pid == getLocalPid()) and "Voce" or getPlayerName(pid)
+                            local openerName = (pid == getLocalPid()) and "You" or getPlayerName(pid)
 
                             pcall(function()
                                 if ptfxLoop and ptfxLoop ~= 0 then
@@ -4004,16 +3906,31 @@ local function triggerAirdropDrop(dropType, targetPid, locMode)
                                 pcall(function()
                                     ENTITY.SET_ENTITY_HEALTH(pPed, 200, 0, 0)
                                     PED.SET_PED_ARMOUR(pPed, 100)
-                                    for _, wName in ipairs({ "WEAPON_MINIGUN", "WEAPON_RAILGUN", "WEAPON_HOMINGLAUNCHER", "WEAPON_RPG", "WEAPON_SPECIALCARBINE_MK2" }) do
+                                    for _, wName in ipairs({ "WEAPON_MINIGUN", "WEAPON_RAILGUN", "WEAPON_HOMINGLAUNCHER", "WEAPON_RPG", "WEAPON_SPECIALCARBINE_MK2", "WEAPON_HEAVYSNIPER_MK2" }) do
                                         WEAPON.GIVE_WEAPON_TO_PED(pPed, getHash(wName), 9999, false, true)
                                     end
+                                    if AUDIO and AUDIO.PLAY_SOUND_FRONTEND then
+                                        AUDIO.PLAY_SOUND_FRONTEND(-1, "PICK_UP_WEAPON", "HUD_FRONTEND_DEFAULT_SOUNDSET", true)
+                                    end
                                 end)
-                                notify.success("Airdrop", openerName .. " resgatou o Suprimento Tatico!")
+                                notify.success("Airdrop", openerName .. " claimed the Tactical Supply!")
                             elseif chosenType == 2 then
                                 local vHash = getHash(chosenVehModel)
                                 if requestAndLoadModel(vHash, 100) then
                                     local pHeading = ENTITY.GET_ENTITY_HEADING(pPed)
-                                    local veh = VEHICLE.CREATE_VEHICLE(vHash, cPos.x, cPos.y, cPos.z + 0.3, pHeading, true, false, false)
+                                    local veh = 0
+                                    pcall(function()
+                                        if VEHICLE and VEHICLE.CREATE_VEHICLE then
+                                            veh = VEHICLE.CREATE_VEHICLE(vHash, cPos.x, cPos.y, cPos.z + 0.3, pHeading, true, false, false)
+                                        end
+                                    end)
+                                    if not isValidEntity(veh) then
+                                        pcall(function()
+                                            if entities and entities.create_vehicle then
+                                                veh = entities.create_vehicle(vHash, { x = cPos.x, y = cPos.y, z = cPos.z + 0.3 }, pHeading)
+                                            end
+                                        end)
+                                    end
                                     if isValidEntity(veh) then
                                         ENTITY.SET_ENTITY_AS_MISSION_ENTITY(veh, true, true)
                                         safeSetInvincible(veh, true)
@@ -4022,13 +3939,13 @@ local function triggerAirdropDrop(dropType, targetPid, locMode)
                                             VEHICLE.SET_VEHICLE_ENGINE_ON(veh, true, true, false)
                                         end)
 
-                                        notify.success("Airdrop", chosenVehName .. " entregue com sucesso no local do Airdrop!")
+                                        notify.success("Airdrop", chosenVehName .. " delivered successfully at airdrop location!")
                                     end
                                     STREAMING.SET_MODEL_AS_NO_LONGER_NEEDED(vHash)
                                 end
                             elseif chosenType == 3 then
                                 pcall(function() FIRE.ADD_EXPLOSION(cPos.x, cPos.y, cPos.z, 29, 25.0, true, false, 2.5, false) end)
-                                notify.warn("Airdrop", "Armadilha do Airdrop detonada!")
+                                notify.warn("Airdrop", "Airdrop trap detonated!")
                             end
                             return
                         end
@@ -4050,36 +3967,38 @@ local function triggerAirdropDrop(dropType, targetPid, locMode)
 end
 
 ------------------------------------------------------------
--- IMGUI TARGET SELECTOR
+-- IMGUI TARGET SELECTOR (SESSION PLAYERS)
 ------------------------------------------------------------
 
 local function renderPlayerTargetSelector(currentSelectedPid, onSelectCallback, idTag, allowAll)
     local localPid = getLocalPid()
     local isAll = (currentSelectedPid == -2)
     local isSelf = (currentSelectedPid == -1 or currentSelectedPid == localPid)
-    
-    local curTargetName = isAll and "TODOS OS JOGADORES (Sessao Inteira)" or (isSelf and "Voce Mesmo (Local)" or (getPlayerName(currentSelectedPid) .. " [PID: " .. tostring(currentSelectedPid) .. "]"))
-    imgui.text("Alvo Selecionado: " .. curTargetName)
-    
+    local curTargetName = isAll and "ALL PLAYERS (Entire Session)" or (getPlayerName(currentSelectedPid) .. " [PID: " .. tostring(currentSelectedPid) .. "]")
+    if not isAll and isSelf then curTargetName = "YOU (Local Player) [PID: " .. tostring(localPid) .. "]" end
+
+    imgui.text("Target: " .. curTargetName)
     if allowAll then
-        if imgui.button((isAll and "-> [X] TODOS OS JOGADORES (Sessao)" or "-> [  ] TODOS OS JOGADORES (Sessao)") .. "##all_" .. idTag) then onSelectCallback(-2) end
+        if imgui.button((isAll and "[X] ALL PLAYERS (Broadcast)" or "ALL PLAYERS (Broadcast)") .. "##all_" .. idTag) then
+            onSelectCallback(-2)
+        end
         imgui.same_line()
     end
 
-    if imgui.button((isSelf and "-> [X] Voce Mesmo (Local)" or "-> [  ] Voce Mesmo (Local)") .. "##self_" .. idTag) then onSelectCallback(-1) end
-    
     local players = getActivePlayersList()
-    local otherPlayers = {}
-    for _, pid in ipairs(players) do if pid ~= localPid then table.insert(otherPlayers, pid) end end
-
-    if #otherPlayers == 0 then
-        imgui.text("   (Nenhum outro jogador encontrado na sessao)")
+    if #players == 0 then
+        if imgui.button((isSelf and "[X] Local Player (You)" or "Local Player (You)") .. "##self_" .. idTag) then
+            onSelectCallback(-1)
+        end
     else
-        imgui.text("Jogadores na Sessao:")
-        for i, pid in ipairs(otherPlayers) do
-            if (i - 1) % 2 ~= 0 then imgui.same_line() end
+        imgui.text("Session Players:")
+        for i, pid in ipairs(players) do
+            if (i - 1) % 3 ~= 0 then imgui.same_line() end
             local isSel = (currentSelectedPid == pid)
-            if imgui.button(string.format("%s[%02d] %s##p_%s_%d", isSel and "[X] " or "[  ] ", pid, getPlayerName(pid), idTag, pid)) then
+            local pName = getPlayerName(pid)
+            local isLocal = (pid == localPid)
+            local label = string.format("%s[%02d] %s%s##p_%s_%d", isSel and "[X] " or "", pid, pName, isLocal and " (You)" or "", idTag, pid)
+            if imgui.button(label) then
                 onSelectCallback(pid)
             end
         end
@@ -4087,96 +4006,80 @@ local function renderPlayerTargetSelector(currentSelectedPid, onSelectCallback, 
 end
 
 ------------------------------------------------------------
--- IMGUI TAB RENDERERS
+-- IMGUI TAB RENDERERS (ENGLISH)
 ------------------------------------------------------------
 
 local function renderTabJets()
-    if not imgui.begin_tab_item("Jatos") then return end
-    imgui.text("=== ESQUADRAO DE CACAS 20MM (DOGFIGHT) ===")
-    imgui.text("Spawn Padrao: 5 Cacas Militares (Lazer 20mm)")
+    if not imgui.begin_tab_item("Fighter Jets") then return end
+    imgui.text("=== 20MM FIGHTER JETS SQUADRON (DOGFIGHT) ===")
+    imgui.text("Standard Squad: 5 Military Jets (Lazer 20mm)")
     imgui.spacing()
-    imgui.text("Selecione o Alvo do Ataque Individual:")
+    imgui.text("Select Target for Single Attack:")
     renderPlayerTargetSelector(S.selectedDogfightPid, function(pid) S.selectedDogfightPid = pid end, "dogfight")
     imgui.spacing()
-    if imgui.button(">> DECOLAR ESQUADRAO (5 CACAS) NO ALVO <<##launch_jets_btn") then triggerDogfightAttack(S.selectedDogfightPid, 5) end
+    if imgui.button("Launch Squadron (5 Jets) at Target##launch_jets_btn") then triggerDogfightAttack(S.selectedDogfightPid, 5) end
     imgui.same_line()
-    if imgui.button(">> ATACAR TODA A SESSAO (2 CACAS POR PLAYER) <<##launch_jets_all_btn") then triggerDogfightAttackAllSession() end
+    if imgui.button("Attack Entire Session (2 Jets per Player)##launch_jets_all_btn") then triggerDogfightAttackAllSession() end
     imgui.same_line()
-    if imgui.button("Remover/Purgar Cacas do Mapa##clear_jets_btn") then clearActiveDogfightJets() end
+    if imgui.button("Clear / Purge Jets from Map##clear_jets_btn") then clearActiveDogfightJets() end
     imgui.end_tab_item()
 end
 
 local function renderTabEarRape()
-    if not imgui.begin_tab_item("Ear Rape") then return end
-    imgui.text("=== TROLL PESADO (EAR RAPE & TERREMOTO) ===")
-    imgui.text("Selecione o Alvo (Todos os Jogadores ou Individual):")
+    if not imgui.begin_tab_item("Ear Rape & Troll") then return end
+    imgui.text("=== HEAVY TROLL (EAR RAPE & EARTHQUAKE) ===")
+    imgui.text("Select Target (All Players or Individual):")
     renderPlayerTargetSelector(S.selectedEarRapePid, function(pid) S.selectedEarRapePid = pid end, "earrape", true)
     imgui.spacing()
-    local cL, vL = imgui.checkbox("Incluir Relampagos & Trovoes##troll_lightning", S.trollLightning)
+    local cL, vL = imgui.checkbox("Include Lightning & Thunder##troll_lightning", S.trollLightning)
     if cL then S.trollLightning = vL end
     imgui.same_line()
-    local cF, vF = imgui.checkbox("Incluir Flashbang Psicodelico##troll_flashbang", S.trollFlashbang)
+    local cF, vF = imgui.checkbox("Include Psychedelic Flashbang##troll_flashbang", S.trollFlashbang)
     if cF then S.trollFlashbang = vF end
     imgui.same_line()
-    local cM, vM = imgui.checkbox("Modo Mudo Local (Protege seus ouvidos ao atacar)##troll_mute_local", S.muteEarRapeLocal)
+    local cM, vM = imgui.checkbox("Local Mute Mode (Protects your ears during attack)##troll_mute_local", S.muteEarRapeLocal)
     if cM then S.muteEarRapeLocal = vM end
     imgui.spacing()
-    if imgui.button("Disparo Rapido (5s)##troll_5s_btn") then triggerEarRapeTremor(S.selectedEarRapePid, 5) end
+    if imgui.button("Quick Burst (5s)##troll_5s_btn") then triggerEarRapeTremor(S.selectedEarRapePid, 5) end
     imgui.same_line()
-    if imgui.button("Disparo Longo (10s)##troll_10s_btn") then triggerEarRapeTremor(S.selectedEarRapePid, 10) end
+    if imgui.button("Long Burst (10s)##troll_10s_btn") then triggerEarRapeTremor(S.selectedEarRapePid, 10) end
     imgui.same_line()
     if not S.trollAudioLoop then
-        if imgui.button("INICIAR LOOP INFINITO##troll_loop_start_btn") then triggerEarRapeTremor(S.selectedEarRapePid, 0) end
+        if imgui.button("START INFINITE LOOP##troll_loop_start_btn") then triggerEarRapeTremor(S.selectedEarRapePid, 0) end
     else
-        if imgui.button("PARAR LOOP DO TROLL##troll_loop_stop_btn") then stopTrollAudioHarassment() end
+        if imgui.button("STOP TROLL LOOP##troll_loop_stop_btn") then stopTrollAudioHarassment() end
     end
     imgui.same_line()
-    if imgui.button("Parar Efeitos##troll_stop_all_btn") then stopTrollAudioHarassment() end
-    imgui.end_tab_item()
-end
-
-local function renderTabContactInvites()
-    if not imgui.begin_tab_item("Envio de Contatos") then return end
-    imgui.text("=== SPAM DE CONVITES DE CONTATOS ===")
-    imgui.text("Destinatario dos Convites:")
-    renderPlayerTargetSelector(S.contactSelectedPid, function(pid) S.contactSelectedPid = pid end, "contacts")
-    imgui.spacing()
-    imgui.text("Informacoes do Convite:")
-    imgui.text("Assunto: Convite para atividade | Atividade: Penthouse")
-    imgui.text("Metodo: SMS Nativo + Script Events de Rede")
-    imgui.spacing()
-    if imgui.button(">> ENVIAR TODOS OS CONTATOS (SPAM EM MASSA) <<##spam_all_contacts_btn") then sendAllContactInvites(S.contactSelectedPid) end
-    imgui.same_line()
-    if imgui.button("Parar Envio em Massa##stop_spam_contacts_btn") then S.contactIsSpamming = false end
+    if imgui.button("Stop All Troll Effects##troll_stop_all_btn") then stopTrollAudioHarassment() end
     imgui.end_tab_item()
 end
 
 local function renderTabAirdrop()
-    if not imgui.begin_tab_item("Airdrop Militar") then return end
-    imgui.text("=== CONFIGURACAO DO AIRDROP MILITAR ===")
-    imgui.text("Local de Entrega:")
-    if imgui.button((S.airdropLocationMode == 1 and "[X] Na Frente (15m)" or "[  ] Na Frente (15m)") .. "##loc_front") then S.airdropLocationMode = 1; S.selectedAirdropPid = -1 end
+    if not imgui.begin_tab_item("Military Airdrop") then return end
+    imgui.text("=== MILITARY AIRDROP CONFIGURATION ===")
+    imgui.text("Drop Location:")
+    if imgui.button((S.airdropLocationMode == 1 and "[X] In Front (15m)" or "In Front (15m)") .. "##loc_front") then S.airdropLocationMode = 1; S.selectedAirdropPid = -1 end
     imgui.same_line()
-    if imgui.button((S.airdropLocationMode == 2 and "[X] No Jogador Alvo" or "[  ] No Jogador Alvo") .. "##loc_player") then S.airdropLocationMode = 2 end
+    if imgui.button((S.airdropLocationMode == 2 and "[X] Target Player" or "Target Player") .. "##loc_player") then S.airdropLocationMode = 2 end
 
     if S.airdropLocationMode == 2 then
         imgui.spacing()
-        imgui.text("Selecione o Jogador Destinatario:")
+        imgui.text("Select Recipient Player:")
         renderPlayerTargetSelector(S.selectedAirdropPid, function(pid) S.selectedAirdropPid = pid end, "airdrop_target")
     end
 
     imgui.spacing(); imgui.separator(); imgui.spacing()
-    imgui.text("Tipo de Carga:")
-    if imgui.button((S.airdropDropType == 1 and "[X] 1. Suprimento Tatico (Armas + Colete 100%)" or "[  ] 1. Suprimento Tatico (Armas + Colete 100%)") .. "##type_tactical") then S.airdropDropType = 1 end
-    if imgui.button((S.airdropDropType == 2 and "[X] 2. Veiculo Especial (Max Upgrade)" or "[  ] 2. Veiculo Especial (Max Upgrade)") .. "##type_veh") then S.airdropDropType = 2 end
-    if imgui.button((S.airdropDropType == 3 and "[X] 3. Caixa Armadilha Explosiva (Trap)" or "[  ] 3. Caixa Armadilha Explosiva (Trap)") .. "##type_trap") then S.airdropDropType = 3 end
+    imgui.text("Cargo Type:")
+    if imgui.button((S.airdropDropType == 1 and "[X] 1. Tactical Supply (Weapons + 100% Armor)" or "1. Tactical Supply (Weapons + 100% Armor)") .. "##type_tactical") then S.airdropDropType = 1 end
+    if imgui.button((S.airdropDropType == 2 and "[X] 2. Special Vehicle" or "2. Special Vehicle") .. "##type_veh") then S.airdropDropType = 2 end
+    if imgui.button((S.airdropDropType == 3 and "[X] 3. Explosive Trap Crate" or "3. Explosive Trap Crate") .. "##type_trap") then S.airdropDropType = 3 end
 
     if S.airdropDropType == 2 then
         imgui.spacing()
-        imgui.text("Selecione o Veiculo do Airdrop:")
+        imgui.text("Select Airdrop Vehicle:")
         for _, v in ipairs(Presets.airdropVehicles) do
             local isSel = (S.airdropVehicleModel == v.model)
-            if imgui.button((isSel and "[X] " or "[  ] ") .. v.label .. "##veh_preset_" .. v.model) then
+            if imgui.button((isSel and "[X] " or "") .. v.label .. "##veh_preset_" .. v.model) then
                 S.airdropVehicleModel = v.model
                 S.airdropVehicleName = v.label
             end
@@ -4186,55 +4089,55 @@ local function renderTabAirdrop()
     end
 
     imgui.spacing(); imgui.separator(); imgui.spacing()
-    if imgui.button(">> SOLICITAR AIRDROP AGORA <<##request_airdrop_btn") then triggerAirdropDrop(S.airdropDropType, S.selectedAirdropPid, S.airdropLocationMode) end
+    if imgui.button("Request Airdrop Now##request_airdrop_btn") then triggerAirdropDrop(S.airdropDropType, S.selectedAirdropPid, S.airdropLocationMode) end
     imgui.same_line()
-    if imgui.button("Cancelar / Limpar Airdrop Ativo##cancel_airdrop_btn") then cancelActiveAirdrop(false) end
+    if imgui.button("Cancel / Clear Active Airdrop##cancel_airdrop_btn") then cancelActiveAirdrop(false) end
     imgui.end_tab_item()
 end
 
 local function renderTabVehicleControls()
-    if not imgui.begin_tab_item("Controles de Veiculo") then return end
+    if not imgui.begin_tab_item("Vehicle Controls") then return end
     imgui.spacing()
-    imgui.text("Acoes com Veiculo na Mira / Proximo:")
+    imgui.text("Crosshair / Nearby Vehicle Actions:")
     imgui.separator()
     imgui.spacing()
 
-    if imgui.button("Levantar Veiculo (+ " .. math.floor(S.liftHeight) .. "m)##lift_btn") then
+    if imgui.button("Lift Vehicle (+ " .. math.floor(S.liftHeight) .. "m)##lift_btn") then
         script.run_in_callback(function()
             local veh = getTargetVehicle()
-            if veh then LiftVehicle(veh, S.liftHeight); notify.success("Veiculo", "Veiculo levantado no ar!")
-            else notify.warn("Veiculo", "Nenhum veiculo encontrado!") end
+            if veh then LiftVehicle(veh, S.liftHeight); notify.success("Vehicle", "Vehicle lifted in air!")
+            else notify.warn("Vehicle", "No nearby vehicle found!") end
         end)
     end
     imgui.same_line()
-    if imgui.button(S.isHoldingVehicle and "Soltar Veiculo##hold_btn" or "Segurar no Ar (Telecinese)##hold_btn") then
+    if imgui.button(S.isHoldingVehicle and "Release Vehicle##hold_btn" or "Hold in Air (Telekinesis)##hold_btn") then
         HoldVehicleLoop(getTargetVehicle())
     end
 
     imgui.spacing()
-    if imgui.button("Arremessar Veiculo (Throw)##launch_btn") then
+    if imgui.button("Launch Vehicle (Throw)##launch_btn") then
         script.run_in_callback(function()
             local veh = S.isHoldingVehicle and S.heldVehicle or getTargetVehicle()
             if veh then
                 S.isHoldingVehicle = false
                 LaunchVehicle(veh, S.launchForce)
-                notify.success("Veiculo", "Veiculo arremessado!")
+                notify.success("Vehicle", "Vehicle launched!")
             end
         end)
     end
     imgui.same_line()
-    if imgui.button("Esmagar no Chao (Slam)##slam_btn") then
+    if imgui.button("Slam on Ground (Slam)##slam_btn") then
         script.run_in_callback(function()
             local veh = S.isHoldingVehicle and S.heldVehicle or getTargetVehicle()
-            if veh then S.isHoldingVehicle = false; SlamVehicle(veh); notify.success("Veiculo", "Veiculo esmagado!") end
+            if veh then S.isHoldingVehicle = false; SlamVehicle(veh); notify.success("Vehicle", "Vehicle slammed!") end
         end)
     end
 
-    local cSpinPlayer, vSpinPlayer = imgui.checkbox("Beyblade: Veiculo do Player (Girar no Chao)##spin_my_veh", S.spinPlayerVehActive)
+    local cSpinPlayer, vSpinPlayer = imgui.checkbox("Beyblade: Spin Player Vehicle on Ground##spin_my_veh", S.spinPlayerVehActive)
     if cSpinPlayer then S.spinPlayerVehActive = vSpinPlayer; if S.spinPlayerVehActive then startSpinPlayerVehLoop() end end
 
     imgui.spacing(); imgui.separator(); imgui.spacing()
-    imgui.text("Altura de Elevacao (Metros):")
+    imgui.text("Lift Height (Meters):")
     if imgui.button("5m##h5") then S.liftHeight = 5.0 end
     imgui.same_line()
     if imgui.button("10m##h10") then S.liftHeight = 10.0 end
@@ -4244,105 +4147,105 @@ local function renderTabVehicleControls()
     if imgui.button("50m##h50") then S.liftHeight = 50.0 end
 
     imgui.spacing()
-    imgui.text("Velocidade / Forca de Arremesso:")
-    if imgui.button("Suave (50)##f50") then S.launchForce = 50.0 end
+    imgui.text("Launch Force / Speed:")
+    if imgui.button("Soft (50)##f50") then S.launchForce = 50.0 end
     imgui.same_line()
-    if imgui.button("Media (150)##f150") then S.launchForce = 150.0 end
+    if imgui.button("Medium (150)##f150") then S.launchForce = 150.0 end
     imgui.same_line()
-    if imgui.button("Pesada (300)##f300") then S.launchForce = 300.0 end
+    if imgui.button("Heavy (300)##f300") then S.launchForce = 300.0 end
     imgui.same_line()
-    if imgui.button("SUPER ARREMESSO (600)##f600") then S.launchForce = 600.0 end
+    if imgui.button("SUPER LAUNCH (600)##f600") then S.launchForce = 600.0 end
 
     imgui.spacing(); imgui.separator(); imgui.spacing()
-    imgui.text("Acoes com Jogadores (Carregar no Colo):")
-    if imgui.button(S.isCarryingPlayer and "Soltar Jogador do Colo##carry_ply_btn" or "Carregar Jogador no Colo (Carry in Arms)##carry_ply_btn") then
+    imgui.text("Player Actions (Carry in Arms):")
+    if imgui.button(S.isCarryingPlayer and "Release Carried Player##carry_ply_btn" or "Carry Player in Arms##carry_ply_btn") then
         startCarryingPlayer(getTargetPlayerPed())
     end
     imgui.end_tab_item()
 end
 
 local function renderTabAreaChaos()
-    if not imgui.begin_tab_item("Caos de Area & Sessao") then return end
+    if not imgui.begin_tab_item("Area & Session Chaos") then return end
     imgui.spacing()
-    imgui.text("Caos em Massa de Veiculos & Poderes de Mundo:")
+    imgui.text("Mass Vehicle Chaos & World Powers:")
     imgui.separator()
     imgui.spacing()
 
-    if imgui.button("Levantar TODOS os Veiculos Proximos##area_lift") then
+    if imgui.button("Lift ALL Nearby Vehicles##area_lift") then
         script.run_in_callback(function()
             local count = 0
             for _, veh in ipairs(getAllNearbyVehicles(100.0)) do LiftVehicle(veh, S.liftHeight); count = count + 1 end
-            notify.success("Caos", "Levantou " .. count .. " veiculos proximos!")
+            notify.success("Chaos", "Lifted " .. count .. " nearby vehicles!")
         end)
     end
     imgui.same_line()
-    if imgui.button("Arremessar TODOS no Ceu##area_yeet") then
+    if imgui.button("Launch ALL into the Sky##area_yeet") then
         script.run_in_callback(function()
             local count = 0
             for _, veh in ipairs(getAllNearbyVehicles(100.0)) do LaunchVehicle(veh, S.launchForce); count = count + 1 end
-            notify.success("Caos", "Arremessou " .. count .. " veiculos em orbita!")
+            notify.success("Chaos", "Launched " .. count .. " vehicles into orbit!")
         end)
     end
 
     imgui.spacing()
-    local cSpinArea, vSpinArea = imgui.checkbox("Beyblade Continuo em Area (100m)##area_spin_chk", S.spinAreaVehsActive)
+    local cSpinArea, vSpinArea = imgui.checkbox("Continuous Area Beyblade (100m)##area_spin_chk", S.spinAreaVehsActive)
     if cSpinArea then S.spinAreaVehsActive = vSpinArea; if S.spinAreaVehsActive then startSpinAreaVehsLoop() end end
 
-    local cLev, vLev = imgui.checkbox("Pulo Continuo de Carros (Area Bounce)##area_lev_chk", S.infiniteLevitateActive)
+    local cLev, vLev = imgui.checkbox("Continuous Area Vehicle Bounce##area_lev_chk", S.infiniteLevitateActive)
     if cLev then S.infiniteLevitateActive = vLev; if S.infiniteLevitateActive then startInfiniteLevitateLoop() end end
 
-    local cVort, vVort = imgui.checkbox("Vortice Gravitacional (Tornado de Carros)##vort_chk", S.vortexActive)
+    local cVort, vVort = imgui.checkbox("Gravitational Vortex (Car Tornado)##vort_chk", S.vortexActive)
     if cVort then S.vortexActive = vVort; if S.vortexActive then startVortexLoop() end end
 
-    local cUfo, vUfo = imgui.checkbox("UFO Party Mode (Luzes, Neon RGB & Sirenes)##ufo_chk", S.ufoDiscoActive)
+    local cUfo, vUfo = imgui.checkbox("UFO Party Mode (Lights, RGB Neon & Sirens)##ufo_chk", S.ufoDiscoActive)
     if cUfo then S.ufoDiscoActive = vUfo; if S.ufoDiscoActive then startUfoDiscoLoop() end end
 
-    local cPush, vPush = imgui.checkbox("Repulsor de Veiculos (Onda de Choque)##rep_chk", S.pushRepulsorActive)
+    local cPush, vPush = imgui.checkbox("Vehicle Repulsor (Shockwave)##rep_chk", S.pushRepulsorActive)
     if cPush then S.pushRepulsorActive = vPush; if S.pushRepulsorActive then startPushRepulsorLoop() end end
 
-    local cRain, vRain = imgui.checkbox("Chuva de Meteoros de Veiculos##rain_chk", S.vehicleRainActive)
+    local cRain, vRain = imgui.checkbox("Vehicle Meteor Rain##rain_chk", S.vehicleRainActive)
     if cRain then S.vehicleRainActive = vRain; if S.vehicleRainActive then startVehicleRainLoop() end end
 
-    local cShield, vShield = imgui.checkbox("Escudo Orbital de Supercarros##shd_chk", S.vehicleShieldActive)
+    local cShield, vShield = imgui.checkbox("Orbital Supercar Shield##shd_chk", S.vehicleShieldActive)
     if cShield then S.vehicleShieldActive = vShield; if S.vehicleShieldActive then startVehicleShieldLoop() end end
 
     imgui.spacing()
-    if imgui.button("Montar Boliche Vertical (10 Pinos)##bus_bowl_btn") then setupBusBowling() end
+    if imgui.button("Setup Vertical Bus Bowling (10 Pins)##bus_bowl_btn") then setupBusBowling() end
     imgui.same_line()
-    if imgui.button(">> LANCAR PANTO (STRIKE!) <<##launch_bowl_btn") then launchBowlingPanto() end
+    if imgui.button("Launch Bowling Panto (Strike!)##launch_bowl_btn") then launchBowlingPanto() end
     imgui.same_line()
-    if imgui.button("Muralha Fortaleza de Onibus##fort_btn") then triggerBusFortressWall() end
+    if imgui.button("Bus Fortress Wall##fort_btn") then triggerBusFortressWall() end
 
     imgui.spacing()
-    local cSnake, vSnake = imgui.checkbox("Follow the Leader (Cobra de Veiculos)##follow_leader_chk", S.vehicleSnakeActive)
+    local cSnake, vSnake = imgui.checkbox("Follow the Leader (Vehicle Snake)##follow_leader_chk", S.vehicleSnakeActive)
     if cSnake then S.vehicleSnakeActive = vSnake; if S.vehicleSnakeActive then startVehicleSnakeLoop() end end
 
-    local cZomb, vZomb = imgui.checkbox("Apocalipse Zumbi Agressivo##zomb_ped_chk", S.zombiePedOutbreakActive)
+    local cZomb, vZomb = imgui.checkbox("Aggressive Zombie Apocalypse##zomb_ped_chk", S.zombiePedOutbreakActive)
     if cZomb then S.zombiePedOutbreakActive = vZomb; if S.zombiePedOutbreakActive then startZombiePedOutbreakLoop() end end
 
     imgui.spacing(); imgui.separator(); imgui.spacing()
-    imgui.text("Clima e Atmosfera da Sessao (Halloween & Globais):")
-    if imgui.button(S.halloweenModeActive and ">> DESATIVAR MODO HALLOWEEN <<##hw_btn" or ">> ATIVAR MODO HALLOWEEN TERROR <<##hw_btn") then
+    imgui.text("Session Weather & Atmosphere (Halloween & Global):")
+    if imgui.button(S.halloweenModeActive and "Disable Halloween Horror Weather##hw_btn" or "Enable Halloween Horror Weather##hw_btn") then
         toggleHalloweenWeather()
     end
 
     imgui.spacing()
-    if imgui.button("Neve de Natal (XMAS)##w_xmas") then setSessionWeather("XMAS", false) end
+    if imgui.button("Christmas Snow (XMAS)##w_xmas") then setSessionWeather("XMAS", false) end
     imgui.same_line()
-    if imgui.button("Tempestade Severa (THUNDER)##w_thun") then setSessionWeather("THUNDER", false) end
+    if imgui.button("Severe Thunderstorm (THUNDER)##w_thun") then setSessionWeather("THUNDER", false) end
     imgui.same_line()
-    if imgui.button("Neblina Densa (FOGGY)##w_fog") then setSessionWeather("FOGGY", false) end
-    if imgui.button("Dia Ensolarado (EXTRASUNNY)##w_sun") then setSessionWeather("EXTRASUNNY", false) end
+    if imgui.button("Dense Fog (FOGGY)##w_fog") then setSessionWeather("FOGGY", false) end
+    if imgui.button("Extra Sunny (EXTRASUNNY)##w_sun") then setSessionWeather("EXTRASUNNY", false) end
     imgui.same_line()
-    if imgui.button("Chuva com Raios (RAIN)##w_rain") then setSessionWeather("RAIN", false) end
+    if imgui.button("Rain & Lightning (RAIN)##w_rain") then setSessionWeather("RAIN", false) end
 
     imgui.spacing(); imgui.separator(); imgui.spacing()
-    imgui.text("Ciclo Rapido de Horas do Dia (Timelapse Dia & Noite):")
-    if imgui.button(S.fastTimeActive and ">> DESATIVAR CICLO RAPIDO DE HORAS <<##ft_btn" or ">> ATIVAR CICLO RAPIDO DE HORAS (TIMELAPSE) <<##ft_btn") then
+    imgui.text("Fast Daytime Cycle (Timelapse Day & Night):")
+    if imgui.button(S.fastTimeActive and "Disable Fast Time Cycle##ft_btn" or "Enable Fast Time Cycle (Timelapse)##ft_btn") then
         toggleFastTimeCycle()
     end
     imgui.same_line()
-    imgui.text("Velocidade: " .. tostring(S.fastTimeSpeed) .. "x")
+    imgui.text("Speed: " .. tostring(S.fastTimeSpeed) .. "x")
     if imgui.button("5x##spd_5") then S.fastTimeSpeed = 5 end
     imgui.same_line()
     if imgui.button("15x##spd_15") then S.fastTimeSpeed = 15 end
@@ -4355,35 +4258,35 @@ local function renderTabAreaChaos()
 end
 
 local function renderTabStuntTracks()
-    if not imgui.begin_tab_item("Pistas & Rampas") then return end
+    if not imgui.begin_tab_item("Stunt Tracks & Ramps") then return end
     imgui.spacing()
-    imgui.text("Mega Caos de Pistas & Estruturas Acrobaticas (Inception)")
+    imgui.text("Mega Track Chaos & Acrobatic Structures (Inception)")
     imgui.separator()
     imgui.spacing()
 
-    if imgui.button(">> GERAR MEGA CAOS TOTAL (APARECER TUDO: CEU + ASFALTO) <<##gen_all_chaos_btn") then spawnTotalSupremeChaos() end
+    if imgui.button("SPAWN TOTAL SUPREME CHAOS (SKY + GROUND)##gen_all_chaos_btn") then spawnTotalSupremeChaos() end
     imgui.spacing()
 
-    if imgui.button("Cyber Arena Tube Highway (Ceu)##gen_cyber_tube_btn") then spawnStuntTrack(Presets.cyber_arena_highway, "Cyber Arena Tube Highway") end
+    if imgui.button("Cyber Arena Tube Highway (Sky)##gen_cyber_tube_btn") then spawnStuntTrack(Presets.cyber_arena_highway, "Cyber Arena Tube Highway") end
     imgui.same_line()
-    if imgui.button("Arena Neon Speed Circuit (Ceu)##gen_neon_speed_btn") then spawnStuntTrack(Presets.arena_neon_speed, "Arena Neon Speed Circuit") end
+    if imgui.button("Arena Neon Speed Circuit (Sky)##gen_neon_speed_btn") then spawnStuntTrack(Presets.arena_neon_speed, "Arena Neon Speed Circuit") end
 
-    if imgui.button("Mega Arena Jump & Loop (Ceu)##gen_mega_jump_btn") then spawnStuntTrack(Presets.mega_arena_jump, "Mega Arena Jump & Loop") end
+    if imgui.button("Mega Arena Jump & Loop (Sky)##gen_mega_jump_btn") then spawnStuntTrack(Presets.mega_arena_jump, "Mega Arena Jump & Loop") end
     imgui.same_line()
-    if imgui.button("Mega Rodovia Acrobatica (Stunt Ceu)##gen_highway_btn") then spawnStuntTrack(Presets.stunt_highway, "Mega Rodovia Acrobatica") end
-
-    imgui.spacing(); imgui.separator(); imgui.spacing()
-    imgui.text("Rampas Frontais Instantaneas (A sua frente):")
-    if imgui.button("Rampa Mega Salto (Grande)##ramp_l") then spawnInstantFrontRamp("stt_prop_stunt_jump_l") end
-    imgui.same_line()
-    if imgui.button("Rampa Media##ramp_m") then spawnInstantFrontRamp("stt_prop_stunt_jump_m") end
-    imgui.same_line()
-    if imgui.button("Looping 360 Frontal##ramp_loop") then spawnInstantFrontRamp("stt_prop_stunt_track_dloop") end
-    imgui.same_line()
-    if imgui.button("Tubo Acelerador##ramp_tube") then spawnInstantFrontRamp("stt_prop_stunt_tube_l") end
+    if imgui.button("Mega Acrobatic Highway (Sky)##gen_highway_btn") then spawnStuntTrack(Presets.stunt_highway, "Mega Acrobatic Highway") end
 
     imgui.spacing(); imgui.separator(); imgui.spacing()
-    imgui.text("Altura das Pistas Aereas no Ceu (Z): " .. math.floor(S.stunt_altitude) .. " metros")
+    imgui.text("Instant Frontal Ramps (In Front of Player):")
+    if imgui.button("Mega Jump Ramp (Large)##ramp_l") then spawnInstantFrontRamp("stt_prop_stunt_jump_l") end
+    imgui.same_line()
+    if imgui.button("Medium Ramp##ramp_m") then spawnInstantFrontRamp("stt_prop_stunt_jump_m") end
+    imgui.same_line()
+    if imgui.button("360 Front Loop##ramp_loop") then spawnInstantFrontRamp("stt_prop_stunt_track_dloop") end
+    imgui.same_line()
+    if imgui.button("Speed Boost Tube##ramp_tube") then spawnInstantFrontRamp("stt_prop_stunt_tube_l") end
+
+    imgui.spacing(); imgui.separator(); imgui.spacing()
+    imgui.text("Sky Track Altitude (Z): " .. math.floor(S.stunt_altitude) .. " meters")
     if imgui.button("50m##alt50") then S.stunt_altitude = 50.0 end
     imgui.same_line()
     if imgui.button("100m##alt100") then S.stunt_altitude = 100.0 end
@@ -4395,193 +4298,152 @@ local function renderTabStuntTracks()
 end
 
 local function renderTabArenaObjectSpawner()
-    if not imgui.begin_tab_item("Props Arena & Stand") then return end
+    if not imgui.begin_tab_item("Arena & Stand Props") then return end
     imgui.spacing()
-    imgui.text("Catalogo de Spawn Avulso - Arena War, Iate & Heists (Stand Export)")
+    imgui.text("Individual Prop Catalog - Arena War, Yacht & Heists (Stand Export)")
     imgui.separator()
     imgui.spacing()
 
-    imgui.text("Alvo do Spawn:")
+    imgui.text("Spawn Target:")
     renderPlayerTargetSelector(S.selectedPropSpawnPid, function(pid) S.selectedPropSpawnPid = pid end, "prop_sp_target")
     imgui.spacing()
 
-    imgui.text("Distancia: " .. string.format("%.1f m", S.customSpawnDistance) .. " | Altura: " .. string.format("%.1f m", S.customSpawnHeight))
+    imgui.text("Distance: " .. string.format("%.1f m", S.customSpawnDistance) .. " | Height: " .. string.format("%.1f m", S.customSpawnHeight))
     if imgui.button("5m##sp_d5") then S.customSpawnDistance = 5.0 end
     imgui.same_line()
     if imgui.button("15m##sp_d15") then S.customSpawnDistance = 15.0 end
     imgui.same_line()
     if imgui.button("25m##sp_d25") then S.customSpawnDistance = 25.0 end
     imgui.same_line()
-    if imgui.button("Chao (-1m)##sp_z_neg1") then S.customSpawnHeight = -1.0 end
+    if imgui.button("Ground (-1m)##sp_z_neg1") then S.customSpawnHeight = -1.0 end
     imgui.same_line()
-    if imgui.button("Nivel (0m)##sp_z_0") then S.customSpawnHeight = 0.0 end
+    if imgui.button("Level (0m)##sp_z_0") then S.customSpawnHeight = 0.0 end
 
     imgui.spacing(); imgui.separator(); imgui.spacing()
-    imgui.text("Ponto Fixo Customizado (OVNI / p_spinning_anus_s):")
-    if imgui.button(">> SPAWNAR OVNI NO PONTO FIXO <<##sp_fixed_ufo") then spawnFixedCoordsUfo() end
+    imgui.text("Custom Fixed Point (UFO / p_spinning_anus_s):")
+    if imgui.button("SPAWN UFO AT FIXED COORDINATES##sp_fixed_ufo") then spawnFixedCoordsUfo() end
 
     imgui.spacing(); imgui.separator(); imgui.spacing()
-    imgui.text(">>> PROJETO MAZE BANK (4x Portais Neon 8X + Nucleo OVNI) <<<")
-    if imgui.button(">> SPAWNAR PROJETO MAZE BANK <<##sp_mazebank_btn") then spawnMazeBankProject() end
+    imgui.text("MAZE BANK PROJECT (4x Neon 8X Portals + UFO Core)")
+    if imgui.button("SPAWN MAZE BANK PROJECT##sp_mazebank_btn") then spawnMazeBankProject() end
     imgui.same_line()
-    if imgui.button(">> TELEPORTAR TODOS AO TOPO DO MAZE BANK <<##tp_all_to_mazebank_btn") then teleportAllPlayersToMazeBank() end
+    if imgui.button("TELEPORT ALL PLAYERS TO MAZE BANK TOP##tp_all_to_mazebank_btn") then teleportAllPlayersToMazeBank() end
 
     imgui.spacing(); imgui.separator(); imgui.spacing()
-    imgui.text("Props Populares (Spawn no Alvo):")
-    if imgui.button("Tubo 4X Speed##sp_t4xsp") then spawnSinglePropAtPlayer("ar_prop_ar_tube_4x_speed", S.customSpawnDistance, S.customSpawnHeight, S.customSpawnYaw, S.customSpawnFreeze, S.selectedPropSpawnPid) end
+    imgui.text("Popular Props (Spawn at Target):")
+    if imgui.button("Tube 4X Speed##sp_t4xsp") then spawnSinglePropAtPlayer("ar_prop_ar_tube_4x_speed", S.customSpawnDistance, S.customSpawnHeight, S.customSpawnYaw, S.customSpawnFreeze, S.selectedPropSpawnPid) end
     imgui.same_line()
-    if imgui.button("Portal Neon 8X##sp_ng8_1") then spawnSinglePropAtPlayer("ar_prop_ar_neon_gate8x_01a", S.customSpawnDistance, S.customSpawnHeight, S.customSpawnYaw, S.customSpawnFreeze, S.selectedPropSpawnPid) end
+    if imgui.button("Neon Gate 8X##sp_ng8_1") then spawnSinglePropAtPlayer("ar_prop_ar_neon_gate8x_01a", S.customSpawnDistance, S.customSpawnHeight, S.customSpawnYaw, S.customSpawnFreeze, S.selectedPropSpawnPid) end
     imgui.same_line()
-    if imgui.button("Anel Speed Ring##sp_ring") then spawnSinglePropAtPlayer("ar_prop_ar_speed_ring", S.customSpawnDistance, S.customSpawnHeight, S.customSpawnYaw, S.customSpawnFreeze, S.selectedPropSpawnPid) end
+    if imgui.button("Speed Ring##sp_ring") then spawnSinglePropAtPlayer("ar_prop_ar_speed_ring", S.customSpawnDistance, S.customSpawnHeight, S.customSpawnYaw, S.customSpawnFreeze, S.selectedPropSpawnPid) end
     imgui.same_line()
     if imgui.button("Mega Loop##sp_loop") then spawnSinglePropAtPlayer("ar_prop_ar_jump_loop", S.customSpawnDistance, S.customSpawnHeight, S.customSpawnYaw, S.customSpawnFreeze, S.selectedPropSpawnPid) end
     imgui.end_tab_item()
 end
 
 local function renderTabPlayerAttachments()
-    if not imgui.begin_tab_item("Anexar nos Players") then return end
+    if not imgui.begin_tab_item("Player Attachments") then return end
     imgui.spacing()
-    imgui.text("Anexar Objetos, Aderecos e Gaiolas Inescapaveis nos Jogadores")
+    imgui.text("Attach Objects, Props & Inescapable Cages to Players")
     imgui.separator()
     imgui.spacing()
 
     local localPid = getLocalPid()
-    local currentTargetName = (S.selectedAttachmentPid == -1 or S.selectedAttachmentPid == localPid) and "VOCE MESMO" or getPlayerName(S.selectedAttachmentPid)
+    local currentTargetName = (S.selectedAttachmentPid == -1 or S.selectedAttachmentPid == localPid) and "YOU" or getPlayerName(S.selectedAttachmentPid)
 
     local isPresetAll = S.attachPresetModeAll or false
-    if imgui.button((not isPresetAll and "[X] Individual (Jogador Especifico)" or "[  ] Individual (Jogador Especifico)") .. "##mode_indiv") then S.attachPresetModeAll = false end
+    if imgui.button((not isPresetAll and "[X] Individual (Specific Player)" or "Individual (Specific Player)") .. "##mode_indiv") then S.attachPresetModeAll = false end
     imgui.same_line()
-    if imgui.button((isPresetAll and "[X] Coletivo (TODOS da Sessao)" or "[  ] Coletivo (TODOS da Sessao)") .. "##mode_all") then S.attachPresetModeAll = true end
+    if imgui.button((isPresetAll and "[X] Collective (ALL in Session)" or "Collective (ALL in Session)") .. "##mode_all") then S.attachPresetModeAll = true end
 
     if not S.attachPresetModeAll then
         imgui.spacing()
-        imgui.text("Alvo Individual: " .. currentTargetName)
+        imgui.text("Individual Target: " .. currentTargetName)
         renderPlayerTargetSelector(S.selectedAttachmentPid, function(pid) S.selectedAttachmentPid = pid end, "att_target")
     else
         imgui.spacing()
-        imgui.text(">> MODO COLETIVO ATIVO: Os objetos e gaiolas serao aplicados em TODOS os jogadores! <<")
+        imgui.text("COLLECTIVE MODE ACTIVE: Objects and cages will be applied to ALL players!")
     end
 
     imgui.spacing(); imgui.separator(); imgui.spacing()
-    imgui.text(">>> GAIOLAS INESCAPAVEIS (STAND C++ ENGINE) <<<")
+    imgui.text("INESCAPABLE CAGES (STAND C++ ENGINE)")
     
     local function applyCage(cageHashOrName)
         if S.attachPresetModeAll then
             for _, pid in ipairs(getActivePlayersList()) do spawnAdvancedCageOnPlayer(pid, cageHashOrName) end
-            notify.success("Gaiolas", "Gaiolas aplicadas em TODOS os jogadores!")
+            notify.success("Cages", "Cages applied to ALL players!")
         else
             spawnAdvancedCageOnPlayer(S.selectedAttachmentPid, cageHashOrName)
         end
     end
 
-    if imgui.button("Container Dourado Fechado##cage_gold") then applyCage("prop_gold_cont_01") end
+    if imgui.button("Closed Gold Container##cage_gold") then applyCage("prop_gold_cont_01") end
     imgui.same_line()
-    if imgui.button("Tubo Vertical Stunt 90 graus##cage_tube") then applyCage("stt_prop_stunt_tube_s") end
+    if imgui.button("90° Vertical Stunt Tube##cage_tube") then applyCage("stt_prop_stunt_tube_s") end
     imgui.same_line()
-    if imgui.button("Gaiolas Cruzadas 90 graus##cage_cross") then applyCage("prop_rub_cage01a") end
+    if imgui.button("Crossed 90° Cages##cage_cross") then applyCage("prop_rub_cage01a") end
 
-    if imgui.button("Caixa 4 Cercas de Arame##cage_fences") then applyCage("prop_fnclink_03e") end
+    if imgui.button("4 Wire Fence Box##cage_fences") then applyCage("prop_fnclink_03e") end
     imgui.same_line()
-    if imgui.button("Jaula de Macaco##cage_ape") then applyCage("v_med_apecrate") end
+    if imgui.button("Ape Cage##cage_ape") then applyCage("v_med_apecrate") end
     imgui.same_line()
-    if imgui.button(">> GAIOLA ALEATORIA <<##cage_rand") then applyCage("random") end
+    if imgui.button("Random Inescapable Cage##cage_rand") then applyCage("random") end
 
     imgui.spacing(); imgui.separator(); imgui.spacing()
-    imgui.text("Anexar Aderecos e Props no Corpo do Jogador:")
+    imgui.text("Attach Props to Player Body:")
     local function applyProp(modelOrHash, boneId, offX, offY, offZ, rotX, rotY, rotZ)
         if S.attachPresetModeAll then
             for _, pid in ipairs(getActivePlayersList()) do attachPropToPlayer(pid, modelOrHash, boneId, offX, offY, offZ, rotX, rotY, rotZ) end
-            notify.success("Anexar", "Objeto anexado em TODOS os jogadores!")
+            notify.success("Attachments", "Object attached to ALL players!")
         else
             attachPropToPlayer(S.selectedAttachmentPid, modelOrHash, boneId, offX, offY, offZ, rotX, rotY, rotZ)
         end
     end
 
-    if imgui.button("Cone na Cabeca##att_cone") then applyProp("prop_mp_cone_01", 24818, 0.0, 0.0, 0.70, 0.0, 90.0, 0.0) end
+    if imgui.button("Cone on Head##att_cone") then applyProp("prop_mp_cone_01", 24818, 0.0, 0.0, 0.70, 0.0, 90.0, 0.0) end
     imgui.same_line()
-    if imgui.button("Privada##att_toilet") then applyProp("prop_ld_toilet_01", 11816, 0.0, 0.0, -0.25, 0.0, 90.0, 0.0) end
+    if imgui.button("Toilet##att_toilet") then applyProp("prop_ld_toilet_01", 11816, 0.0, 0.0, -0.25, 0.0, 90.0, 0.0) end
     imgui.same_line()
-    if imgui.button("Gaiola Cabeça##att_cage") then applyProp("prop_feeder1_cr", 11816, 0.0, 0.0, -0.6, 0.0, 90.0, 0.0) end
+    if imgui.button("Head Cage##att_cage") then applyProp("prop_feeder1_cr", 11816, 0.0, 0.0, -0.6, 0.0, 90.0, 0.0) end
 
-    if imgui.button("Fogueira Ardente##att_fire") then applyProp("prop_beach_fire", 11816, 0.0, 0.0, -0.3, 0.0, 90.0, 0.0) end
+    if imgui.button("Campfire Flame##att_fire") then applyProp("prop_beach_fire", 11816, 0.0, 0.0, -0.3, 0.0, 90.0, 0.0) end
     imgui.same_line()
-    if imgui.button("Arvore de Natal##att_xmas") then applyProp("prop_mp_xmas_tree_01", 11816, 0.0, 0.0, -0.5, 0.0, 90.0, 0.0) end
+    if imgui.button("Christmas Tree##att_xmas") then applyProp("prop_mp_xmas_tree_01", 11816, 0.0, 0.0, -0.5, 0.0, 90.0, 0.0) end
     imgui.same_line()
-    if imgui.button("Roda do Cassino##att_cwheel") then applyProp(0x8EB05D67, 24818, -0.808, -0.255, -0.120, 0.0, 270.0, 180.0) end
+    if imgui.button("Casino Wheel##att_cwheel") then applyProp(0x8EB05D67, 24818, -0.808, -0.255, -0.120, 0.0, 270.0, 180.0) end
     imgui.same_line()
-    if imgui.button("Disco Voador OVNI##att_ufo") then applyProp("p_spinning_anus_s", 11816, 0.0, 0.0, 1.5, 0.0, 90.0, 0.0) end
+    if imgui.button("Flying Saucer UFO##att_ufo") then applyProp("p_spinning_anus_s", 11816, 0.0, 0.0, 1.5, 0.0, 90.0, 0.0) end
 
     imgui.spacing(); imgui.separator(); imgui.spacing()
-    local cModel, vModel = imgui.input_text("Modelo Custom##cust_att_model", S.customAttachModelInput or "prop_mp_cone_01")
+    local cModel, vModel = imgui.input_text("Custom Model##cust_att_model", S.customAttachModelInput or "prop_mp_cone_01")
     if cModel then S.customAttachModelInput = vModel end
     imgui.same_line()
-    if imgui.button("Anexar Digitado##att_custom_btn") then applyProp(S.customAttachModelInput or "prop_mp_cone_01", 24818, 0.0, 0.0, 0.0, 0.0, 90.0, 0.0) end
+    if imgui.button("Attach Custom Model##att_custom_btn") then applyProp(S.customAttachModelInput or "prop_mp_cone_01", 24818, 0.0, 0.0, 0.0, 0.0, 90.0, 0.0) end
 
     imgui.spacing(); imgui.separator(); imgui.spacing()
     if not S.attachPresetModeAll then
-        if imgui.button("Remover Objetos de " .. currentTargetName .. "##rem_sel_props") then removePlayerAttachedProps(S.selectedAttachmentPid) end
+        if imgui.button("Remove Objects from " .. currentTargetName .. "##rem_sel_props") then removePlayerAttachedProps(S.selectedAttachmentPid) end
         imgui.same_line()
     end
-    if imgui.button("Remover de TODOS os Jogadores##rem_all_props") then removeAllAttachedProps() end
-    imgui.end_tab_item()
-end
-
-local function renderTabAngelFloatie()
-    if not imgui.begin_tab_item("Boia Angel Floatie") then return end
-    imgui.spacing()
-    imgui.text("Self Floatie - Boia de Cintura Sincronizada em Rede")
-    imgui.separator()
-    imgui.spacing()
-
-    local buttonText = (S.angelFloatieActive and isValidEntity(S.angelFloatieObject)) and "Remover Boia (Angel Floatie)##rem_angel_fl" or "Anexar Boia (Angel Floatie)##att_angel_fl"
-    if imgui.button(buttonText) then toggleAngelFloatie() end
-    imgui.spacing()
-    imgui.text("Status: " .. ((S.angelFloatieActive and isValidEntity(S.angelFloatieObject)) and "ANEXADO (SINCRONIZADO)" or "DESLIGADO"))
-    imgui.end_tab_item()
-end
-
-local function renderTabCutscenes()
-    if not imgui.begin_tab_item("Cutscenes Online") then return end
-    imgui.spacing()
-    imgui.text("Reproduzir Cutscenes Online no Jogador Selecionado")
-    imgui.separator()
-    imgui.spacing()
-
-    renderPlayerTargetSelector(S.selectedCutscenePid, function(pid) S.selectedCutscenePid = pid end, "cutscene_target")
-    imgui.spacing(); imgui.separator(); imgui.spacing()
-
-    if imgui.button(">> PARAR CUTSCENE ATUAL <<##stop_cutscene_btn") then stopCurrentCutscene() end
-    imgui.spacing(); imgui.separator(); imgui.spacing()
-
-    if imgui.button("Lamar Drive Scene (Intro GTA Online)##cs_lamar") then playOnlineCutscene("MP_INTRO_LAMAR_DRIVE_SCENE", S.selectedCutscenePid) end
-    imgui.same_line()
-    if imgui.button("Casino Penthouse Party##cs_cas_pent") then playOnlineCutscene("hs3_intro_p1", S.selectedCutscenePid) end
-    imgui.same_line()
-    if imgui.button("Cayo Perico Beach Party##cs_cayo_beach") then playOnlineCutscene("h4_intro_beach_party", S.selectedCutscenePid) end
-
-    imgui.spacing()
-    if imgui.button(">> ENVIAR TODOS OS JOGADORES DA SESSAO PARA CUTSCENE DO LAMAR <<##cs_all_lamar") then
-        for _, pid in ipairs(getActivePlayersList()) do playOnlineCutscene("MP_INTRO_LAMAR_DRIVE_SCENE", pid) end
-        notify.success("Cutscenes", "Cutscene enviada para todos os jogadores!")
-    end
+    if imgui.button("Remove from ALL Players##rem_all_props") then removeAllAttachedProps() end
     imgui.end_tab_item()
 end
 
 local function renderTabOptionsAndHotkeys()
-    if not imgui.begin_tab_item("Opcoes & Atalhos") then return end
+    if not imgui.begin_tab_item("Options & Hotkeys") then return end
     imgui.spacing()
-    imgui.text("Configuracoes & Comportamento:")
+    imgui.text("Settings & Behavior:")
     imgui.separator()
     imgui.spacing()
 
-    local c2, v2 = imgui.checkbox("Tornar Veiculo Invencivel ao Manipular##inv_chk", S.makeInvincible)
+    local c2, v2 = imgui.checkbox("Make Vehicles Invincible during Telekinesis##inv_chk", S.makeInvincible)
     if c2 then S.makeInvincible = v2 end
 
-    local c4, v4 = imgui.checkbox("Desativar Ragdoll do Player (Sem quedas)##rag_chk", S.disableRagdoll)
-    if c4 then S.disableRagdoll = v4; updateRagdollState(); notify.info("Opcoes", S.disableRagdoll and "Ragdoll DESATIVADO" or "Ragdoll ATIVADO") end
+    local c4, v4 = imgui.checkbox("Disable Player Ragdoll (No falling)##rag_chk", S.disableRagdoll)
+    if c4 then S.disableRagdoll = v4; updateRagdollState(); notify.info("Options", S.disableRagdoll and "Ragdoll DISABLED" or "Ragdoll ENABLED") end
 
     imgui.spacing(); imgui.separator(); imgui.spacing()
-    local c3, v3 = imgui.checkbox("Ativar Atalhos de Telecinese (SPACE = Lancar | E = Pegar/Soltar)##hk_chk", S.hotkeysEnabled)
+    local c3, v3 = imgui.checkbox("Enable Telekinesis Hotkeys (SPACE = Launch | E = Grab/Hold)##hk_chk", S.hotkeysEnabled)
     if c3 then S.hotkeysEnabled = v3; if S.hotkeysEnabled then startHotkeyLoop() end end
     imgui.end_tab_item()
 end
@@ -4594,17 +4456,13 @@ local function renderGUI()
     if not imgui.begin_tab_bar("SpyreX_Main_Tabs") then return end
     renderTabJets()
     renderTabEarRape()
-    renderTabContactInvites()
     renderTabAirdrop()
     renderTabVehicleControls()
     renderTabAreaChaos()
     renderTabKungFuMaster()
-    renderTabNYCTraffic()
     renderTabStuntTracks()
     renderTabArenaObjectSpawner()
     renderTabPlayerAttachments()
-    renderTabAngelFloatie()
-    renderTabCutscenes()
     renderTabOptionsAndHotkeys()
     imgui.end_tab_bar()
 end
@@ -4624,8 +4482,167 @@ else
     gui.add_imgui(renderGUI)
 end
 
+if event and event.register_handler and menu_event and menu_event.Unload then
+    event.register_handler(menu_event.Unload, function()
+        pcall(function()
+            if GRAPHICS and GRAPHICS.ANIMPOSTFX_STOP_ALL then
+                GRAPHICS.ANIMPOSTFX_STOP_ALL()
+            end
+        end)
+    end)
+end
+
 ------------------------------------------------------------
--- INICIALIZACAO
+-- INICIALIZACAO & MENSAGEM NA TELA COM CORES GRADIENTES
 ------------------------------------------------------------
 
-showFeedNotification("~p~SpyreX Suite v2.1.1 carregado com sucesso!")
+local NyxColorThemes = {
+    cyberpunk = {
+        title = "~p~N~q~y~b~x",
+        subtitle = "~w~A ~b~NewWay ~s~Script",
+        shardCol = 0
+    },
+    rainbow = {
+        title = "~r~N~y~y~g~x",
+        subtitle = "~w~A ~b~NewWay ~s~Script",
+        shardCol = 0
+    },
+    electric_blue = {
+        title = "~b~N~c~y~p~x",
+        subtitle = "~w~A ~b~NewWay ~s~Script",
+        shardCol = 0
+    },
+    sunset_fire = {
+        title = "~y~N~o~y~r~x",
+        subtitle = "~w~A ~b~NewWay ~s~Script",
+        shardCol = 0
+    },
+    matrix_green = {
+        title = "~g~N~g~y~w~x",
+        subtitle = "~w~A ~b~NewWay ~s~Script",
+        shardCol = 0
+    },
+    gold_luxury = {
+        title = "~HUD_COLOUR_GOLD~N~y~y~w~x",
+        subtitle = "~w~A ~b~NewWay ~s~Script",
+        shardCol = 0
+    }
+}
+
+local function showNyxWelcomeMessage(themeNameOrTitle, subtitle, durationMs)
+    local theme = nil
+    local titleFormatted = nil
+    local subtitleFormatted = nil
+    local shardCol = 0
+
+    if type(themeNameOrTitle) == "string" and NyxColorThemes[themeNameOrTitle] then
+        theme = NyxColorThemes[themeNameOrTitle]
+        titleFormatted = theme.title
+        subtitleFormatted = theme.subtitle
+        shardCol = theme.shardCol or 0
+    elseif type(themeNameOrTitle) == "string" and themeNameOrTitle ~= "" then
+        titleFormatted = themeNameOrTitle
+        subtitleFormatted = subtitle or "~w~A ~b~NewWay ~s~Script"
+    else
+        theme = NyxColorThemes.cyberpunk
+        titleFormatted = theme.title
+        subtitleFormatted = theme.subtitle
+    end
+
+    durationMs = durationMs or 4000
+
+    -- 1. Notificacao NewWay UI Toast
+    notify.info("Nyx", "A NewWay Script")
+
+    -- 2. GTA V Feed Post Notification (Acima do mini-mapa)
+    pcall(function()
+        if HUD and HUD.BEGIN_TEXT_COMMAND_THEFEED_POST then
+            HUD.BEGIN_TEXT_COMMAND_THEFEED_POST("STRING")
+            HUD.ADD_TEXT_COMPONENT_SUBSTRING_PLAYER_NAME(tostring(subtitleFormatted))
+            if HUD.END_TEXT_COMMAND_THEFEED_POST_MESSAGETEXT then
+                HUD.END_TEXT_COMMAND_THEFEED_POST_MESSAGETEXT("CHAR_ALL_PLAYERS_CONF", "CHAR_ALL_PLAYERS_CONF", true, 4, tostring(titleFormatted), "~b~Script Loaded")
+            elseif HUD.END_TEXT_COMMAND_THEFEED_POST_TICKER then
+                HUD.END_TEXT_COMMAND_THEFEED_POST_TICKER(false, true)
+            end
+        end
+    end)
+
+    -- 3. Legenda na HUD do GTA (Inferior central)
+    pcall(function()
+        if HUD and HUD.BEGIN_TEXT_COMMAND_PRINT then
+            HUD.BEGIN_TEXT_COMMAND_PRINT("STRING")
+            HUD.ADD_TEXT_COMPONENT_SUBSTRING_PLAYER_NAME(tostring(titleFormatted) .. " ~s~- " .. tostring(subtitleFormatted))
+            HUD.END_TEXT_COMMAND_PRINT(durationMs, true)
+        end
+    end)
+
+    -- 4. Shard Banner Gigante no Centro da Tela (Scaleform MP_BIG_MESSAGE_FREEMODE)
+    if script and script.run_in_callback then
+        script.run_in_callback(function()
+            pcall(function()
+                if not GRAPHICS or not GRAPHICS.REQUEST_SCALEFORM_MOVIE then return end
+                local sf = GRAPHICS.REQUEST_SCALEFORM_MOVIE("MP_BIG_MESSAGE_FREEMODE")
+                local maxWait = 0
+                while not GRAPHICS.HAS_SCALEFORM_MOVIE_LOADED(sf) and maxWait < 80 do
+                    script.yield(10)
+                    maxWait = maxWait + 1
+                end
+
+                if GRAPHICS.HAS_SCALEFORM_MOVIE_LOADED(sf) then
+                    GRAPHICS.BEGIN_SCALEFORM_MOVIE_METHOD(sf, "SHOW_SHARD_CENTERED_MP_MESSAGE")
+                    GRAPHICS.SCALEFORM_MOVIE_METHOD_ADD_PARAM_PLAYER_NAME_STRING(tostring(titleFormatted))
+                    GRAPHICS.SCALEFORM_MOVIE_METHOD_ADD_PARAM_PLAYER_NAME_STRING(tostring(subtitleFormatted))
+                    GRAPHICS.SCALEFORM_MOVIE_METHOD_ADD_PARAM_INT(shardCol)
+                    GRAPHICS.END_SCALEFORM_MOVIE_METHOD()
+
+                    local start = (MISC and MISC.GET_GAME_TIMER and MISC.GET_GAME_TIMER()) or 0
+                    while (((MISC and MISC.GET_GAME_TIMER and MISC.GET_GAME_TIMER()) or 0) - start) < durationMs do
+                        GRAPHICS.DRAW_SCALEFORM_MOVIE_FULLSCREEN(sf, 255, 255, 255, 255, 0)
+                        script.yield(0)
+                    end
+                    GRAPHICS.SET_SCALEFORM_MOVIE_AS_NO_LONGER_NEEDED(sf)
+                end
+            end)
+        end)
+    end
+
+    -- 5. Limpeza de Efeitos Antigos & Disparo de Efeito Psicodélico Temporário
+    pcall(function()
+        if GRAPHICS and GRAPHICS.ANIMPOSTFX_STOP_ALL then
+            GRAPHICS.ANIMPOSTFX_STOP_ALL()
+        end
+    end)
+
+    -- Som Marcante & Impactante (Sub-bass cinematográfico + Fanfarra Synth de Conquista)
+    pcall(function()
+        if AUDIO and AUDIO.PLAY_SOUND_FRONTEND then
+            AUDIO.PLAY_SOUND_FRONTEND(-1, "ScreenFlash", "WastedSounds", true)
+            AUDIO.PLAY_SOUND_FRONTEND(-1, "BASE_JUMP_PASSED", "HUD_AWARDS", true)
+        end
+    end)
+
+    -- Efeito Psicodélico Suave Neon (Sem clarão branco/brilho excessivo)
+    if script and script.run_in_callback then
+        script.run_in_callback(function()
+            pcall(function()
+                local fxName = "InchPurple"
+                if GRAPHICS and GRAPHICS.ANIMPOSTFX_PLAY then
+                    GRAPHICS.ANIMPOSTFX_PLAY(fxName, 1400, false)
+                end
+                script.yield(1400)
+                if GRAPHICS and GRAPHICS.ANIMPOSTFX_STOP then
+                    GRAPHICS.ANIMPOSTFX_STOP(fxName)
+                end
+                if GRAPHICS and GRAPHICS.ANIMPOSTFX_STOP_ALL then
+                    GRAPHICS.ANIMPOSTFX_STOP_ALL()
+                end
+            end)
+        end)
+    end
+end
+
+showNyxWelcomeMessage("cyberpunk", nil, 4000)
+
+if log and log.info then
+    log.info("SpyreX.lua loaded successfully! Enjoy.")
+end
