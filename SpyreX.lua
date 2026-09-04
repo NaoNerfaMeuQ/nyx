@@ -144,6 +144,7 @@ local S = {
     overwatchWeaponMode = 1, -- 1: Mísseis Orbitais, 2: Metralhadora Tática, 3: Ambos Juntos (Metralhadora + Mísseis), 4: Kamikaze Suicida
     overwatchLastMissileTime = 0,
     overwatchMgDamage = 50,
+    overwatchSoundId = -1,
 
     -- Drone Kamikaze Tático (Suicida)
     selectedKamikazePid = -1,
@@ -610,9 +611,17 @@ end
 
 local function safeSetInvincible(entity, state)
     if not isValidEntity(entity) then return end
+    local s = (state == true)
     pcall(function()
-        ENTITY.SET_ENTITY_INVINCIBLE(entity, state)
-        if VEHICLE and VEHICLE.SET_VEHICLE_CAN_BE_VISIBLY_DAMAGED then VEHICLE.SET_VEHICLE_CAN_BE_VISIBLY_DAMAGED(entity, not state) end
+        if ENTITY and ENTITY.SET_ENTITY_INVINCIBLE then
+            local ok = pcall(ENTITY.SET_ENTITY_INVINCIBLE, entity, s, false)
+            if not ok then
+                pcall(ENTITY.SET_ENTITY_INVINCIBLE, entity, s)
+            end
+        end
+        if VEHICLE and VEHICLE.SET_VEHICLE_CAN_BE_VISIBLY_DAMAGED then
+            VEHICLE.SET_VEHICLE_CAN_BE_VISIBLY_DAMAGED(entity, not s)
+        end
     end)
 end
 
@@ -2467,7 +2476,7 @@ local function startVehicleShieldLoop()
             while not STREAMING.HAS_MODEL_LOADED(hash) and timeout < 20 do script.yield(10); timeout = timeout + 1 end
             local v = VEHICLE.CREATE_VEHICLE(hash, pCoords.x, pCoords.y, pCoords.z + 10.0, 0.0, true, false, false)
             if isValidEntity(v) then
-                ENTITY.SET_ENTITY_INVINCIBLE(v, true)
+                safeSetInvincible(v, true)
                 ENTITY.SET_ENTITY_COLLISION(v, true, true)
                 table.insert(shieldVehs, v)
             end
@@ -2646,43 +2655,146 @@ local function startZombiePedOutbreakLoop()
     S.zombiePedOutbreakLoopActive = true
 
     script.run_in_callback(function()
-        notify.info("SpyreX", "Zombie Apocalypse Started!")
-        local ped = getLocalPed()
-        local pCoords = ENTITY.GET_ENTITY_COORDS(ped, true)
-        local zModels = { "u_m_y_zombie_01", "s_m_y_clown_01", "a_m_m_hillbilly_01" }
+        notify.warn("Zombie Apocalypse", "Invasao Zombie iniciada! Eles estao surgindo nos arredores...")
+        showFeedNotification("~r~[APOCALIPSE ZOMBIE] ~w~Horda de mortos-vivos surgindo na regiao!")
 
-        for i = 1, 10 do
-            local hash = getHash(zModels[math.random(#zModels)])
-            STREAMING.REQUEST_MODEL(hash)
-            local timeout = 0
-            while not STREAMING.HAS_MODEL_LOADED(hash) and timeout < 20 do script.yield(10); timeout = timeout + 1 end
-            local zPed = PED.CREATE_PED(26, hash, pCoords.x + math.random(-25, 25), pCoords.y + math.random(-25, 25), pCoords.z + 1.0, 0.0, true, false)
+        local zHash = getHash("u_m_y_zombie_01")
+        if not requestAndLoadModel(zHash, 150) then
+            notify.error("Zombie", "Nao foi possivel carregar o modelo de zombie.")
+            S.zombiePedOutbreakLoopActive = false
+            S.zombiePedOutbreakActive = false
+            return
+        end
+
+        local zWeapons = { "WEAPON_BATTLEAXE", "WEAPON_MACHETE", "WEAPON_HATCHET", "WEAPON_KNIFE", "WEAPON_CROWBAR", "WEAPON_DAGGER" }
+        local activeZombies = {}
+        local maxZombies = 16
+
+        local function spawnSingleZombie(playerPed, playerCoords)
+            if not isValidEntity(playerPed) then return nil end
+
+            -- Espalha longe do jogador (entre 48m e 85m) em ângulo circular aleatório
+            -- para parecer que surgiram do nada, fora do campo de visão imediato
+            local angle = math.random() * (math.pi * 2)
+            local dist = math.random(48, 85)
+            local sX = playerCoords.x + (math.cos(angle) * dist)
+            local sY = playerCoords.y + (math.sin(angle) * dist)
+            local sZ = playerCoords.z + 1.0
+
+            pcall(function()
+                if MISC and MISC.GET_GROUND_Z_FOR_3D_COORD then
+                    local ok, gZ = MISC.GET_GROUND_Z_FOR_3D_COORD(sX, sY, sZ + 40.0, false, false)
+                    if ok and gZ and type(gZ) == "number" and gZ > 0 then
+                        sZ = gZ
+                    end
+                end
+            end)
+
+            local zPed = 0
+            pcall(function()
+                zPed = PED.CREATE_PED(26, zHash, sX, sY, sZ, math.random(0, 359) + 0.0, true, false)
+            end)
+
             if isValidEntity(zPed) then
                 getControlOfEntity(zPed)
                 pcall(function()
+                    ENTITY.SET_ENTITY_AS_MISSION_ENTITY(zPed, true, true)
+                    ENTITY.PLACE_ENTITY_ON_GROUND_PROPERLY(zPed)
                     TASK.CLEAR_PED_TASKS_IMMEDIATELY(zPed)
                     PED.SET_BLOCKING_OF_NON_TEMPORARY_EVENTS(zPed, true)
                     PED.SET_PED_CAN_RAGDOLL(zPed, true)
                     PED.SET_PED_COMBAT_ABILITY(zPed, 2)
                     PED.SET_PED_COMBAT_RANGE(zPed, 2)
                     PED.SET_PED_COMBAT_MOVEMENT(zPed, 3)
-                    local playerGroup = PED.GET_PED_RELATIONSHIP_GROUP_HASH(ped)
+                    ENTITY.SET_ENTITY_HEALTH(zPed, 250)
+                    PED.SET_PED_MAX_HEALTH(zPed, 250)
+
+                    -- Configura relacionamento agressivo contra o jogador
+                    local playerGroup = PED.GET_PED_RELATIONSHIP_GROUP_HASH(playerPed)
                     local zGroup = getHash("HATES_PLAYER")
                     PED.SET_PED_RELATIONSHIP_GROUP_HASH(zPed, zGroup)
                     PED.SET_RELATIONSHIP_BETWEEN_GROUPS(5, zGroup, playerGroup)
                     PED.SET_RELATIONSHIP_BETWEEN_GROUPS(5, playerGroup, zGroup)
-                    local wHash = getHash("WEAPON_BATTLEAXE")
+
+                    -- Arma corpo-a-corpo sanguinária
+                    local wName = zWeapons[math.random(#zWeapons)]
+                    local wHash = getHash(wName)
                     WEAPON.GIVE_DELAYED_WEAPON_TO_PED(zPed, wHash, 100, true)
                     WEAPON.SET_CURRENT_PED_WEAPON(zPed, wHash, true)
-                    TASK.TASK_COMBAT_PED(zPed, ped, 0, 16)
+
+                    -- Persegue e ataca agressivamente o jogador
+                    TASK.TASK_COMBAT_PED(zPed, playerPed, 0, 16)
                 end)
+                table.insert(activeZombies, zPed)
+                return zPed
+            end
+            return nil
+        end
+
+        -- Spawn inicial da horda espalhada longe do player
+        local myPed = getLocalPed()
+        if isValidEntity(myPed) then
+            local pPos = ENTITY.GET_ENTITY_COORDS(myPed, true)
+            for i = 1, 10 do
+                spawnSingleZombie(myPed, pPos)
+                script.yield(30)
             end
         end
 
-        while S.zombiePedOutbreakActive do script.yield(500) end
+        -- Loop de manutenção enquanto o apocalipse estiver ativo
+        while S.zombiePedOutbreakActive do
+            script.yield(1500)
+            local curPed = getLocalPed()
+            if isValidEntity(curPed) and not PED.IS_PED_INJURED(curPed) then
+                local curCoords = ENTITY.GET_ENTITY_COORDS(curPed, true)
+
+                -- Limpa zumbis mortos ou que ficaram muito distantes (> 140m)
+                local aliveList = {}
+                for _, z in ipairs(activeZombies) do
+                    if isValidEntity(z) then
+                        local isDead = PED.IS_PED_INJURED(z)
+                        local zPos = ENTITY.GET_ENTITY_COORDS(z, true)
+                        local dX = zPos.x - curCoords.x
+                        local dY = zPos.y - curCoords.y
+                        local dist = math.sqrt(dX * dX + dY * dY)
+
+                        if isDead or dist > 140.0 then
+                            safeDeleteEntity(z)
+                        else
+                            table.insert(aliveList, z)
+                            -- Reafirma ordem de perseguição se tiver parado
+                            pcall(function()
+                                if not PED.IS_PED_IN_COMBAT(z, curPed) then
+                                    TASK.TASK_COMBAT_PED(z, curPed, 0, 16)
+                                end
+                            end)
+                        end
+                    end
+                end
+                activeZombies = aliveList
+
+                -- Reabastece a horda mantendo até 16 zumbis ativos espalhados nos arredores
+                while #activeZombies < maxZombies and S.zombiePedOutbreakActive do
+                    spawnSingleZombie(curPed, curCoords)
+                    script.yield(60)
+                end
+            end
+        end
+
+        -- Limpeza segura ao desativar a checkbox
+        for _, z in ipairs(activeZombies) do
+            if isValidEntity(z) then
+                safeDeleteEntity(z)
+                script.yield(15)
+            end
+        end
+        activeZombies = {}
+        STREAMING.SET_MODEL_AS_NO_LONGER_NEEDED(zHash)
+
         S.zombiePedOutbreakLoopActive = false
         S.zombiePedOutbreakActive = false
-        notify.info("SpyreX", "Zombie Apocalypse Ended.")
+        notify.info("Zombie Apocalypse", "Apocalipse Zombie desativado e area limpa.")
+        showFeedNotification("~g~[ZOMBIE] ~w~Apocalipse Zombie finalizado.")
     end)
 end
 
@@ -2816,7 +2928,7 @@ local function safeCreateStuntProp(hash, x, y, z, dynamic)
                 if ENTITY.SET_ENTITY_DYNAMIC then ENTITY.SET_ENTITY_DYNAMIC(obj, false) end
                 ENTITY.SET_ENTITY_COLLISION(obj, true, true)
                 if ENTITY.SET_ENTITY_CAN_BE_DAMAGED then ENTITY.SET_ENTITY_CAN_BE_DAMAGED(obj, false) end
-                if ENTITY.SET_ENTITY_INVINCIBLE then ENTITY.SET_ENTITY_INVINCIBLE(obj, true) end
+                safeSetInvincible(obj, true)
                 if ENTITY.SET_ENTITY_SHOULD_FREEZE_WAITING_ON_COLLISION then
                     ENTITY.SET_ENTITY_SHOULD_FREEZE_WAITING_ON_COLLISION(obj, true)
                 end
@@ -3923,7 +4035,7 @@ local function spawnKungFuDisciples(pCoords, heading)
         if isValidEntity(ped) then
             pcall(function()
                 ENTITY.SET_ENTITY_AS_MISSION_ENTITY(ped, true, true)
-                ENTITY.SET_ENTITY_INVINCIBLE(ped, true)
+                safeSetInvincible(ped, true)
                 if ENTITY.SET_ENTITY_PROOFS then
                     ENTITY.SET_ENTITY_PROOFS(ped, true, true, true, true, true, true, true, true)
                 end
@@ -4193,7 +4305,7 @@ local function startKungFuShow()
 
         -- Imunidade total ao jogador local
         pcall(function()
-            ENTITY.SET_ENTITY_INVINCIBLE(ped, true)
+            safeSetInvincible(ped, true)
             if ENTITY.SET_ENTITY_PROOFS then
                 ENTITY.SET_ENTITY_PROOFS(ped, true, true, true, true, true, true, true, true)
             end
@@ -5238,7 +5350,7 @@ local function triggerAirdropDrop(dropType, targetPid, locMode)
 
         pcall(function()
             ENTITY.SET_ENTITY_AS_MISSION_ENTITY(crate, true, true)
-            ENTITY.SET_ENTITY_INVINCIBLE(crate, true)
+            safeSetInvincible(crate, true)
             ENTITY.SET_ENTITY_COLLISION(crate, true, true)
             if ENTITY.FREEZE_ENTITY_POSITION then ENTITY.FREEZE_ENTITY_POSITION(crate, false) end
         end)
@@ -5265,7 +5377,7 @@ local function triggerAirdropDrop(dropType, targetPid, locMode)
         if not isValidEntity(crate) or S.airdropSessionId ~= mySessionId then return end
         pcall(function()
             ENTITY.PLACE_ENTITY_ON_GROUND_PROPERLY(crate)
-            ENTITY.SET_ENTITY_INVINCIBLE(crate, false)
+            safeSetInvincible(crate, false)
             if AUDIO and AUDIO.PLAY_SOUND_FRONTEND then
                 AUDIO.PLAY_SOUND_FRONTEND(-1, "Airhorn", "DLC_TG_Running_Back_Sounds", true)
             end
@@ -5445,8 +5557,34 @@ end
 -- MICRO-DRONE TATICO OVERWATCH GUARDIÃO
 ------------------------------------------------------------
 
+local function stopOverwatchFlightSound()
+    pcall(function()
+        if S.overwatchSoundId and S.overwatchSoundId ~= -1 and AUDIO then
+            if AUDIO.STOP_SOUND then AUDIO.STOP_SOUND(S.overwatchSoundId) end
+            if AUDIO.RELEASE_SOUND_ID then AUDIO.RELEASE_SOUND_ID(S.overwatchSoundId) end
+            S.overwatchSoundId = -1
+        end
+    end)
+end
+
+local function startOverwatchFlightSound(drone)
+    if not isValidEntity(drone) then return end
+    pcall(function()
+        stopOverwatchFlightSound()
+        if AUDIO and AUDIO.PLAY_SOUND_FROM_ENTITY then
+            local sId = -1
+            if AUDIO.GET_SOUND_ID then
+                sId = AUDIO.GET_SOUND_ID()
+            end
+            AUDIO.PLAY_SOUND_FROM_ENTITY(sId, "Flight_Loop", drone, "DLC_BATTLE_DRONE_SOUNDS", false, 0)
+            S.overwatchSoundId = sId
+        end
+    end)
+end
+
 local function deleteOverwatchDrone()
     script.run_in_callback(function()
+        stopOverwatchFlightSound()
         S.overwatchIsDiving = false
         local drone = S.overwatchDroneObj
         S.overwatchDroneObj = nil
@@ -5509,6 +5647,7 @@ local function spawnOverwatchDrone()
             end
         end)
         S.overwatchDroneObj = drone
+        startOverwatchFlightSound(drone)
         notify.success("Overwatch", "Drone Tatico M42 ativo e escoltando voce!")
         return drone
     else
@@ -5739,10 +5878,12 @@ local function triggerOverwatchMachineGunBurst(targetPed, droneCoords)
     local rightX = -dirY
     local rightY = dirX
 
-    -- Áudio autêntico de metralhadora tática
+    -- Áudio oficial de disparo do Battle Drone
     pcall(function()
         if AUDIO and AUDIO.PLAY_SOUND_FROM_COORD then
-            AUDIO.PLAY_SOUND_FROM_COORD(-1, "Air_Defences_Guns_Fire", curDronePos.x, curDronePos.y, curDronePos.z, "DLC_sum20_Business_Battle_AC_Sounds", false, 0, false)
+            AUDIO.PLAY_SOUND_FROM_COORD(-1, "Laser_Shoot", curDronePos.x, curDronePos.y, curDronePos.z, "DLC_BATTLE_DRONE_SOUNDS", false, 0, false)
+        elseif AUDIO and AUDIO.PLAY_SOUND_FRONTEND then
+            AUDIO.PLAY_SOUND_FRONTEND(-1, "Laser_Shoot", "DLC_BATTLE_DRONE_SOUNDS", true)
         end
     end)
 
@@ -5824,6 +5965,10 @@ local function startOverwatchLoop()
                 if not isValidEntity(drone) then
                     script.yield(100)
                     return
+                end
+
+                if not S.overwatchSoundId or S.overwatchSoundId == -1 then
+                    startOverwatchFlightSound(drone)
                 end
 
                 local now = gameTimer()
@@ -6002,14 +6147,15 @@ local function startOverwatchLoop()
                         GRAPHICS.DRAW_LINE(nextX, nextY, nextZ, tCoords.x, tCoords.y, tCoords.z + 0.25, 255, 0, 0, 245)
                     end
 
-                    -- Notifica APENAS quando o drone se sente ameaçado (ao travar na ameaça)
+                    -- Notifica e toca alarme sonoro quando o drone se sente ameaçado (ao travar na ameaça)
                     if S.overwatchTargetPed ~= bestThreat then
                         S.overwatchTargetPed = bestThreat
                         S.overwatchLockStartTime = now
                         showFeedNotification("~r~[OVERWATCH] ~w~Ameaça detectada! Mirando no alvo...")
                         pcall(function()
                             if AUDIO and AUDIO.PLAY_SOUND_FRONTEND then
-                                AUDIO.PLAY_SOUND_FRONTEND(-1, "Beep_Red", "DLC_HEIST_HACKING_SNAKE_SOUNDS", true)
+                                AUDIO.PLAY_SOUND_FRONTEND(-1, "Blip_Alert", "DLC_BATTLE_DRONE_SOUNDS", true)
+                                AUDIO.PLAY_SOUND_FRONTEND(-1, "Scan_Loop", "DLC_BATTLE_DRONE_SOUNDS", true)
                             end
                         end)
                     end
@@ -6086,9 +6232,14 @@ end
 local function triggerKamikazeFlight(drone, targetPed, targetCoords, targetName, isCompanionDrone)
     if not isValidEntity(drone) then return end
 
+    local myPed = getLocalPed()
+
     pcall(function()
         safeSetInvincible(drone, true)
-        ENTITY.SET_ENTITY_COLLISION(drone, false, false)
+        ENTITY.SET_ENTITY_COLLISION(drone, true, true)
+        if isValidEntity(myPed) and ENTITY.SET_ENTITY_NO_COLLISION_ENTITY then
+            ENTITY.SET_ENTITY_NO_COLLISION_ENTITY(drone, myPed, false)
+        end
         ENTITY.FREEZE_ENTITY_POSITION(drone, true)
         if ENTITY.SET_ENTITY_HAS_GRAVITY then ENTITY.SET_ENTITY_HAS_GRAVITY(drone, false) end
         if ENTITY.SET_ENTITY_DYNAMIC then ENTITY.SET_ENTITY_DYNAMIC(drone, false) end
@@ -6101,10 +6252,17 @@ local function triggerKamikazeFlight(drone, targetPed, targetCoords, targetName,
     notify.warn("Kamikaze", "Drone Suicida FPV lançado em rota de colisao contra: " .. (targetName or "Alvo"))
     showFeedNotification("~r~[KAMIKAZE] ~w~Drone Suicida FPV em mergulho contra ~y~" .. (targetName or "Alvo"))
 
+    -- Inicia zumbido contínuo de voo e alarme de lançamento
+    local kamiSoundId = -1
     pcall(function()
         if AUDIO and AUDIO.PLAY_SOUND_FRONTEND then
-            AUDIO.PLAY_SOUND_FRONTEND(-1, "Airhorn", "DLC_TG_Running_Back_Sounds", true)
-            AUDIO.PLAY_SOUND_FRONTEND(-1, "10_SEC_WARNING", "HUD_MINI_GAME_SOUNDSET", true)
+            AUDIO.PLAY_SOUND_FRONTEND(-1, "Blip_Alert", "DLC_BATTLE_DRONE_SOUNDS", true)
+        end
+        if AUDIO and AUDIO.GET_SOUND_ID and AUDIO.PLAY_SOUND_FROM_ENTITY then
+            kamiSoundId = AUDIO.GET_SOUND_ID()
+            if kamiSoundId ~= -1 then
+                AUDIO.PLAY_SOUND_FROM_ENTITY(kamiSoundId, "Flight_Loop", drone, "DLC_BATTLE_DRONE_SOUNDS", false, 0)
+            end
         end
     end)
 
@@ -6114,11 +6272,10 @@ local function triggerKamikazeFlight(drone, targetPed, targetCoords, targetName,
         local droneCurCoords = ENTITY.GET_ENTITY_COORDS(drone, true)
         local dronePos = { x = droneCurCoords.x, y = droneCurCoords.y, z = droneCurCoords.z }
 
-        local myPed = getLocalPed()
         local myInitialPos = isValidEntity(myPed) and ENTITY.GET_ENTITY_COORDS(myPed, true) or dronePos
-
         local maxDuration = 25000 -- 25s timeout
         local frameDelta = 0.02
+        local lastDist = 9999.0
 
         while true do
             script.yield(20)
@@ -6161,7 +6318,7 @@ local function triggerKamikazeFlight(drone, targetPed, targetCoords, targetName,
                 lastBeepTime = now
                 pcall(function()
                     if AUDIO and AUDIO.PLAY_SOUND_FRONTEND then
-                        AUDIO.PLAY_SOUND_FRONTEND(-1, "Beep_Red", "DLC_HEIST_HACKING_SNAKE_SOUNDS", true)
+                        AUDIO.PLAY_SOUND_FRONTEND(-1, "Blip_Alert", "DLC_BATTLE_DRONE_SOUNDS", true)
                     end
                 end)
             end
@@ -6170,53 +6327,137 @@ local function triggerKamikazeFlight(drone, targetPed, targetCoords, targetName,
             local currentMyPos = isValidEntity(myPed) and ENTITY.GET_ENTITY_COORDS(myPed, true) or myInitialPos
             local distFromLocalPlayer = math.sqrt((dronePos.x - currentMyPos.x)^2 + (dronePos.y - currentMyPos.y)^2 + (dronePos.z - currentMyPos.z)^2)
 
-            -- Tempo mínimo de voo de 350ms garante que você veja o drone saindo da cabeça mesmo para inimigos muito colados
-            local minTimePassed = (elapsed >= 350)
-            local canDetonateNow = (dist <= 2.2 and minTimePassed) or (dist <= 1.0)
+            -- Verificação física se tocou diretamente no alvo
+            local isTouchingTarget = false
+            pcall(function()
+                if isValidEntity(targetPed) and ENTITY and ENTITY.IS_ENTITY_TOUCHING_ENTITY then
+                    if ENTITY.IS_ENTITY_TOUCHING_ENTITY(drone, targetPed) then
+                        isTouchingTarget = true
+                    end
+                    if PED and PED.IS_PED_IN_ANY_VEHICLE and PED.IS_PED_IN_ANY_VEHICLE(targetPed, false) then
+                        local veh = PED.GET_VEHICLE_PED_IS_IN(targetPed, false)
+                        if isValidEntity(veh) and ENTITY.IS_ENTITY_TOUCHING_ENTITY(drone, veh) then
+                            isTouchingTarget = true
+                        end
+                    end
+                end
+            end)
 
-            if canDetonateNow or (isValidEntity(targetPed) and PED.IS_PED_INJURED(targetPed) and minTimePassed) then
-                local boomX = (dist <= 2.2) and targetCoords.x or dronePos.x
-                local boomY = (dist <= 2.2) and targetCoords.y or dronePos.y
-                local boomZ = (dist <= 2.2) and aimZ or dronePos.z
+            -- Verificação de colisão com qualquer obstáculo do cenário após 120ms
+            local hasCollidedWorld = false
+            if elapsed > 120 and distFromLocalPlayer > 2.0 then
+                pcall(function()
+                    if ENTITY and ENTITY.HAS_ENTITY_COLLIDED_WITH_ANYTHING and ENTITY.HAS_ENTITY_COLLIDED_WITH_ANYTHING(drone) then
+                        hasCollidedWorld = true
+                    end
+                end)
+            end
 
-                -- Protege o jogador local temporariamente se estiver no raio de blast
+            -- DETECÇÃO DA BATIDA / IMPACTO
+            -- 1. Tocou na entidade alvo
+            -- 2. Distância menor que 1.4 metro (contato físico direto)
+            -- 3. Próximo passo atravessaria o alvo
+            -- 4. Passou pelo ponto de maior aproximação (ultrapassou)
+            -- 5. Bateu em parede/veículo/chão
+            -- 6. Alvo ferido/abatido próximo
+            local hasHit = isTouchingTarget
+                or (dist <= 1.4)
+                or (hasCollidedWorld)
+                or (lastDist < 3.0 and dist > (lastDist + 0.15))
+                or (isValidEntity(targetPed) and PED.IS_PED_INJURED(targetPed) and dist <= 3.5)
+
+            if hasHit then
+                local boomX = dronePos.x
+                local boomY = dronePos.y
+                local boomZ = dronePos.z
+                if dist <= 2.5 and targetCoords then
+                    boomX = targetCoords.x
+                    boomY = targetCoords.y
+                    boomZ = aimZ
+                end
+
+                -- Protege o jogador local caso esteja dentro do raio de blast
                 if distFromLocalPlayer < 8.0 and isValidEntity(myPed) then
                     safeSetInvincible(myPed, true)
                 end
 
                 pcall(function()
-                    if FIRE and FIRE.ADD_EXPLOSION then
-                        -- Tag 29: Canhão Orbital | Tag 2: Explosão Pesada | Tag 9: Tanque Incendiário
-                        FIRE.ADD_EXPLOSION(boomX, boomY, boomZ, 29, 10.0, true, false, 2.0)
-                        FIRE.ADD_EXPLOSION(boomX, boomY, boomZ, 2, 8.0, true, false, 1.2)
-                        FIRE.ADD_EXPLOSION(boomX, boomY, boomZ, 9, 8.0, true, false, 1.2)
+                    -- Para o loop de áudio contínuo do motor
+                    if kamiSoundId ~= -1 and AUDIO then
+                        if AUDIO.STOP_SOUND then AUDIO.STOP_SOUND(kamiSoundId) end
+                        if AUDIO.RELEASE_SOUND_ID then AUDIO.RELEASE_SOUND_ID(kamiSoundId) end
+                        kamiSoundId = -1
                     end
 
+                    -- Som de Destruição / Crash oficial do Battle Drone
+                    if AUDIO then
+                        if AUDIO.PLAY_SOUND_FROM_COORD then
+                            AUDIO.PLAY_SOUND_FROM_COORD(-1, "Crash", boomX, boomY, boomZ, "DLC_BATTLE_DRONE_SOUNDS", false, 0, false)
+                        end
+                        if AUDIO.PLAY_SOUND_FRONTEND then
+                            AUDIO.PLAY_SOUND_FRONTEND(-1, "Crash", "DLC_BATTLE_DRONE_SOUNDS", true)
+                            AUDIO.PLAY_SOUND_FRONTEND(-1, "ScreenFlash", "WastedSounds", true)
+                        end
+                    end
+
+                    -- 1. Disparo de Foguete Explosivo no ponto exato da batida (explosão visual massiva com fogo, fumaça e destroços)
+                    local expHash = getHash("VEHICLE_WEAPON_SPACE_ROCKET")
+                    if expHash == 0 then expHash = getHash("WEAPON_EXPLOSION") end
+                    if MISC and MISC.SHOOT_SINGLE_BULLET_BETWEEN_COORDS then
+                        MISC.SHOOT_SINGLE_BULLET_BETWEEN_COORDS(
+                            dronePos.x, dronePos.y, dronePos.z + 0.3,
+                            boomX, boomY, boomZ,
+                            10000,
+                            true,
+                            expHash,
+                            myPed,
+                            true,
+                            false,
+                            1200.0
+                        )
+                    end
+
+                    -- 2. Múltiplas Explosões Nativas Devastadoras (Foguete RPG Tag 4, C4 Tag 2 e Canhão Orbital Tag 29)
+                    if FIRE and FIRE.ADD_EXPLOSION then
+                        FIRE.ADD_EXPLOSION(boomX, boomY, boomZ, 4, 10.0, true, false, 2.0)
+                        FIRE.ADD_EXPLOSION(boomX, boomY, boomZ, 2, 10.0, true, false, 1.5)
+                        FIRE.ADD_EXPLOSION(boomX, boomY, boomZ, 29, 10.0, true, false, 2.0)
+                    end
+
+                    -- 3. Destruição do veículo inimigo caso o alvo esteja dentro de um
                     if isValidEntity(targetPed) then
                         if PED.IS_PED_IN_ANY_VEHICLE and PED.IS_PED_IN_ANY_VEHICLE(targetPed, false) then
                             local veh = PED.GET_VEHICLE_PED_IS_IN(targetPed, false)
-                            if isValidEntity(veh) and VEHICLE and VEHICLE.EXPLODE_VEHICLE then
-                                VEHICLE.EXPLODE_VEHICLE(veh, true, false)
+                            if isValidEntity(veh) then
+                                getControlOfEntity(veh)
+                                if VEHICLE and VEHICLE.EXPLODE_VEHICLE then
+                                    VEHICLE.EXPLODE_VEHICLE(veh, true, false)
+                                end
+                                ENTITY.SET_ENTITY_HEALTH(veh, 0)
                             end
+                        end
+                        getControlOfEntity(targetPed)
+                        if PED and PED.APPLY_DAMAGE_TO_PED then
+                            PED.APPLY_DAMAGE_TO_PED(targetPed, 10000, false)
                         end
                         ENTITY.SET_ENTITY_HEALTH(targetPed, 0)
                     end
 
-                    if AUDIO and AUDIO.PLAY_SOUND_FRONTEND then
-                        AUDIO.PLAY_SOUND_FRONTEND(-1, "Bomb_Disarmed", "GTAO_Speed_Convoy_Soundset", true)
-                        AUDIO.PLAY_SOUND_FRONTEND(-1, "ScreenFlash", "WastedSounds", true)
-                    end
+                    -- O drone é desintegrado e desmaterializado instantaneamente no momento da batida
+                    ENTITY.SET_ENTITY_VISIBLE(drone, false, false)
                 end)
 
-                showFeedNotification("~r~[KAMIKAZE] ~w~Drone Suicida DETONOU o alvo ~y~" .. (targetName or "") .. "~w~!")
-                notify.success("Kamikaze", "Alvo " .. (targetName or "inimigo") .. " aniquilado por impacto direto!")
+                showFeedNotification("~r~[KAMIKAZE] ~w~Drone Suicida EXPLODIU ao bater no alvo!")
+                notify.success("Kamikaze", "Drone kamikaze colidiu e explodiu o alvo com sucesso!")
                 break
             end
 
-            -- Rampa de velocidade progressiva
-            local curSpeed = 42.0
-            if dist < 22.0 and elapsed < 400 then
-                curSpeed = 16.0 + (elapsed / 400.0) * 26.0 -- Acelera visivelmente de 16 a 42 m/s
+            lastDist = dist
+
+            -- Rampa de velocidade progressiva (acelera rapidamente até velocidade terminal de impacto)
+            local curSpeed = 44.0
+            if dist < 22.0 and elapsed < 350 then
+                curSpeed = 18.0 + (elapsed / 350.0) * 26.0
             end
 
             local step = math.min(curSpeed * frameDelta, dist)
@@ -6224,10 +6465,10 @@ local function triggerKamikazeFlight(drone, targetPed, targetCoords, targetName,
             local normY = dy / math.max(0.001, dist)
             local normZ = dz / math.max(0.001, dist)
 
-            -- Nos primeiros 250ms após sair da cabeça, ganha um leve arco de projeção para a frente
+            -- Nos primeiros 200ms após sair da cabeça, ganha um leve arco de projeção para a frente
             local arcZ = 0.0
-            if elapsed < 250 and dist < 25.0 then
-                arcZ = 0.03
+            if elapsed < 200 and dist < 25.0 then
+                arcZ = 0.025
             end
 
             dronePos.x = dronePos.x + (normX * step)
@@ -6248,6 +6489,14 @@ local function triggerKamikazeFlight(drone, targetPed, targetCoords, targetName,
             end)
         end
 
+        pcall(function()
+            if kamiSoundId ~= -1 and AUDIO then
+                if AUDIO.STOP_SOUND then AUDIO.STOP_SOUND(kamiSoundId) end
+                if AUDIO.RELEASE_SOUND_ID then AUDIO.RELEASE_SOUND_ID(kamiSoundId) end
+                kamiSoundId = -1
+            end
+        end)
+
         if isValidEntity(drone) then
             safeDeleteEntity(drone)
         end
@@ -6259,14 +6508,13 @@ local function triggerKamikazeFlight(drone, targetPed, targetCoords, targetName,
             end
         end
 
-        -- Se o drone era o guardião da cabeça, re-spawna um novo após o impacto
-        if isCompanionDrone and S.overwatchActive then
-            script.yield(3000)
-            if S.overwatchActive and (not S.overwatchDroneObj or not isValidEntity(S.overwatchDroneObj)) then
-                S.overwatchIsDiving = false
-                spawnOverwatchDrone()
-                showFeedNotification("~g~[OVERWATCH] ~w~Novo Micro-Drone Guardiao reconstruido e em posicao!")
-            end
+        -- O drone kamikaze SE AUTO-DESTRÓI no processo (NÃO ressuscita e desativa o Overwatch)
+        if isCompanionDrone then
+            S.overwatchActive = false
+            S.overwatchIsDiving = false
+            deleteOverwatchDrone()
+            showFeedNotification("~r~[OVERWATCH] ~w~Drone Guardião AUTO-DESTRUÍDO no ataque Kamikaze!")
+            notify.warn("Overwatch", "Drone guardião se auto-destruiu na missão suicida.")
         end
     end)
 end
@@ -6435,7 +6683,7 @@ local function renderTabOverwatchDrone()
     elseif S.overwatchWeaponMode == 3 then
         imgui.text("Modo Ativo: Ambos Juntos (Rajadas continuas de metralhadora + Misseis simultaneos)")
     elseif S.overwatchWeaponMode == 4 then
-        imgui.text("Modo Ativo: Drone Kamikaze Suicida! (O drone sai da sua cabeca, mergulha no inimigo e se auto-reconstroi)")
+        imgui.text("Modo Ativo: Drone Kamikaze Suicida! (O drone sai da sua cabeca, mergulha no inimigo e explode ao bater)")
     end
 
     imgui.spacing()
