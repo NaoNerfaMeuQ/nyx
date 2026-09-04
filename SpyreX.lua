@@ -145,6 +145,7 @@ local S = {
     overwatchLastMissileTime = 0,
     overwatchMgDamage = 50,
     overwatchSoundId = -1,
+    overwatchAnonymousKills = true, -- Kills Anônimas (Modo Fantasma): não atribui mortes ao jogador por padrão
 
     -- Drone Kamikaze Tático (Suicida)
     selectedKamikazePid = -1,
@@ -181,7 +182,16 @@ local S = {
     activeKungFuDisciples = {},
     activeKungFuPtfx = {},
     kungFuLoopActive = false,
-    kungFuSessionId = 0
+    kungFuSessionId = 0,
+
+    -- Security & Account Watchdog (Detector de Reportes & Vote Kick)
+    watchdogActive = true,
+    watchdogLoopActive = false,
+    watchdogKickVoteDetected = false,
+    watchdogLastKickCheck = 0,
+    watchdogBaselineSet = false,
+    watchdogReportStats = {},
+    watchdogRecentAlerts = {}
 
 }
 
@@ -2862,7 +2872,140 @@ local function startHotkeyLoop()
     end)
 end
 
+------------------------------------------------------------
+-- SECURITY WATCHDOG: DETECTOR DE VOTE KICK & REPORTES
+------------------------------------------------------------
+
+local reportTrackedStats = {
+    { key = "griefing",     stat = "MPPLY_GRIEFING",           label = "Griefing (Atrapalhar Jogo)" },
+    { key = "exploits",     stat = "MPPLY_EXPLOITS",           label = "Uso de Exploits/Hacks" },
+    { key = "gameExploits", stat = "MPPLY_GAME_EXPLOITS",      label = "Game Exploits" },
+    { key = "language",     stat = "MPPLY_OFFENSIVE_LANGUAGE", label = "Linguagem Ofensiva" },
+    { key = "vcHate",       stat = "MPPLY_VC_HATE",            label = "Discurso de Odio (Voz)" },
+    { key = "tcHate",       stat = "MPPLY_TC_HATE",            label = "Discurso de Odio (Texto)" },
+    { key = "ugc",          stat = "MPPLY_OFFENSIVE_UGC",      label = "Conteudo UGC Ofensivo" },
+    { key = "badCrew",      stat = "MPPLY_BAD_CREW_NAME",      label = "Nome de Comando Ofensivo" }
+}
+
+local function getStatIntSafe(statName)
+    local val = 0
+    local found = false
+    pcall(function()
+        if stats and stats.get_int then
+            local v = stats.get_int(statName)
+            if v ~= nil then
+                val = v
+                found = true
+            end
+        end
+    end)
+    if found then return tonumber(val) or 0 end
+
+    pcall(function()
+        if STATS and STATS.STAT_GET_INT then
+            local h = getHash(statName)
+            if h ~= 0 then
+                local r1, r2 = STATS.STAT_GET_INT(h, -1)
+                if type(r1) == "number" then
+                    val = r1
+                elseif type(r2) == "number" then
+                    val = r2
+                end
+            end
+        end
+    end)
+    return tonumber(val) or 0
+end
+
+local function refreshReportBaseline()
+    for _, item in ipairs(reportTrackedStats) do
+        local cur = getStatIntSafe(item.stat)
+        S.watchdogReportStats[item.key] = cur
+    end
+    S.watchdogBaselineSet = true
+end
+
+local function isLocalPlayerVoteKicked()
+    local isVoted = false
+    local myPid = getLocalPid()
+    pcall(function()
+        if NETWORK and NETWORK.NETWORK_SESSION_GET_KICK_VOTE then
+            local res = NETWORK.NETWORK_SESSION_GET_KICK_VOTE(myPid)
+            if res == true or res == 1 then
+                isVoted = true
+            end
+        end
+    end)
+    return isVoted
+end
+
+local function addSecurityAlert(text)
+    local ts = os.date and os.date("%H:%M:%S") or "Alerta"
+    table.insert(S.watchdogRecentAlerts, 1, { time = ts, text = text })
+    while #S.watchdogRecentAlerts > 15 do
+        table.remove(S.watchdogRecentAlerts)
+    end
+end
+
+local function startSecurityWatchdogLoop()
+    if S.watchdogLoopActive then return end
+    if not (script and script.run_in_callback) then return end
+
+    S.watchdogLoopActive = true
+    script.run_in_callback(function()
+        refreshReportBaseline()
+
+        while S.watchdogActive do
+            pcall(function()
+                -- 1. Verificacao de Vote Kick (a cada 1s)
+                local currentlyKicked = isLocalPlayerVoteKicked()
+                if currentlyKicked and not S.watchdogKickVoteDetected then
+                    S.watchdogKickVoteDetected = true
+                    pcall(function()
+                        if AUDIO and AUDIO.PLAY_SOUND_FRONTEND then
+                            AUDIO.PLAY_SOUND_FRONTEND(-1, "ScreenFlash", "WastedSounds", true)
+                            AUDIO.PLAY_SOUND_FRONTEND(-1, "Air_Defences_Activated", "DLC_sum20_Business_Hub_Ent_Sounds", true)
+                        end
+                    end)
+                    notify.warn("SEGURANCA", "ALERTA: Um jogador votou para te expulsar da sessao (Vote Kick)!")
+                    showFeedNotification("~r~[VOTE KICK DETECTADO] ~w~Alguem votou para te expulsar da sessao!")
+                    addSecurityAlert("Voto de expulsao (Vote Kick) iniciado contra voce!")
+                elseif not currentlyKicked and S.watchdogKickVoteDetected then
+                    S.watchdogKickVoteDetected = false
+                end
+
+                -- 2. Verificacao de Estatisticas de Reportes da Conta
+                for _, item in ipairs(reportTrackedStats) do
+                    local curVal = getStatIntSafe(item.stat)
+                    local oldVal = S.watchdogReportStats[item.key]
+
+                    if oldVal ~= nil and curVal > oldVal then
+                        local diff = curVal - oldVal
+                        pcall(function()
+                            if AUDIO and AUDIO.PLAY_SOUND_FRONTEND then
+                                AUDIO.PLAY_SOUND_FRONTEND(-1, "ScreenFlash", "WastedSounds", true)
+                                AUDIO.PLAY_SOUND_FRONTEND(-1, "BASE_JUMP_PASSED", "HUD_AWARDS", true)
+                            end
+                        end)
+                        local msg = string.format("Sua conta foi reportada por: %s (+%d)", item.label, diff)
+                        notify.error("REPORTE DETECTADO", msg)
+                        showFeedNotification(string.format("~r~[REPORTE DA CONTA] ~w~Novo reporte: ~y~%s ~s~(+%d)", item.label, diff))
+                        addSecurityAlert(msg)
+                        S.watchdogReportStats[item.key] = curVal
+                    elseif oldVal == nil or curVal ~= oldVal then
+                        S.watchdogReportStats[item.key] = curVal
+                    end
+                end
+            end)
+
+            script.yield(1000)
+        end
+        S.watchdogLoopActive = false
+    end)
+end
+
 startHotkeyLoop()
+startSecurityWatchdogLoop()
 
 ------------------------------------------------------------
 -- INCEPTION STUNT TRACKS & ARENA PROPS STATE & LOGIC
@@ -5785,6 +5928,7 @@ local function triggerOverwatchMissileStrike(targetPed)
     if rocketHash == 0 then rocketHash = getHash("WEAPON_EXPLOSION") end
 
     -- 1. Projétil orbital pesado com dano fulminante (10.000 de dano)
+    local shooterPed = (S.overwatchAnonymousKills ~= false) and 0 or myPed
     pcall(function()
         MISC.SHOOT_SINGLE_BULLET_BETWEEN_COORDS(
             skyX, skyY, skyZ,
@@ -5792,7 +5936,7 @@ local function triggerOverwatchMissileStrike(targetPed)
             10000,
             true,
             rocketHash,
-            myPed,
+            shooterPed,
             true,
             false,
             950.0
@@ -5906,6 +6050,7 @@ local function triggerOverwatchMachineGunBurst(targetPed, droneCoords)
             GRAPHICS.DRAW_LINE(muzzleX, muzzleY, muzzleZ, destX, destY, destZ, 255, 220, 60, 240)
         end
 
+        local shooterPed = (S.overwatchAnonymousKills ~= false) and 0 or myPed
         pcall(function()
             if MISC and MISC.SHOOT_SINGLE_BULLET_BETWEEN_COORDS then
                 MISC.SHOOT_SINGLE_BULLET_BETWEEN_COORDS(
@@ -5914,7 +6059,7 @@ local function triggerOverwatchMachineGunBurst(targetPed, droneCoords)
                     bulletDmg,
                     true,
                     bulletHash,
-                    myPed,
+                    shooterPed,
                     true,
                     false,
                     3500.0
@@ -6403,6 +6548,7 @@ local function triggerKamikazeFlight(drone, targetPed, targetCoords, targetName,
                     -- 1. Disparo de Foguete Explosivo no ponto exato da batida (explosão visual massiva com fogo, fumaça e destroços)
                     local expHash = getHash("VEHICLE_WEAPON_SPACE_ROCKET")
                     if expHash == 0 then expHash = getHash("WEAPON_EXPLOSION") end
+                    local shooterPed = (S.overwatchAnonymousKills ~= false) and 0 or myPed
                     if MISC and MISC.SHOOT_SINGLE_BULLET_BETWEEN_COORDS then
                         MISC.SHOOT_SINGLE_BULLET_BETWEEN_COORDS(
                             dronePos.x, dronePos.y, dronePos.z + 0.3,
@@ -6410,7 +6556,7 @@ local function triggerKamikazeFlight(drone, targetPed, targetCoords, targetName,
                             10000,
                             true,
                             expHash,
-                            myPed,
+                            shooterPed,
                             true,
                             false,
                             1200.0
@@ -6645,6 +6791,11 @@ local function renderTabOverwatchDrone()
         S.overwatchAggressiveMode = v2
         notify.info("Overwatch", S.overwatchAggressiveMode and "Modo: Exterminio Total (Atira em TODOS no raio!)" or "Modo: Defensivo (Apenas Atacantes)")
     end
+    local cAnon, vAnon = imgui.checkbox("Kills Anonimas / Modo Fantasma (Nao colocar mortes no meu nome)##ow_anon_chk", S.overwatchAnonymousKills ~= false)
+    if cAnon then
+        S.overwatchAnonymousKills = vAnon
+        notify.info("Overwatch", S.overwatchAnonymousKills and "Modo Fantasma ATIVADO: Mortes anonimas (sem seu nome no feed)" or "Modo Normal: Mortes registradas no seu nome")
+    end
     if not S.overwatchAggressiveMode then
         imgui.text("Status: Modo Defensivo (Dispara apenas quando atacado)")
     else
@@ -6751,10 +6902,11 @@ local function renderTabOverwatchDrone()
             local rocketHash = getHash("VEHICLE_WEAPON_SPACE_ROCKET")
             if rocketHash == 0 then rocketHash = getHash("WEAPON_EXPLOSION") end
 
+            local shooterPed = (S.overwatchAnonymousKills ~= false) and 0 or ped
             MISC.SHOOT_SINGLE_BULLET_BETWEEN_COORDS(
                 targetX, targetY, skyZ,
                 targetX, targetY, targetZ,
-                10000, true, rocketHash, ped, true, false, 950.0
+                10000, true, rocketHash, shooterPed, true, false, 950.0
             )
             pcall(function()
                 if FIRE and FIRE.ADD_EXPLOSION then
@@ -7329,6 +7481,62 @@ local function renderTabOptionsAndHotkeys()
     imgui.spacing(); imgui.separator(); imgui.spacing()
     local c3, v3 = imgui.checkbox("Enable Telekinesis Hotkeys (SPACE = Launch | E = Grab/Hold)##hk_chk", S.hotkeysEnabled)
     if c3 then S.hotkeysEnabled = v3; if S.hotkeysEnabled then startHotkeyLoop() end end
+
+    imgui.spacing(); imgui.separator(); imgui.spacing()
+    imgui.text("Seguranca & Detector de Reportes / Vote Kick:")
+    imgui.separator()
+    imgui.spacing()
+
+    local cW, vW = imgui.checkbox("Ativar Vigilante de Seguranca (Auto-Detectar Kick & Report)##wd_chk", S.watchdogActive)
+    if cW then
+        S.watchdogActive = vW
+        if S.watchdogActive then
+            startSecurityWatchdogLoop()
+            notify.info("Seguranca", "Vigilante de Seguranca ATIVADO")
+        else
+            notify.warn("Seguranca", "Vigilante de Seguranca PAUSADO")
+        end
+    end
+
+    imgui.spacing()
+    if S.watchdogKickVoteDetected then
+        if imgui.text_colored then
+            imgui.text_colored(1.0, 0.2, 0.2, 1.0, "[!] ALERTA CRITICO: Voto de Expulsao (Vote Kick) ATIVO contra voce!")
+        else
+            imgui.text("[!] ALERTA CRITICO: Voto de Expulsao (Vote Kick) ATIVO contra voce!")
+        end
+    else
+        if imgui.text_colored then
+            imgui.text_colored(0.2, 1.0, 0.2, 1.0, "[OK] Status de Expulsao: Seguro (Nenhum voto de kick detectado)")
+        else
+            imgui.text("[OK] Status de Expulsao: Seguro (Nenhum voto de kick detectado)")
+        end
+    end
+
+    imgui.spacing()
+    imgui.text("Metricas de Reportes da Conta (Perfil Rockstar):")
+    for _, item in ipairs(reportTrackedStats) do
+        local count = S.watchdogReportStats[item.key] or 0
+        imgui.text(string.format(" - %s: %d", item.label, count))
+    end
+
+    imgui.spacing()
+    if imgui.button("Recarregar / Calibrar Metricas da Conta##wd_refresh") then
+        refreshReportBaseline()
+        notify.info("Seguranca", "Metricas de reportes atualizadas com sucesso!")
+    end
+
+    if #S.watchdogRecentAlerts > 0 then
+        imgui.spacing()
+        imgui.separator()
+        imgui.text("Ultimos Alertas Registrados:")
+        local maxShow = math.min(#S.watchdogRecentAlerts, 5)
+        for i = 1, maxShow do
+            local al = S.watchdogRecentAlerts[i]
+            imgui.text(string.format("[%s] %s", al.time or "--:--", al.text or ""))
+        end
+    end
+
     imgui.end_tab_item()
 end
 
