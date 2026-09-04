@@ -29,6 +29,18 @@ local S = {
     isCarryingPlayer = false,
     carriedPlayerPed = nil,
 
+    -- XML & Custom Super Vehicles
+    spawnedCustomVehicle = nil,
+    spawnedCustomAttachments = {},
+    customXmlVehiclePath = "SpinePincher.xml",
+    isSpawningCustomVeh = false,
+    xmlSpawnInAir = false,
+    xmlSpawnHeightOffset = 0.0,
+    xmlWarpInside = true,
+    xmlInvincible = true,
+    discoveredXmlFiles = {},
+    lastXmlSpawnedName = "",
+
     -- Chaos Loops
     spinPlayerVehActive = false,
     spinPlayerVehLoopActive = false,
@@ -74,6 +86,34 @@ local S = {
     attachPresetModeAll = false,
     isAttachmentKeeperRunning = false,
 
+    -- Universal Live Attachment Tuner
+    tunerSelectedIdx = 1,
+    tunerName = "Cone na Cabeca",
+    tunerModel = "prop_mp_cone_01",
+    tunerBone = 24818,
+    tunerX = 0.420,
+    tunerY = 0.030,
+    tunerZ = -0.010,
+    tunerRotX = 0.0,
+    tunerRotY = 90.0,
+    tunerRotZ = 0.0,
+    tunerObj = nil,
+
+    -- Presets Salvos Oficiais
+    katanaRightX = 0.480,
+    katanaRightY = -0.170,
+    katanaRightZ = -0.160,
+    katanaRightRotX = -175.0,
+    katanaRightRotY = 242.0,
+    katanaRightRotZ = 0.0,
+
+    coneX = 0.420,
+    coneY = 0.030,
+    coneZ = -0.010,
+    coneRotX = 0.0,
+    coneRotY = 90.0,
+    coneRotZ = 0.0,
+
     -- Weather & Time
     halloweenModeActive = false,
     halloweenLoopRunning = false,
@@ -87,6 +127,28 @@ local S = {
     dogfightSessionId = 0,
     selectedDogfightPid = -1,
     lastDogfightTick = 0,
+
+    -- Micro-Drone Tatico Overwatch Guardiao
+    overwatchActive = false,
+    overwatchLoopActive = false,
+    overwatchDroneObj = nil,
+    overwatchDroneModel = "m24_2_prop_m42_drone_01a",
+    overwatchHeightOffset = 2.2,
+    overwatchSideOffset = 0.0,
+    overwatchAggressiveMode = true, -- Totalmente Agressivo por padrão (atira em todos no raio)
+    overwatchProtectionRadius = 50.0,
+    overwatchCooldown = 3.5,
+    overwatchLastStrikeTime = 0,
+    overwatchTargetPed = nil,
+    overwatchLockStartTime = 0,
+    overwatchWeaponMode = 1, -- 1: Mísseis Orbitais, 2: Metralhadora Tática, 3: Ambos Juntos (Metralhadora + Mísseis), 4: Kamikaze Suicida
+    overwatchLastMissileTime = 0,
+    overwatchMgDamage = 50,
+
+    -- Drone Kamikaze Tático (Suicida)
+    selectedKamikazePid = -1,
+    activeKamikazeDrones = {},
+    overwatchIsDiving = false,
 
     -- Ear Rape
     isTrollAudioActive = false,
@@ -223,6 +285,57 @@ local Presets = {
         { label = "Tanque Khanjali", model = "khanjali" },
         { label = "Toreador", model = "toreador" },
         { label = "Deluxo", model = "deluxo" }
+    },
+
+    weapon_list = {
+        ["Weapon Katana Left"] = {
+            Prop = 'prop_cs_katana_01',
+            PropBone = 24817, -- SKEL_Spine2
+            PropPlacement = { 0.500, -0.170, 0.140, 5.0, -122.0, 0.0 },
+            Used = {},
+            Use = false
+        },
+        ["Weapon Katana Right"] = {
+            Prop = 'prop_cs_katana_01',
+            PropBone = 24817, -- SKEL_Spine2
+            PropPlacement = { 0.480, -0.170, -0.160, -175.0, 242.0, 0.0 },
+            Used = {},
+            Use = false
+        }
+    },
+
+    plushie_list = {
+        { label = "Purple Kitty", model = "sum_prop_sum_arcade_plush_01a" },
+        { label = "Green Kitty",  model = "sum_prop_sum_arcade_plush_02a" },
+        { label = "Blue Kitty",   model = "sum_prop_sum_arcade_plush_03a" },
+        { label = "Brown Kitty",  model = "sum_prop_sum_arcade_plush_04a" },
+        { label = "Yellow Kitty", model = "sum_prop_sum_arcade_plush_05a" },
+        { label = "Red Kitty",    model = "sum_prop_sum_arcade_plush_06a" },
+        { label = "Princess",     model = "sum_prop_sum_arcade_plush_07a" },
+        { label = "Wasabi Kitty", model = "sum_prop_sum_arcade_plush_08a" },
+        { label = "Sensei",       model = "sum_prop_sum_arcade_plush_09a" }
+    },
+
+    tuner_objects = {
+        { name = "Cone na Cabeca", model = "prop_mp_cone_01", bone = 24818, x = 0.420, y = 0.030, z = -0.010, rx = 0.0, ry = 90.0, rz = 0.0 },
+        { name = "Katana Esquerda", model = "prop_cs_katana_01", bone = 24817, x = 0.500, y = -0.170, z = 0.140, rx = 5.0, ry = -122.0, rz = 0.0 },
+        { name = "Katana Direita", model = "prop_cs_katana_01", bone = 24817, x = 0.480, y = -0.170, z = -0.160, rx = -175.0, ry = 242.0, rz = 0.0 },
+        { name = "Vaso Sanitario (Toilet)", model = "prop_ld_toilet_01", bone = 11816, x = 0.300, y = -0.150, z = -0.000, rx = 176.0, ry = 270.0, rz = 0.0 },
+        { name = "Gaiola na Cabeca", model = "prop_feeder1_cr", bone = 11816, x = 0.0, y = 0.0, z = -0.600, rx = 0.0, ry = 90.0, rz = 0.0 },
+        { name = "Fogueira (Campfire)", model = "prop_beach_fire", bone = 11816, x = 0.050, y = -0.050, z = -0.000, rx = 0.0, ry = 90.0, rz = 0.0 },
+        { name = "Arvore de Natal", model = "prop_mp_xmas_tree_01", bone = 11816, x = 0.0, y = 0.0, z = -0.500, rx = 0.0, ry = 90.0, rz = 0.0 },
+        { name = "Roda do Cassino", model = 0x8EB05D67, bone = 24818, x = -0.808, y = -0.255, z = -0.120, rx = 0.0, ry = 270.0, rz = 180.0 },
+        { name = "OVNI (Disco Voador)", model = "p_spinning_anus_s", bone = 11816, x = 0.0, y = 0.0, z = 1.500, rx = 0.0, ry = 90.0, rz = 0.0 },
+        { name = "Purple Kitty", model = "sum_prop_sum_arcade_plush_01a", bone = 24818, x = 0.270, y = 0.010, z = -0.150, rx = 186.0, ry = 88.0, rz = -10.0 },
+        { name = "Green Kitty", model = "sum_prop_sum_arcade_plush_02a", bone = 24818, x = 0.270, y = 0.010, z = -0.150, rx = 186.0, ry = 88.0, rz = -10.0 },
+        { name = "Blue Kitty", model = "sum_prop_sum_arcade_plush_03a", bone = 24818, x = 0.270, y = 0.010, z = -0.150, rx = 186.0, ry = 88.0, rz = -10.0 },
+        { name = "Brown Kitty", model = "sum_prop_sum_arcade_plush_04a", bone = 24818, x = 0.270, y = 0.010, z = -0.150, rx = 186.0, ry = 88.0, rz = -10.0 },
+        { name = "Yellow Kitty", model = "sum_prop_sum_arcade_plush_05a", bone = 24818, x = 0.270, y = 0.010, z = -0.150, rx = 186.0, ry = 88.0, rz = -10.0 },
+        { name = "Red Kitty", model = "sum_prop_sum_arcade_plush_06a", bone = 24818, x = 0.270, y = 0.010, z = -0.150, rx = 186.0, ry = 88.0, rz = -10.0 },
+        { name = "Princess Kitty", model = "sum_prop_sum_arcade_plush_07a", bone = 24818, x = 0.270, y = 0.010, z = -0.150, rx = 186.0, ry = 88.0, rz = -10.0 },
+        { name = "Wasabi Kitty", model = "sum_prop_sum_arcade_plush_08a", bone = 24818, x = 0.270, y = 0.010, z = -0.150, rx = 186.0, ry = 88.0, rz = -10.0 },
+        { name = "Sensei Kitty", model = "sum_prop_sum_arcade_plush_09a", bone = 24818, x = 0.270, y = 0.010, z = -0.150, rx = 186.0, ry = 88.0, rz = -10.0 },
+        { name = "Modelo Customizado", model = "custom", bone = 24818, x = 0.0, y = 0.0, z = 0.0, rx = 0.0, ry = 90.0, rz = 0.0 }
     }
 }
 
@@ -424,16 +537,17 @@ end
 
 local function purgeAllJetBlips()
     pcall(function()
-        if HUD and HUD.GET_FIRST_BLIP_INFO_ID and HUD.GET_NEXT_BLIP_INFO_ID then
-            local blip = HUD.GET_FIRST_BLIP_INFO_ID(16)
-            local limit = 0
-            while blip and blip ~= 0 and HUD.DOES_BLIP_EXIST and HUD.DOES_BLIP_EXIST(blip) and limit < 64 do
-                local nextBlip = HUD.GET_NEXT_BLIP_INFO_ID(16)
-                if HUD.SET_BLIP_DISPLAY then HUD.SET_BLIP_DISPLAY(blip, 0) end
-                if HUD.REMOVE_BLIP then HUD.REMOVE_BLIP(blip) end
-                blip = nextBlip
-                limit = limit + 1
-            end
+        if not (HUD and HUD.GET_FIRST_BLIP_INFO_ID and HUD.GET_NEXT_BLIP_INFO_ID) then return end
+        local toRemove = {}
+        local blip = HUD.GET_FIRST_BLIP_INFO_ID(16)
+        local limit = 0
+        while blip and blip ~= 0 and HUD.DOES_BLIP_EXIST and HUD.DOES_BLIP_EXIST(blip) and limit < 32 do
+            table.insert(toRemove, blip)
+            blip = HUD.GET_NEXT_BLIP_INFO_ID(16)
+            limit = limit + 1
+        end
+        for _, b in ipairs(toRemove) do
+            safeRemoveBlip(b)
         end
     end)
 end
@@ -447,25 +561,36 @@ local function safeDeleteEntity(ent)
     pcall(function()
         if ENTITY and ENTITY.DOES_ENTITY_EXIST and ENTITY.DOES_ENTITY_EXIST(ent) then
             removeBlipForEntity(ent)
-            getControlOfEntity(ent)
-            if entities and entities.delete_by_handle then pcall(function() entities.delete_by_handle(ent) end)
-            elseif entities and entities.delete then pcall(function() entities.delete(ent) end) end
 
-            if ENTITY.DOES_ENTITY_EXIST(ent) then
-                if VEHICLE and VEHICLE.DELETE_VEHICLE and ENTITY.IS_ENTITY_A_VEHICLE and ENTITY.IS_ENTITY_A_VEHICLE(ent) then
-                    pcall(function() VEHICLE.DELETE_VEHICLE(ent) end)
-                elseif PED and PED.DELETE_PED and ENTITY.IS_ENTITY_A_PED and ENTITY.IS_ENTITY_A_PED(ent) then
-                    pcall(function() PED.DELETE_PED(ent) end)
-                elseif OBJECT and OBJECT.DELETE_OBJECT and ENTITY.IS_ENTITY_AN_OBJECT and ENTITY.IS_ENTITY_AN_OBJECT(ent) then
-                    pcall(function() OBJECT.DELETE_OBJECT(ent) end)
-                elseif ENTITY.DELETE_ENTITY then
-                    pcall(function() ENTITY.DELETE_ENTITY(ent) end)
+            if ENTITY.IS_ENTITY_ATTACHED and ENTITY.IS_ENTITY_ATTACHED(ent) then
+                if ENTITY.DETACH_ENTITY then
+                    pcall(function() ENTITY.DETACH_ENTITY(ent, true, true) end)
                 end
             end
 
-            if ENTITY.DOES_ENTITY_EXIST(ent) then
-                pcall(function() ENTITY.SET_ENTITY_COORDS(ent, 0.0, 0.0, -500.0, false, false, false, false) end)
-                pcall(function() ENTITY.SET_ENTITY_AS_NO_LONGER_NEEDED(ent) end)
+            if ENTITY.SET_ENTITY_AS_MISSION_ENTITY then
+                pcall(function() ENTITY.SET_ENTITY_AS_MISSION_ENTITY(ent, true, true) end)
+            end
+
+            if ENTITY.SET_ENTITY_COLLISION then
+                pcall(function() ENTITY.SET_ENTITY_COLLISION(ent, false, false) end)
+            end
+
+            if PED and PED.DELETE_PED and ENTITY.IS_ENTITY_A_PED and ENTITY.IS_ENTITY_A_PED(ent) then
+                pcall(function() PED.DELETE_PED(ent) end)
+            elseif VEHICLE and VEHICLE.DELETE_VEHICLE and ENTITY.IS_ENTITY_A_VEHICLE and ENTITY.IS_ENTITY_A_VEHICLE(ent) then
+                pcall(function() VEHICLE.DELETE_VEHICLE(ent) end)
+            elseif OBJECT and OBJECT.DELETE_OBJECT and ENTITY.IS_ENTITY_AN_OBJECT and ENTITY.IS_ENTITY_AN_OBJECT(ent) then
+                pcall(function() OBJECT.DELETE_OBJECT(ent) end)
+            elseif ENTITY.DELETE_ENTITY then
+                pcall(function() ENTITY.DELETE_ENTITY(ent) end)
+            end
+
+            if ENTITY.DOES_ENTITY_EXIST and ENTITY.DOES_ENTITY_EXIST(ent) then
+                pcall(function()
+                    ENTITY.SET_ENTITY_COORDS(ent, 0.0, 0.0, -100.0, false, false, false, false)
+                    ENTITY.SET_ENTITY_AS_NO_LONGER_NEEDED(ent)
+                end)
             end
         end
     end)
@@ -474,7 +599,7 @@ end
 local function requestAndLoadModel(modelHash, maxWaitTicks)
     if not modelHash or modelHash == 0 then return false end
     if STREAMING and STREAMING.HAS_MODEL_LOADED and STREAMING.HAS_MODEL_LOADED(modelHash) then return true end
-    local maxTicks = maxWaitTicks or 100
+    local maxTicks = maxWaitTicks or 250
     for i = 1, maxTicks do
         pcall(function() if STREAMING and STREAMING.REQUEST_MODEL then STREAMING.REQUEST_MODEL(modelHash) end end)
         if STREAMING and STREAMING.HAS_MODEL_LOADED and STREAMING.HAS_MODEL_LOADED(modelHash) then return true end
@@ -653,6 +778,72 @@ local function getAllNearbyVehicles(radius)
         end
     end
     return foundVehicles
+end
+
+local function getAllNearbyPeds(radius)
+    radius = radius or 60.0
+    local foundPeds = {}
+    local addedMap = {}
+    local myPed = getLocalPed()
+    if not isValidEntity(myPed) then return foundPeds end
+    local pCoords = ENTITY.GET_ENTITY_COORDS(myPed, true)
+
+    pcall(function()
+        if entities and entities.get_all_peds_as_handles then
+            local allPeds = entities.get_all_peds_as_handles()
+            if allPeds then
+                for _, p in ipairs(allPeds) do
+                    if isValidEntity(p) and p ~= myPed and not PED.IS_PED_INJURED(p) then
+                        local pos = ENTITY.GET_ENTITY_COORDS(p, true)
+                        local dx = pCoords.x - pos.x
+                        local dy = pCoords.y - pos.y
+                        local dz = pCoords.z - pos.z
+                        if math.sqrt(dx*dx + dy*dy + dz*dz) <= radius and not addedMap[p] then
+                            addedMap[p] = true
+                            table.insert(foundPeds, p)
+                        end
+                    end
+                end
+            end
+        elseif entities and entities.get_all_peds then
+            local allPeds = entities.get_all_peds()
+            if allPeds then
+                for _, p in ipairs(allPeds) do
+                    if isValidEntity(p) and p ~= myPed and not PED.IS_PED_INJURED(p) then
+                        local pos = ENTITY.GET_ENTITY_COORDS(p, true)
+                        local dx = pCoords.x - pos.x
+                        local dy = pCoords.y - pos.y
+                        local dz = pCoords.z - pos.z
+                        if math.sqrt(dx*dx + dy*dy + dz*dz) <= radius and not addedMap[p] then
+                            addedMap[p] = true
+                            table.insert(foundPeds, p)
+                        end
+                    end
+                end
+            end
+        end
+    end)
+
+    pcall(function()
+        local players = getActivePlayersList()
+        for _, pid in ipairs(players) do
+            if pid ~= getLocalPid() then
+                local pped = getPlayerPed(pid)
+                if isValidEntity(pped) and pped ~= myPed and not PED.IS_PED_INJURED(pped) and not addedMap[pped] then
+                    local pos = ENTITY.GET_ENTITY_COORDS(pped, true)
+                    local dx = pCoords.x - pos.x
+                    local dy = pCoords.y - pos.y
+                    local dz = pCoords.z - pos.z
+                    if math.sqrt(dx*dx + dy*dy + dz*dz) <= radius then
+                        addedMap[pped] = true
+                        table.insert(foundPeds, pped)
+                    end
+                end
+            end
+        end
+    end)
+
+    return foundPeds
 end
 
 ------------------------------------------------------------
@@ -895,6 +1086,1126 @@ local function startCarryingPlayer(targetPed)
         end
         stopCarryingPlayer()
     end)
+end
+
+------------------------------------------------------------
+-- XML & CUSTOM VEHICLE SPOONER (SPINETHETIC & MENYOO LOADER)
+------------------------------------------------------------
+
+local function parseVehiclePropertiesSection(block)
+    local p = {}
+    if not block or block == "" then return p end
+
+    local colours = block:match("<Colours.->(.-)</Colours>")
+    if colours then
+        local prim = colours:match("<Primary>%s*([%-%d]+)%s*</Primary>")
+        local sec = colours:match("<Secondary>%s*([%-%d]+)%s*</Secondary>")
+        local pearl = colours:match("<Pearl>%s*([%-%d]+)%s*</Pearl>")
+        local rim = colours:match("<Rim>%s*([%-%d]+)%s*</Rim>")
+        if prim then p.primaryCol = tonumber(prim) end
+        if sec then p.secondaryCol = tonumber(sec) end
+        if pearl then p.pearlCol = tonumber(pearl) end
+        if rim then p.rimCol = tonumber(rim) end
+
+        local isCust1 = colours:match("<IsPrimaryColourCustom>%s*(.-)%s*</IsPrimaryColourCustom>")
+        if isCust1 == "true" then
+            local r = tonumber(colours:match("<Cust1_R>%s*(%d+)%s*</Cust1_R>")) or 0
+            local g = tonumber(colours:match("<Cust1_G>%s*(%d+)%s*</Cust1_G>")) or 0
+            local b = tonumber(colours:match("<Cust1_B>%s*(%d+)%s*</Cust1_B>")) or 0
+            p.customPrimary = { r = r, g = g, b = b }
+        end
+
+        local isCust2 = colours:match("<IsSecondaryColourCustom>%s*(.-)%s*</IsSecondaryColourCustom>")
+        if isCust2 == "true" then
+            local r = tonumber(colours:match("<Cust2_R>%s*(%d+)%s*</Cust2_R>")) or 0
+            local g = tonumber(colours:match("<Cust2_G>%s*(%d+)%s*</Cust2_G>")) or 0
+            local b = tonumber(colours:match("<Cust2_B>%s*(%d+)%s*</Cust2_B>")) or 0
+            p.customSecondary = { r = r, g = g, b = b }
+        end
+
+        local interior = colours:match("<LrInterior>%s*([%-%d]+)%s*</LrInterior>")
+        local dash = colours:match("<LrDashboard>%s*([%-%d]+)%s*</LrDashboard>")
+        local xenon = colours:match("<LrXenonHeadlights>%s*([%-%d]+)%s*</LrXenonHeadlights>")
+        if interior then p.interiorCol = tonumber(interior) end
+        if dash then p.dashboardCol = tonumber(dash) end
+        if xenon then p.xenonCol = tonumber(xenon) end
+    end
+
+    local livery = block:match("<Livery>%s*([%-%d]+)%s*</Livery>")
+    if livery then p.livery = tonumber(livery) end
+
+    local plateText = block:match("<NumberPlateText>%s*(.-)%s*</NumberPlateText>")
+    local plateIdx = block:match("<NumberPlateIndex>%s*(%d+)%s*</NumberPlateIndex>")
+    if plateText then p.plateText = plateText end
+    if plateIdx then p.plateIndex = tonumber(plateIdx) end
+
+    local wheelType = block:match("<WheelType>%s*(%d+)%s*</WheelType>")
+    if wheelType then p.wheelType = tonumber(wheelType) end
+
+    local bpTyres = block:match("<BulletProofTyres>%s*(.-)%s*</BulletProofTyres>")
+    if bpTyres then p.bulletProofTyres = (bpTyres == "true") end
+
+    local windowTint = block:match("<WindowTint>%s*([%-%d]+)%s*</WindowTint>")
+    if windowTint then p.windowTint = tonumber(windowTint) end
+
+    local neons = block:match("<Neons.->(.-)</Neons>")
+    if neons then
+        local l = neons:match("<Left>%s*(.-)%s*</Left>")
+        local r = neons:match("<Right>%s*(.-)%s*</Right>")
+        local f = neons:match("<Front>%s*(.-)%s*</Front>")
+        local b = neons:match("<Back>%s*(.-)%s*</Back>")
+        local nr = tonumber(neons:match("<R>%s*(%d+)%s*</R>")) or 255
+        local ng = tonumber(neons:match("<G>%s*(%d+)%s*</G>")) or 255
+        local nb = tonumber(neons:match("<B>%s*(%d+)%s*</B>")) or 255
+        p.neons = {
+            left = (l == "true"),
+            right = (r == "true"),
+            front = (f == "true"),
+            back = (b == "true"),
+            r = nr, g = ng, b = nb
+        }
+    end
+
+    local mods = block:match("<Mods.->(.-)</Mods>")
+    if mods then
+        p.mods = {}
+        for modIdStr, valStr in mods:gmatch("<_([%d]+)>%s*(.-)%s*</_[%d]+>") do
+            local modId = tonumber(modIdStr)
+            if modId then
+                if valStr == "true" or valStr == "false" then
+                    p.mods[modId] = { enabled = (valStr == "true") }
+                else
+                    local comma = valStr:find(",")
+                    if comma then
+                        local mIdx = tonumber(valStr:sub(1, comma - 1)) or -1
+                        local mVar = tonumber(valStr:sub(comma + 1)) or 0
+                        p.mods[modId] = { index = mIdx, customVariation = (mVar ~= 0) }
+                    else
+                        p.mods[modId] = { index = tonumber(valStr) or -1, customVariation = false }
+                    end
+                end
+            end
+        end
+    end
+
+    local extras = block:match("<ModExtras.->(.-)</ModExtras>")
+    if extras then
+        p.extras = {}
+        for extraIdStr, valStr in extras:gmatch("<_([%d]+)>%s*(.-)%s*</_[%d]+>") do
+            local exId = tonumber(extraIdStr)
+            if exId then
+                p.extras[exId] = (valStr == "true")
+            end
+        end
+    end
+
+    return p
+end
+
+local function parseSingleAttachmentBlock(block)
+    local att = {
+        modelHash = 0,
+        type = 3,
+        initialHandle = 0,
+        attachedTo = 0,
+        boneIndex = 0,
+        x = 0.0, y = 0.0, z = 0.0,
+        pitch = 0.0, roll = 0.0, yaw = 0.0,
+        dynamic = false,
+        frozenPos = false,
+        hasCollision = false,
+        opacityLevel = 255,
+        isVisible = true,
+        vehicleProps = nil
+    }
+
+    local hStr = block:match("<ModelHash>%s*(.-)%s*</ModelHash>")
+    if hStr then
+        if hStr:sub(1, 2):lower() == "0x" then
+            att.modelHash = tonumber(hStr) or 0
+        else
+            att.modelHash = tonumber(hStr) or getHash(hStr)
+        end
+    end
+    if att.modelHash == 0 then
+        local nameStr = block:match("<HashName>%s*(.-)%s*</HashName>") or block:match("<ModelName>%s*(.-)%s*</ModelName>")
+        if nameStr and nameStr ~= "" then
+            att.modelHash = getHash(nameStr)
+        end
+    end
+
+    local t = block:match("<Type>%s*(%d+)%s*</Type>")
+    if t then att.type = tonumber(t) or 3 end
+
+    local initH = block:match("<InitialHandle>%s*(%d+)%s*</InitialHandle>")
+    if initH then att.initialHandle = tonumber(initH) or 0 end
+
+    local dyn = block:match("<Dynamic>%s*(.-)%s*</Dynamic>")
+    if dyn then att.dynamic = (dyn == "true") end
+    local froz = block:match("<FrozenPos>%s*(.-)%s*</FrozenPos>")
+    if froz then att.frozenPos = (froz == "true") end
+    local col = block:match("<HasCollision>%s*(.-)%s*</HasCollision>")
+    if col then att.hasCollision = (col == "true") end
+    local op = block:match("<OpacityLevel>%s*(%d+)%s*</OpacityLevel>")
+    if op then att.opacityLevel = tonumber(op) or 255 end
+    local vis = block:match("<IsVisible>%s*(.-)%s*</IsVisible>")
+    if vis then att.isVisible = (vis ~= "false") end
+
+    local innerSection = block:match("<Attachment[^>]*>(.-)$") or block
+    local attTo = innerSection:match("<AttachedTo>%s*(%d+)%s*</AttachedTo>")
+    if attTo then att.attachedTo = tonumber(attTo) or 0 end
+
+    local bone = innerSection:match("<BoneIndex>%s*(%d+)%s*</BoneIndex>")
+    if bone then att.boneIndex = tonumber(bone) or 0 end
+
+    local x = innerSection:match("<X>%s*([%-%d%.eE]+)%s*</X>")
+    local y = innerSection:match("<Y>%s*([%-%d%.eE]+)%s*</Y>")
+    local z = innerSection:match("<Z>%s*([%-%d%.eE]+)%s*</Z>")
+    local pitch = innerSection:match("<Pitch>%s*([%-%d%.eE]+)%s*</Pitch>")
+    local roll  = innerSection:match("<Roll>%s*([%-%d%.eE]+)%s*</Roll>")
+    local yaw   = innerSection:match("<Yaw>%s*([%-%d%.eE]+)%s*</Yaw>")
+
+    if x then att.x = tonumber(x) or 0.0 end
+    if y then att.y = tonumber(y) or 0.0 end
+    if z then att.z = tonumber(z) or 0.0 end
+    if pitch then att.pitch = tonumber(pitch) or 0.0 end
+    if roll then att.roll = tonumber(roll) or 0.0 end
+    if yaw then att.yaw = tonumber(yaw) or 0.0 end
+
+    if att.type == 2 and block:find("<VehicleProperties") then
+        att.vehicleProps = parseVehiclePropertiesSection(block)
+    end
+
+    return att
+end
+
+local function parseMenyooXml(xmlStr)
+    local data = {
+        modelHash = 0,
+        initialHandle = 0,
+        vehicleProps = {},
+        attachments = {}
+    }
+    if not xmlStr or type(xmlStr) ~= "string" or xmlStr == "" then return data end
+
+    local rootSection = xmlStr:match("<Vehicle.->(.-)<SpoonerAttachments") or xmlStr
+    local rootHashStr = rootSection:match("<ModelHash>%s*(.-)%s*</ModelHash>")
+    if rootHashStr then
+        if rootHashStr:sub(1, 2):lower() == "0x" then
+            data.modelHash = tonumber(rootHashStr) or 0
+        else
+            data.modelHash = tonumber(rootHashStr) or getHash(rootHashStr)
+        end
+    end
+    if data.modelHash == 0 then
+        local nameStr = rootSection:match("<HashName>%s*(.-)%s*</HashName>") or rootSection:match("<ModelName>%s*(.-)%s*</ModelName>")
+        if nameStr and nameStr ~= "" then
+            data.modelHash = getHash(nameStr)
+        end
+    end
+
+    local initH = rootSection:match("<InitialHandle>%s*(%d+)%s*</InitialHandle>")
+    if initH then data.initialHandle = tonumber(initH) or 0 end
+
+    data.vehicleProps = parseVehiclePropertiesSection(rootSection)
+
+    local attachSection = xmlStr:match("<SpoonerAttachments.->(.-)</SpoonerAttachments>") or ""
+    local cursor = 1
+    while true do
+        local startTag, afterStart = attachSection:find("<Attachment[^>]*>", cursor)
+        if not startTag then break end
+
+        local depth = 1
+        local searchPos = afterStart + 1
+        local blockEnd = nil
+
+        while depth > 0 and searchPos <= #attachSection do
+            local nextOpen, openAfter = attachSection:find("<Attachment[^>]*>", searchPos)
+            local nextClose, closeAfter = attachSection:find("</Attachment>", searchPos)
+
+            if not nextClose then
+                blockEnd = #attachSection
+                break
+            end
+
+            if nextOpen and nextOpen < nextClose then
+                depth = depth + 1
+                searchPos = openAfter + 1
+            else
+                depth = depth - 1
+                if depth == 0 then
+                    blockEnd = nextClose - 1
+                    cursor = closeAfter + 1
+                else
+                    searchPos = closeAfter + 1
+                end
+            end
+        end
+
+        if blockEnd then
+            local block = attachSection:sub(afterStart + 1, blockEnd)
+            local att = parseSingleAttachmentBlock(block)
+            if att and att.modelHash ~= 0 then
+                table.insert(data.attachments, att)
+            end
+        else
+            break
+        end
+    end
+
+    return data
+end
+
+local function applyVehicleCustomizations(veh, p)
+    if not isValidEntity(veh) or not p then return end
+    pcall(function()
+        if VEHICLE and VEHICLE.SET_VEHICLE_MOD_KIT then
+            VEHICLE.SET_VEHICLE_MOD_KIT(veh, 0)
+        end
+
+        if p.primaryCol or p.secondaryCol then
+            if VEHICLE and VEHICLE.SET_VEHICLE_COLOURS then
+                VEHICLE.SET_VEHICLE_COLOURS(veh, p.primaryCol or 0, p.secondaryCol or 0)
+            end
+        end
+
+        if (p.pearlCol or p.rimCol) and VEHICLE and VEHICLE.SET_VEHICLE_EXTRA_COLOURS then
+            VEHICLE.SET_VEHICLE_EXTRA_COLOURS(veh, p.pearlCol or 0, p.rimCol or 0)
+        end
+
+        if p.customPrimary and VEHICLE and VEHICLE.SET_VEHICLE_CUSTOM_PRIMARY_COLOUR then
+            VEHICLE.SET_VEHICLE_CUSTOM_PRIMARY_COLOUR(veh, p.customPrimary.r, p.customPrimary.g, p.customPrimary.b)
+        end
+
+        if p.customSecondary and VEHICLE and VEHICLE.SET_VEHICLE_CUSTOM_SECONDARY_COLOUR then
+            VEHICLE.SET_VEHICLE_CUSTOM_SECONDARY_COLOUR(veh, p.customSecondary.r, p.customSecondary.g, p.customSecondary.b)
+        end
+
+        if p.interiorCol and VEHICLE and VEHICLE.SET_VEHICLE_INTERIOR_COLOUR then
+            VEHICLE.SET_VEHICLE_INTERIOR_COLOUR(veh, p.interiorCol)
+        end
+        if p.dashboardCol and VEHICLE and VEHICLE.SET_VEHICLE_DASHBOARD_COLOUR then
+            VEHICLE.SET_VEHICLE_DASHBOARD_COLOUR(veh, p.dashboardCol)
+        end
+
+        if p.xenonCol and VEHICLE and VEHICLE.SET_VEHICLE_XENON_LIGHT_COLOR_INDEX then
+            if VEHICLE.TOGGLE_VEHICLE_MOD then VEHICLE.TOGGLE_VEHICLE_MOD(veh, 22, true) end
+            VEHICLE.SET_VEHICLE_XENON_LIGHT_COLOR_INDEX(veh, p.xenonCol)
+        end
+
+        if p.wheelType and VEHICLE and VEHICLE.SET_VEHICLE_WHEEL_TYPE then
+            VEHICLE.SET_VEHICLE_WHEEL_TYPE(veh, p.wheelType)
+        end
+        if p.bulletProofTyres ~= nil and VEHICLE and VEHICLE.SET_VEHICLE_TYRES_CAN_BURST then
+            VEHICLE.SET_VEHICLE_TYRES_CAN_BURST(veh, not p.bulletProofTyres)
+        end
+
+        if p.windowTint and VEHICLE and VEHICLE.SET_VEHICLE_WINDOW_TINT then
+            VEHICLE.SET_VEHICLE_WINDOW_TINT(veh, p.windowTint)
+        end
+
+        if p.plateText and VEHICLE and VEHICLE.SET_VEHICLE_NUMBER_PLATE_TEXT then
+            VEHICLE.SET_VEHICLE_NUMBER_PLATE_TEXT(veh, tostring(p.plateText):gsub('^%s*(.-)%s*$', '%1'))
+        end
+        if p.plateIndex and VEHICLE and VEHICLE.SET_VEHICLE_NUMBER_PLATE_TEXT_INDEX then
+            VEHICLE.SET_VEHICLE_NUMBER_PLATE_TEXT_INDEX(veh, p.plateIndex)
+        end
+
+        if p.livery and p.livery >= 0 and VEHICLE and VEHICLE.SET_VEHICLE_LIVERY then
+            VEHICLE.SET_VEHICLE_LIVERY(veh, p.livery)
+        end
+
+        if p.neons then
+            if VEHICLE and VEHICLE.SET_VEHICLE_NEON_LIGHT_ENABLED then
+                VEHICLE.SET_VEHICLE_NEON_LIGHT_ENABLED(veh, 0, p.neons.left or false)
+                VEHICLE.SET_VEHICLE_NEON_LIGHT_ENABLED(veh, 1, p.neons.right or false)
+                VEHICLE.SET_VEHICLE_NEON_LIGHT_ENABLED(veh, 2, p.neons.front or false)
+                VEHICLE.SET_VEHICLE_NEON_LIGHT_ENABLED(veh, 3, p.neons.back or false)
+            end
+            if p.neons.r and VEHICLE and VEHICLE.SET_VEHICLE_NEON_COLOUR then
+                VEHICLE.SET_VEHICLE_NEON_COLOUR(veh, p.neons.r, p.neons.g, p.neons.b)
+            end
+        end
+
+        if p.mods and VEHICLE and VEHICLE.SET_VEHICLE_MOD then
+            for modType, modData in pairs(p.mods) do
+                if modType >= 17 and modType <= 22 then
+                    if VEHICLE.TOGGLE_VEHICLE_MOD then
+                        VEHICLE.TOGGLE_VEHICLE_MOD(veh, modType, modData.enabled or false)
+                    end
+                else
+                    VEHICLE.SET_VEHICLE_MOD(veh, modType, modData.index or -1, modData.customVariation or false)
+                end
+            end
+        end
+
+        if p.extras and VEHICLE and VEHICLE.SET_VEHICLE_EXTRA then
+            for extraId, extraState in pairs(p.extras) do
+                VEHICLE.SET_VEHICLE_EXTRA(veh, extraId, not extraState)
+            end
+        end
+    end)
+end
+
+local function cleanCustomVehicle(notifyUser)
+    script.run_in_callback(function()
+        local count = 0
+        local pPed = getLocalPed()
+
+        if isValidEntity(pPed) and isValidEntity(S.spawnedCustomVehicle) then
+            pcall(function()
+                if PED and PED.IS_PED_IN_VEHICLE and PED.IS_PED_IN_VEHICLE(pPed, S.spawnedCustomVehicle, false) then
+                    if TASK and TASK.CLEAR_PED_TASKS_IMMEDIATELY then
+                        TASK.CLEAR_PED_TASKS_IMMEDIATELY(pPed)
+                    end
+                end
+            end)
+        end
+
+        local atts = S.spawnedCustomAttachments or {}
+        S.spawnedCustomAttachments = {}
+
+        if #atts > 0 then
+            for _, ent in ipairs(atts) do
+                if isValidEntity(ent) then
+                    safeDeleteEntity(ent)
+                    count = count + 1
+                    script.yield(15)
+                end
+            end
+        end
+
+        if isValidEntity(S.spawnedCustomVehicle) then
+            safeDeleteEntity(S.spawnedCustomVehicle)
+            S.spawnedCustomVehicle = nil
+            count = count + 1
+        end
+
+        if notifyUser then
+            notify.info("Vehicle", "Veiculo customizado limpo (" .. count .. " entidades deletadas).")
+        end
+    end)
+end
+
+local function unfreezeCustomVehicle()
+    pcall(function()
+        local veh = S.spawnedCustomVehicle
+        local ped = getLocalPed()
+        if not isValidEntity(veh) and isValidEntity(ped) then
+            if PED and PED.IS_PED_IN_ANY_VEHICLE and PED.IS_PED_IN_ANY_VEHICLE(ped, false) then
+                veh = PED.GET_VEHICLE_PED_IS_IN(ped, false)
+            end
+        end
+
+        if isValidEntity(veh) then
+            ENTITY.FREEZE_ENTITY_POSITION(veh, false)
+            ENTITY.SET_ENTITY_COLLISION(veh, true, true)
+            if ENTITY.SET_ENTITY_DYNAMIC then ENTITY.SET_ENTITY_DYNAMIC(veh, true) end
+            if VEHICLE and VEHICLE.SET_VEHICLE_ENGINE_ON then VEHICLE.SET_VEHICLE_ENGINE_ON(veh, true, true, false) end
+
+            if S.spawnedCustomAttachments and #S.spawnedCustomAttachments > 0 then
+                for _, att in ipairs(S.spawnedCustomAttachments) do
+                    if isValidEntity(att) then
+                        ENTITY.FREEZE_ENTITY_POSITION(att, false)
+                        ENTITY.SET_ENTITY_COLLISION(att, false, false)
+                        if ENTITY.SET_ENTITY_HAS_GRAVITY then ENTITY.SET_ENTITY_HAS_GRAVITY(att, false) end
+                        if ENTITY.SET_ENTITY_NO_COLLISION_ENTITY then
+                            ENTITY.SET_ENTITY_NO_COLLISION_ENTITY(att, veh, true)
+                            ENTITY.SET_ENTITY_NO_COLLISION_ENTITY(veh, att, true)
+                        end
+                    end
+                end
+            end
+            notify.success("Vehicle", "Veiculo destravado com sucesso! Fisica e motor liberados.")
+        else
+            notify.warn("Vehicle", "Nenhum veiculo XML ativo encontrado.")
+        end
+    end)
+end
+
+local function warpPlayerIntoVehicle(veh)
+    if not isValidEntity(veh) then return false end
+    local ped = getLocalPed()
+    if not isValidEntity(ped) then return false end
+
+    pcall(function()
+        if PED and PED.IS_PED_IN_ANY_VEHICLE and PED.IS_PED_IN_ANY_VEHICLE(ped, false) then
+            if TASK and TASK.CLEAR_PED_TASKS_IMMEDIATELY then
+                TASK.CLEAR_PED_TASKS_IMMEDIATELY(ped)
+            end
+        end
+
+        local vCoords = ENTITY.GET_ENTITY_COORDS(veh, true)
+        ENTITY.SET_ENTITY_COORDS_NO_OFFSET(ped, vCoords.x, vCoords.y, vCoords.z, false, false, false)
+
+        if TASK and TASK.TASK_WARP_PED_INTO_VEHICLE then
+            TASK.TASK_WARP_PED_INTO_VEHICLE(ped, veh, -1)
+        end
+        if PED and PED.SET_PED_INTO_VEHICLE then
+            PED.SET_PED_INTO_VEHICLE(ped, veh, -1)
+        end
+        if VEHICLE and VEHICLE.SET_VEHICLE_ENGINE_ON then
+            VEHICLE.SET_VEHICLE_ENGINE_ON(veh, true, true, false)
+        end
+    end)
+    return true
+end
+
+local function createCustomAttachmentEntity(attType, hash, x, y, z, heading)
+    local ent = 0
+    if attType == 2 then -- Vehicle
+        if entities and entities.create_vehicle then
+            pcall(function() ent = entities.create_vehicle(hash, { x = x, y = y, z = z }, heading or 0.0) end)
+        end
+        if not isValidEntity(ent) and VEHICLE and VEHICLE.CREATE_VEHICLE then
+            pcall(function() ent = VEHICLE.CREATE_VEHICLE(hash, x, y, z, heading or 0.0, true, false, false) end)
+        end
+    elseif attType == 1 then -- Ped
+        if entities and entities.create_ped then
+            pcall(function() ent = entities.create_ped(hash, { x = x, y = y, z = z }, heading or 0.0) end)
+        end
+        if not isValidEntity(ent) and PED and PED.CREATE_PED then
+            pcall(function() ent = PED.CREATE_PED(26, hash, x, y, z, heading or 0.0, true, false) end)
+        end
+    else -- Object / Prop (Type 3)
+        if entities and entities.create_object then
+            pcall(function() ent = entities.create_object(hash, { x = x, y = y, z = z }) end)
+        end
+        if not isValidEntity(ent) and OBJECT and OBJECT.CREATE_OBJECT_NO_OFFSET then
+            pcall(function() ent = OBJECT.CREATE_OBJECT_NO_OFFSET(hash, x, y, z, true, false, false) end)
+        end
+        if not isValidEntity(ent) and OBJECT and OBJECT.CREATE_OBJECT then
+            pcall(function() ent = OBJECT.CREATE_OBJECT(hash, x, y, z, true, false, false) end)
+        end
+    end
+    if not isValidEntity(ent) then
+        ent = safeCreateStuntProp(hash, x, y, z, false)
+    end
+    return ent
+end
+
+local function spawnXmlVehicleData(data, name)
+    if S.isSpawningCustomVeh then
+        notify.warn("Vehicle", "Spawning vehicle already in progress, please wait...")
+        return
+    end
+    S.isSpawningCustomVeh = true
+
+    script.run_in_callback(function()
+        pcall(function()
+            cleanCustomVehicle(false)
+
+            local pPed = getLocalPed()
+            if not isValidEntity(pPed) then
+                notify.warn("Vehicle", "Local player ped not found!")
+                S.isSpawningCustomVeh = false
+                return
+            end
+
+            local pCoords = ENTITY.GET_ENTITY_COORDS(pPed, true)
+            local heading = ENTITY.GET_ENTITY_HEADING(pPed)
+            local rad  = math.rad(heading)
+            local fwdX = -math.sin(rad)
+            local fwdY =  math.cos(rad)
+
+            local rootHash = data.modelHash
+            if not rootHash or rootHash == 0 then rootHash = 0x39d6e83f end
+
+            if not requestAndLoadModel(rootHash, 250) then
+                notify.error("Vehicle", "Falha ao carregar modelo do veiculo base (Hash: " .. tostring(rootHash) .. ")!")
+                S.isSpawningCustomVeh = false
+                return
+            end
+
+            -- Dynamic Clearance Calculation:
+            -- Computes minZ and maximum horizontal reach of attachments so ANY vehicle
+            -- spawns safely without colliding with the ground or exploding physics
+            local minZ = 0.0
+            local maxExt = 3.0
+            if data.attachments and #data.attachments > 0 then
+                for _, att in ipairs(data.attachments) do
+                    if att.z and att.z < minZ then minZ = att.z end
+                    local dist = math.sqrt((att.x or 0.0)^2 + (att.y or 0.0)^2)
+                    if dist > maxExt then maxExt = dist end
+                end
+            end
+
+            local heightOffset = 1.2 + (S.xmlSpawnHeightOffset or 0.0)
+            if minZ < -0.5 then
+                heightOffset = math.abs(minZ) + 2.5 + (S.xmlSpawnHeightOffset or 0.0)
+            elseif S.xmlSpawnInAir then
+                heightOffset = heightOffset + 15.0
+            end
+
+            local distOffset = math.max(4.0, math.min(maxExt * 0.7, 18.0))
+            local spawnX = pCoords.x + fwdX * distOffset
+            local spawnY = pCoords.y + fwdY * distOffset
+            local spawnZ = pCoords.z + heightOffset
+
+            local rootVeh = 0
+            if entities and entities.create_vehicle then
+                pcall(function()
+                    rootVeh = entities.create_vehicle(rootHash, { x = spawnX, y = spawnY, z = spawnZ }, heading)
+                end)
+            end
+            if not isValidEntity(rootVeh) and VEHICLE and VEHICLE.CREATE_VEHICLE then
+                pcall(function()
+                    rootVeh = VEHICLE.CREATE_VEHICLE(rootHash, spawnX, spawnY, spawnZ, heading, true, false, false)
+                end)
+            end
+
+            if not isValidEntity(rootVeh) then
+                notify.error("Vehicle", "Failed to create root vehicle!")
+                S.isSpawningCustomVeh = false
+                return
+            end
+
+            S.spawnedCustomVehicle = rootVeh
+            ENTITY.SET_ENTITY_AS_MISSION_ENTITY(rootVeh, true, true)
+            safeSetInvincible(rootVeh, S.xmlInvincible ~= false)
+            ENTITY.SET_ENTITY_HEADING(rootVeh, heading)
+
+            -- Freeze root vehicle and temporarily disable collision during assembly to prevent physics fling/explosion
+            ENTITY.FREEZE_ENTITY_POSITION(rootVeh, true)
+            ENTITY.SET_ENTITY_COLLISION(rootVeh, false, true)
+
+            -- Apply complete tuning & visual modifications to base vehicle
+            if data.vehicleProps and next(data.vehicleProps) ~= nil then
+                applyVehicleCustomizations(rootVeh, data.vehicleProps)
+            else
+                pcall(function()
+                    VEHICLE.SET_VEHICLE_ENGINE_ON(rootVeh, true, true, false)
+                    if data.primaryCol and VEHICLE.SET_VEHICLE_COLOURS then
+                        VEHICLE.SET_VEHICLE_COLOURS(rootVeh, data.primaryCol or 0, data.secondaryCol or 0)
+                    end
+                end)
+            end
+
+            local isPincher = (rootHash == 0x39d6e83f or rootHash == 970385471)
+            if isPincher and VEHICLE and VEHICLE.SET_VEHICLE_FLIGHT_NOZZLE_POSITION then
+                pcall(function() VEHICLE.SET_VEHICLE_FLIGHT_NOZZLE_POSITION(rootVeh, 1.0) end)
+            end
+
+            -- ─────────────────────────────────────────────────────────────
+            -- HIERARCHICAL MULTI-PASS ATTACHMENT PIPELINE
+            -- ─────────────────────────────────────────────────────────────
+            local attachedCount = 0
+            if data.attachments and #data.attachments > 0 then
+
+                -- 1. Preload models
+                local uniqueHashes = {}
+                for _, att in ipairs(data.attachments) do
+                    if att.modelHash and att.modelHash ~= 0 then
+                        uniqueHashes[att.modelHash] = true
+                    end
+                end
+                for hash in pairs(uniqueHashes) do requestAndLoadModel(hash, 200) end
+
+                -- 2. Entity Map for Hierarchical Attachments
+                local entityMap = {}
+                local rootInitHandle = data.initialHandle or 0
+                entityMap[rootInitHandle] = rootVeh
+                entityMap[0] = rootVeh
+
+                local pending = {}
+                for _, att in ipairs(data.attachments) do table.insert(pending, att) end
+
+                local maxPasses = 4
+                local currentPass = 0
+
+                while #pending > 0 and currentPass < maxPasses do
+                    currentPass = currentPass + 1
+                    local stillPending = {}
+
+                    for _, att in ipairs(pending) do
+                        local pHandle = att.attachedTo or 0
+                        local canAttachNow = (pHandle == 0) or (pHandle == rootInitHandle) or (entityMap[pHandle] ~= nil) or (currentPass == maxPasses)
+
+                        if canAttachNow then
+                            local parentEnt = (pHandle ~= 0 and entityMap[pHandle]) or rootVeh
+                            if not isValidEntity(parentEnt) then parentEnt = rootVeh end
+
+                            local attHash = att.modelHash
+                            if attHash and attHash ~= 0 and requestAndLoadModel(attHash, 120) then
+                                local attEnt = createCustomAttachmentEntity(att.type, attHash, spawnX, spawnY, spawnZ, heading)
+
+                                if isValidEntity(attEnt) then
+                                    pcall(function()
+                                        ENTITY.SET_ENTITY_AS_MISSION_ENTITY(attEnt, true, true)
+                                        safeSetInvincible(attEnt, true)
+
+                                        -- Anti-collision and weightless
+                                        ENTITY.SET_ENTITY_COLLISION(attEnt, false, false)
+                                        if ENTITY.SET_ENTITY_HAS_GRAVITY then ENTITY.SET_ENTITY_HAS_GRAVITY(attEnt, false) end
+                                        if ENTITY.SET_ENTITY_NO_COLLISION_ENTITY then
+                                            ENTITY.SET_ENTITY_NO_COLLISION_ENTITY(attEnt, rootVeh, true)
+                                            ENTITY.SET_ENTITY_NO_COLLISION_ENTITY(rootVeh, attEnt, true)
+                                            if parentEnt ~= rootVeh then
+                                                ENTITY.SET_ENTITY_NO_COLLISION_ENTITY(attEnt, parentEnt, true)
+                                                ENTITY.SET_ENTITY_NO_COLLISION_ENTITY(parentEnt, attEnt, true)
+                                            end
+                                        end
+
+                                        -- Vehicle attachment specifics
+                                        if att.type == 2 then
+                                            if VEHICLE.SET_VEHICLE_DOORS_LOCKED then VEHICLE.SET_VEHICLE_DOORS_LOCKED(attEnt, 4) end
+                                            if VEHICLE.SET_VEHICLE_ENGINE_ON then VEHICLE.SET_VEHICLE_ENGINE_ON(attEnt, false, true, false) end
+                                            if ENTITY.SET_ENTITY_DYNAMIC then ENTITY.SET_ENTITY_DYNAMIC(attEnt, false) end
+                                            if att.vehicleProps then
+                                                applyVehicleCustomizations(attEnt, att.vehicleProps)
+                                            end
+                                        elseif att.type == 1 then -- Ped
+                                            if PED.SET_BLOCKING_OF_NON_TEMPORARY_EVENTS then
+                                                PED.SET_BLOCKING_OF_NON_TEMPORARY_EVENTS(attEnt, true)
+                                            end
+                                            if PED.SET_PED_CAN_RAGDOLL then
+                                                PED.SET_PED_CAN_RAGDOLL(attEnt, false)
+                                            end
+                                        end
+
+                                        -- Opacity and Visibility
+                                        if att.opacityLevel and att.opacityLevel < 255 and ENTITY.SET_ENTITY_ALPHA then
+                                            ENTITY.SET_ENTITY_ALPHA(attEnt, att.opacityLevel, false)
+                                        end
+                                        if att.isVisible == false and ENTITY.SET_ENTITY_VISIBLE then
+                                            ENTITY.SET_ENTITY_VISIBLE(attEnt, false, 0)
+                                        end
+
+                                        -- Attach to Parent Entity
+                                        local attached = false
+                                        pcall(function()
+                                            ENTITY.ATTACH_ENTITY_TO_ENTITY(
+                                                attEnt, parentEnt, att.boneIndex or 0,
+                                                att.x or 0.0, att.y or 0.0, att.z or 0.0,
+                                                att.pitch or 0.0, att.roll or 0.0, att.yaw or 0.0,
+                                                false, false, false, false, 2, true
+                                            )
+                                            if ENTITY.IS_ENTITY_ATTACHED and ENTITY.IS_ENTITY_ATTACHED(attEnt) then
+                                                attached = true
+                                            end
+                                        end)
+                                        if not attached then
+                                            pcall(function()
+                                                ENTITY.ATTACH_ENTITY_TO_ENTITY(
+                                                    attEnt, parentEnt, att.boneIndex or 0,
+                                                    att.x or 0.0, att.y or 0.0, att.z or 0.0,
+                                                    att.pitch or 0.0, att.roll or 0.0, att.yaw or 0.0,
+                                                    true, false, false, false, 2, true
+                                                )
+                                            end)
+                                        end
+
+                                        ENTITY.FREEZE_ENTITY_POSITION(attEnt, false)
+                                        if ENTITY.SET_ENTITY_DYNAMIC then
+                                            ENTITY.SET_ENTITY_DYNAMIC(attEnt, att.dynamic == true)
+                                        end
+                                        if ENTITY.SET_ENTITY_PROOFS then
+                                            ENTITY.SET_ENTITY_PROOFS(attEnt, true, true, true, true, true, true, true, true)
+                                        end
+                                        if ENTITY.SET_ENTITY_CAN_BE_DAMAGED then
+                                            ENTITY.SET_ENTITY_CAN_BE_DAMAGED(attEnt, false)
+                                        end
+                                    end)
+
+                                    if att.initialHandle and att.initialHandle ~= 0 then
+                                        entityMap[att.initialHandle] = attEnt
+                                    end
+
+                                    table.insert(S.spawnedCustomAttachments, attEnt)
+                                    attachedCount = attachedCount + 1
+
+                                    if (attachedCount % 10) == 0 then
+                                        script.yield(10)
+                                    end
+                                end
+                            end
+                        else
+                            table.insert(stillPending, att)
+                        end
+                    end
+
+                    pending = stillPending
+                    script.yield(5)
+                end
+
+                -- Release preloaded models
+                for hash in pairs(uniqueHashes) do
+                    pcall(function()
+                        if STREAMING and STREAMING.SET_MODEL_AS_NO_LONGER_NEEDED then
+                            STREAMING.SET_MODEL_AS_NO_LONGER_NEEDED(hash)
+                        end
+                    end)
+                end
+            end
+
+            -- Allow physical attachments to settle
+            script.yield(50)
+
+            -- Restore base vehicle collision and unfreeze smoothly
+            ENTITY.SET_ENTITY_COLLISION(rootVeh, true, true)
+            ENTITY.FREEZE_ENTITY_POSITION(rootVeh, false)
+            if ENTITY.SET_ENTITY_DYNAMIC then ENTITY.SET_ENTITY_DYNAMIC(rootVeh, true) end
+            if VEHICLE and VEHICLE.SET_VEHICLE_ENGINE_ON then
+                VEHICLE.SET_VEHICLE_ENGINE_ON(rootVeh, true, true, false)
+            end
+
+            -- Warp player into vehicle if enabled
+            if S.xmlWarpInside ~= false then
+                warpPlayerIntoVehicle(rootVeh)
+            end
+
+            S.lastXmlSpawnedName = name or "Custom Vehicle"
+
+            pcall(function()
+                if AUDIO and AUDIO.PLAY_SOUND_FRONTEND then
+                    AUDIO.PLAY_SOUND_FRONTEND(-1, "BASE_JUMP_PASSED", "HUD_AWARDS", true)
+                end
+            end)
+
+            notify.success("SpyreX", (name or "Custom Vehicle") ..
+                " pronto! (" .. attachedCount .. "/" ..
+                tostring(data.attachments and #data.attachments or 0) .. " pecas montadas)")
+        end)
+        S.isSpawningCustomVeh = false
+    end)
+end
+
+local Preset_SpinePincher = {
+    modelHash = 0x39d6e83f,
+    primaryCol = 0,
+    secondaryCol = 0,
+    attachments = {
+        { modelHash = 0x3d6aaa9b, type = 2, boneIndex = 0, x = -1.0000, y = -2.0000, z = 0.0000, pitch = 0.0000, roll = -90.0000, yaw = 0.0000, frozenPos = false, dynamic = true, hasCollision = true },
+        { modelHash = 0x3d6aaa9b, type = 2, boneIndex = 0, x = 1.0000, y = -2.0000, z = 0.0000, pitch = 0.0000, roll = 90.0000, yaw = 0.0000, frozenPos = false, dynamic = true, hasCollision = false },
+        { modelHash = 0x9dae1398, type = 2, boneIndex = 0, x = 2.0000, y = 2.0000, z = 0.0000, pitch = 0.0000, roll = 90.0000, yaw = 0.0000, frozenPos = false, dynamic = true, hasCollision = true },
+        { modelHash = 0x9dae1398, type = 2, boneIndex = 0, x = -2.0000, y = 2.0000, z = 0.0000, pitch = 0.0000, roll = -90.0000, yaw = 0.0000, frozenPos = false, dynamic = true, hasCollision = true },
+        { modelHash = 0xd9621159, type = 3, boneIndex = 0, x = 0.0000, y = 3.2400, z = -0.1900, pitch = 90.0000, roll = 0.0000, yaw = 0.0000, frozenPos = true, dynamic = false, hasCollision = true },
+        { modelHash = 0x9dae1398, type = 2, boneIndex = 0, x = -4.0000, y = -2.0000, z = 0.0000, pitch = 0.0000, roll = -90.0000, yaw = 0.0000, frozenPos = false, dynamic = true, hasCollision = true },
+        { modelHash = 0x9dae1398, type = 2, boneIndex = 0, x = 4.0000, y = -2.0000, z = 0.0000, pitch = 0.0000, roll = 90.0000, yaw = 0.0000, frozenPos = false, dynamic = true, hasCollision = true },
+        { modelHash = 0x3defce4d, type = 3, boneIndex = 0, x = 0.0000, y = 7.1000, z = -0.2200, pitch = -90.0000, roll = 0.0000, yaw = 0.0000, frozenPos = true, dynamic = false, hasCollision = true },
+        { modelHash = 0x82abcd14, type = 3, boneIndex = 0, x = 4.4000, y = -2.0000, z = -1.5000, pitch = -15.0000, roll = -90.0000, yaw = -150.0000, frozenPos = true, dynamic = false, hasCollision = true },
+        { modelHash = 0x82abcd14, type = 3, boneIndex = 0, x = -4.4000, y = -2.0000, z = -1.5000, pitch = -15.0000, roll = 80.0000, yaw = 150.0000, frozenPos = true, dynamic = false, hasCollision = true },
+        { modelHash = 0x82abcd14, type = 3, boneIndex = 0, x = 4.4000, y = -2.0000, z = 1.5000, pitch = 15.0000, roll = -90.0000, yaw = -150.0000, frozenPos = true, dynamic = false, hasCollision = true },
+        { modelHash = 0x82abcd14, type = 3, boneIndex = 0, x = -4.4000, y = -2.0000, z = 1.5000, pitch = 15.0000, roll = 90.0000, yaw = 150.0000, frozenPos = true, dynamic = false, hasCollision = true },
+        { modelHash = 0x708d300f, type = 3, boneIndex = 0, x = -5.0000, y = -13.0000, z = 1.6000, pitch = 13.0000, roll = 78.0000, yaw = 135.0000, frozenPos = true, dynamic = false, hasCollision = true },
+        { modelHash = 0x708d300f, type = 3, boneIndex = 0, x = 4.0000, y = -13.0000, z = 1.6000, pitch = 13.0000, roll = -78.0000, yaw = -135.0000, frozenPos = true, dynamic = false, hasCollision = true },
+        { modelHash = 0x708d300f, type = 3, boneIndex = 0, x = 5.0000, y = -13.0000, z = -4.6000, pitch = -13.0000, roll = -78.0000, yaw = -135.0000, frozenPos = true, dynamic = false, hasCollision = true },
+        { modelHash = 0x708d300f, type = 3, boneIndex = 0, x = -5.0000, y = -13.0000, z = -4.6000, pitch = -9.0000, roll = 75.0000, yaw = 135.0000, frozenPos = true, dynamic = false, hasCollision = true },
+        { modelHash = 0x134f68e5, type = 3, boneIndex = 0, x = 0.0000, y = -9.0000, z = 0.1730, pitch = 0.0000, roll = 90.0000, yaw = 0.0000, frozenPos = true, dynamic = false, hasCollision = true },
+        { modelHash = 0x134f68e5, type = 3, boneIndex = 0, x = 0.0000, y = -9.0000, z = 0.2000, pitch = 0.0000, roll = -90.0000, yaw = 0.0000, frozenPos = true, dynamic = false, hasCollision = true },
+        { modelHash = 0x70b0e25a, type = 3, boneIndex = 0, x = 3.7000, y = -7.0000, z = 0.0000, pitch = 90.0000, roll = -0.0000, yaw = 91.0000, frozenPos = true, dynamic = false, hasCollision = true },
+        { modelHash = 0x70b0e25a, type = 3, boneIndex = 0, x = -3.6000, y = -7.0000, z = 0.0000, pitch = -90.0000, roll = 0.0000, yaw = 90.0000, frozenPos = true, dynamic = false, hasCollision = true },
+        { modelHash = 0x592c8b76, type = 3, boneIndex = 0, x = 0.0000, y = -0.5000, z = -2.1000, pitch = -180.0000, roll = 0.0000, yaw = -90.0000, frozenPos = true, dynamic = false, hasCollision = true },
+        { modelHash = 0x592c8b76, type = 3, boneIndex = 0, x = 0.0000, y = -8.6000, z = -2.1000, pitch = 180.0000, roll = 0.0000, yaw = -90.0000, frozenPos = true, dynamic = false, hasCollision = true },
+        { modelHash = 0xffd7d47d, type = 3, boneIndex = 0, x = -20.0000, y = -6.5000, z = 6.3000, pitch = 60.0000, roll = 180.0000, yaw = -89.0000, frozenPos = true, dynamic = false, hasCollision = true },
+        { modelHash = 0xffd7d47d, type = 3, boneIndex = 0, x = 20.0000, y = -6.5000, z = 6.3000, pitch = -120.0000, roll = -0.0000, yaw = 90.0000, frozenPos = true, dynamic = false, hasCollision = true },
+        { modelHash = 0xffd7d47d, type = 3, boneIndex = 0, x = 20.0000, y = -6.4000, z = -7.3000, pitch = -60.0000, roll = 0.0000, yaw = 90.0000, frozenPos = true, dynamic = false, hasCollision = true },
+        { modelHash = 0xffd7d47d, type = 3, boneIndex = 0, x = -20.0000, y = -6.4000, z = -7.3000, pitch = 120.0000, roll = -180.0000, yaw = -90.0000, frozenPos = true, dynamic = false, hasCollision = true },
+        { modelHash = 0x177606a2, type = 3, boneIndex = 0, x = -20.0000, y = -6.9000, z = 8.0000, pitch = -90.0000, roll = -0.0000, yaw = -0.0000, frozenPos = true, dynamic = false, hasCollision = true },
+        { modelHash = 0x177606a2, type = 3, boneIndex = 0, x = -21.5000, y = -6.9000, z = 5.4000, pitch = -90.0000, roll = 0.0000, yaw = 0.0000, frozenPos = true, dynamic = false, hasCollision = true },
+        { modelHash = 0x177606a2, type = 3, boneIndex = 0, x = 20.0000, y = -6.9000, z = 8.0000, pitch = -90.0000, roll = 0.0000, yaw = 0.0000, frozenPos = true, dynamic = false, hasCollision = true },
+        { modelHash = 0x177606a2, type = 3, boneIndex = 0, x = 21.5000, y = -6.9000, z = 5.4000, pitch = -90.0000, roll = 0.0000, yaw = 0.0000, frozenPos = true, dynamic = false, hasCollision = true },
+        { modelHash = 0x177606a2, type = 3, boneIndex = 0, x = -20.0000, y = -6.8000, z = -9.0000, pitch = -90.0000, roll = 0.0000, yaw = 0.0000, frozenPos = true, dynamic = false, hasCollision = true },
+        { modelHash = 0x177606a2, type = 3, boneIndex = 0, x = -21.4000, y = -6.8000, z = -6.4000, pitch = -90.0000, roll = 0.0000, yaw = 0.0000, frozenPos = true, dynamic = false, hasCollision = true },
+        { modelHash = 0x177606a2, type = 3, boneIndex = 0, x = 19.9000, y = -6.8000, z = -9.0000, pitch = -90.0000, roll = 0.0000, yaw = 0.0000, frozenPos = true, dynamic = false, hasCollision = true },
+        { modelHash = 0x177606a2, type = 3, boneIndex = 0, x = 21.3000, y = -6.8000, z = -6.3000, pitch = -90.0000, roll = 0.0000, yaw = 0.0000, frozenPos = true, dynamic = false, hasCollision = true },
+        { modelHash = 0x3794acc9, type = 3, boneIndex = 0, x = -20.0000, y = 0.8000, z = 8.0000, pitch = 0.0000, roll = 0.0000, yaw = 0.0000, frozenPos = true, dynamic = false, hasCollision = true },
+        { modelHash = 0x3794acc9, type = 3, boneIndex = 0, x = -21.5000, y = 0.8000, z = 5.4000, pitch = 0.0000, roll = 0.0000, yaw = 0.0000, frozenPos = true, dynamic = false, hasCollision = true },
+        { modelHash = 0x3794acc9, type = 3, boneIndex = 0, x = 20.0000, y = 0.8000, z = 8.0000, pitch = 0.0000, roll = 0.0000, yaw = 0.0000, frozenPos = true, dynamic = false, hasCollision = true },
+        { modelHash = 0x3794acc9, type = 3, boneIndex = 0, x = 21.5000, y = 0.8000, z = 5.4000, pitch = 0.0000, roll = 0.0000, yaw = 0.0000, frozenPos = true, dynamic = false, hasCollision = true },
+        { modelHash = 0x3794acc9, type = 3, boneIndex = 0, x = -20.0000, y = 0.9000, z = -9.0000, pitch = 0.0000, roll = 0.0000, yaw = 0.0000, frozenPos = true, dynamic = false, hasCollision = true },
+        { modelHash = 0x3794acc9, type = 3, boneIndex = 0, x = -21.4000, y = 0.9000, z = -6.4000, pitch = 0.0000, roll = 0.0000, yaw = 0.0000, frozenPos = true, dynamic = false, hasCollision = true },
+        { modelHash = 0x3794acc9, type = 3, boneIndex = 0, x = 19.9000, y = 0.9000, z = -9.0000, pitch = 0.0000, roll = 0.0000, yaw = 0.0000, frozenPos = true, dynamic = false, hasCollision = true },
+        { modelHash = 0x3794acc9, type = 3, boneIndex = 0, x = 21.3000, y = 0.9000, z = -6.3000, pitch = 0.0000, roll = 0.0000, yaw = 0.0000, frozenPos = true, dynamic = false, hasCollision = true },
+        { modelHash = 0x3d6aaa9b, type = 2, boneIndex = 0, x = -16.8000, y = -12.7000, z = -0.6000, pitch = 0.0000, roll = -90.0000, yaw = 90.0000, frozenPos = false, dynamic = true, hasCollision = true },
+        { modelHash = 0x3d6aaa9b, type = 2, boneIndex = 0, x = 17.0000, y = -12.7000, z = -0.6000, pitch = 0.0000, roll = 90.0000, yaw = -90.0000, frozenPos = false, dynamic = true, hasCollision = true },
+        { modelHash = 0x79454d60, type = 3, boneIndex = 0, x = -16.1000, y = -11.4200, z = -0.5600, pitch = 90.0000, roll = 0.0000, yaw = 0.0000, frozenPos = true, dynamic = false, hasCollision = true },
+        { modelHash = 0x79454d60, type = 3, boneIndex = 0, x = 16.0500, y = -11.5100, z = -0.4900, pitch = 90.0000, roll = 0.0000, yaw = 0.0000, frozenPos = true, dynamic = false, hasCollision = true },
+        { modelHash = 0x3d6aaa9b, type = 2, boneIndex = 0, x = -8.5000, y = -12.7000, z = -0.6000, pitch = 0.0000, roll = -90.0000, yaw = 90.0000, frozenPos = false, dynamic = true, hasCollision = true },
+        { modelHash = 0x3d6aaa9b, type = 2, boneIndex = 0, x = 8.7000, y = -12.7000, z = -0.6000, pitch = 0.0000, roll = 90.0000, yaw = -90.0000, frozenPos = false, dynamic = true, hasCollision = true },
+        { modelHash = 0x592c8b76, type = 3, boneIndex = 0, x = -17.7000, y = -13.1000, z = 0.4000, pitch = 178.0000, roll = -15.0000, yaw = 0.0000, frozenPos = true, dynamic = false, hasCollision = true },
+        { modelHash = 0x592c8b76, type = 3, boneIndex = 0, x = -17.6000, y = -12.8000, z = -1.7000, pitch = 0.0000, roll = -15.0000, yaw = 0.0000, frozenPos = true, dynamic = false, hasCollision = true },
+        { modelHash = 0x592c8b76, type = 3, boneIndex = 0, x = 17.7000, y = -12.9000, z = 0.6000, pitch = -180.0000, roll = 15.0000, yaw = 0.0000, frozenPos = true, dynamic = false, hasCollision = true },
+        { modelHash = 0x592c8b76, type = 3, boneIndex = 0, x = 17.4000, y = -12.7000, z = -2.2000, pitch = 0.0000, roll = 15.0000, yaw = 0.0000, frozenPos = true, dynamic = false, hasCollision = true },
+        { modelHash = 0x82abcd14, type = 3, boneIndex = 0, x = -1.0000, y = -19.4000, z = 0.0000, pitch = 0.0000, roll = 45.0000, yaw = 180.0000, frozenPos = true, dynamic = false, hasCollision = true },
+        { modelHash = 0x82abcd14, type = 3, boneIndex = 0, x = 1.0000, y = -19.4000, z = 0.0000, pitch = 0.0000, roll = -45.0000, yaw = 180.0000, frozenPos = true, dynamic = false, hasCollision = true },
+        { modelHash = 0x82abcd14, type = 3, boneIndex = 0, x = 1.0000, y = -19.4000, z = -2.0000, pitch = 0.0000, roll = -135.0000, yaw = 180.0000, frozenPos = true, dynamic = false, hasCollision = true },
+        { modelHash = 0x82abcd14, type = 3, boneIndex = 0, x = -0.9000, y = -19.4000, z = -2.0000, pitch = 0.0000, roll = 135.0000, yaw = 180.0000, frozenPos = true, dynamic = false, hasCollision = true },
+        { modelHash = 0x82abcd14, type = 3, boneIndex = 0, x = -3.0000, y = -20.0000, z = -0.8000, pitch = 0.0000, roll = 90.0000, yaw = 162.0000, frozenPos = true, dynamic = false, hasCollision = true },
+        { modelHash = 0x82abcd14, type = 3, boneIndex = 0, x = 2.3000, y = -20.0000, z = -0.8000, pitch = 0.0000, roll = -90.0000, yaw = -162.0000, frozenPos = true, dynamic = false, hasCollision = true },
+        { modelHash = 0x9e4d88ca, type = 3, boneIndex = 0, x = -6.7000, y = -24.0000, z = -0.8000, pitch = 90.0000, roll = 0.0000, yaw = 0.0000, frozenPos = true, dynamic = false, hasCollision = true },
+        { modelHash = 0x9e4d88ca, type = 3, boneIndex = 0, x = -2.9000, y = -24.4001, z = 1.9000, pitch = 90.0000, roll = 0.0000, yaw = 0.0000, frozenPos = true, dynamic = false, hasCollision = true },
+        { modelHash = 0x9e4d88ca, type = 3, boneIndex = 0, x = 2.9000, y = -24.4000, z = 1.9000, pitch = 90.0000, roll = 0.0000, yaw = 0.0000, frozenPos = true, dynamic = false, hasCollision = true },
+        { modelHash = 0x9e4d88ca, type = 3, boneIndex = 0, x = 6.0000, y = -24.0000, z = -0.8000, pitch = 90.0000, roll = 0.0000, yaw = 0.0000, frozenPos = true, dynamic = false, hasCollision = true },
+        { modelHash = 0x9e4d88ca, type = 3, boneIndex = 0, x = -2.7000, y = -24.4000, z = -3.9000, pitch = 90.0000, roll = 0.0000, yaw = -0.0000, frozenPos = true, dynamic = false, hasCollision = true },
+        { modelHash = 0x9e4d88ca, type = 3, boneIndex = 0, x = 3.1000, y = -24.4000, z = -3.9000, pitch = 90.0000, roll = 0.0000, yaw = -0.0000, frozenPos = true, dynamic = false, hasCollision = true },
+        { modelHash = 0x5b7e4520, type = 3, boneIndex = 0, x = 0.0000, y = -16.6300, z = -1.0000, pitch = 90.0000, roll = 0.0000, yaw = 0.0000, frozenPos = true, dynamic = false, hasCollision = true },
+        { modelHash = 0x79454d60, type = 3, boneIndex = 0, x = -15.8800, y = -16.0100, z = -0.5900, pitch = -90.0000, roll = 0.0000, yaw = 0.0000, frozenPos = true, dynamic = false, hasCollision = true },
+        { modelHash = 0x79454d60, type = 3, boneIndex = 0, x = 16.1101, y = -16.0100, z = -0.6000, pitch = -90.0000, roll = 0.0000, yaw = 0.0000, frozenPos = true, dynamic = false, hasCollision = true },
+        { modelHash = 0x79454d60, type = 3, boneIndex = 0, x = 19.7000, y = -15.3100, z = 6.3500, pitch = -30.0000, roll = 90.0000, yaw = 90.0000, frozenPos = true, dynamic = false, hasCollision = true },
+        { modelHash = 0x79454d60, type = 3, boneIndex = 0, x = -19.8000, y = -15.3000, z = -7.4000, pitch = -30.0000, roll = 90.0000, yaw = 90.0000, frozenPos = true, dynamic = false, hasCollision = true },
+        { modelHash = 0x79454d60, type = 3, boneIndex = 0, x = -19.6000, y = -15.3400, z = 6.3880, pitch = -30.3000, roll = -90.8000, yaw = -90.0000, frozenPos = true, dynamic = false, hasCollision = true },
+        { modelHash = 0x79454d60, type = 3, boneIndex = 0, x = 19.8000, y = -15.2100, z = -7.4000, pitch = 150.0000, roll = -90.0000, yaw = -90.0000, frozenPos = true, dynamic = false, hasCollision = true },
+        { modelHash = 0xd9621159, type = 3, boneIndex = 0, x = 0.0000, y = -18.8100, z = -1.0000, pitch = -90.0000, roll = 0.0000, yaw = 0.0000, frozenPos = true, dynamic = false, hasCollision = true },
+        { modelHash = 0xb467c540, type = 3, boneIndex = 0, x = 0.0000, y = -28.0000, z = -3.0000, pitch = 45.0000, roll = 0.0000, yaw = 0.0000, frozenPos = true, dynamic = false, hasCollision = true },
+        { modelHash = 0xb467c540, type = 3, boneIndex = 0, x = -21.0000, y = -4.0000, z = 0.0000, pitch = 0.0000, roll = -65.0000, yaw = 0.0000, frozenPos = true, dynamic = false, hasCollision = true },
+        { modelHash = 0xb467c540, type = 3, boneIndex = 0, x = 21.0000, y = -3.0000, z = 0.0000, pitch = 0.0000, roll = 65.0000, yaw = 0.0000, frozenPos = true, dynamic = false, hasCollision = true },
+        { modelHash = 0xb467c540, type = 3, boneIndex = 0, x = 0.0000, y = 17.0000, z = -1.0000, pitch = -45.0000, roll = 0.0000, yaw = 0.0000, frozenPos = true, dynamic = false, hasCollision = true },
+        { modelHash = 0xb467c540, type = 3, boneIndex = 0, x = 0.0000, y = -6.0000, z = 15.0000, pitch = 0.0000, roll = 0.0000, yaw = 0.0000, frozenPos = true, dynamic = false, hasCollision = true },
+        { modelHash = 0xf697c81b, type = 3, boneIndex = 0, x = 0.0000, y = 0.7000, z = 1.2000, pitch = 180.0000, roll = 0.0000, yaw = 90.0000, frozenPos = true, dynamic = false, hasCollision = true },
+        { modelHash = 0xf697c81b, type = 3, boneIndex = 0, x = 0.0000, y = -9.3000, z = 2.6000, pitch = 180.0000, roll = 0.0000, yaw = 90.0000, frozenPos = true, dynamic = false, hasCollision = true },
+        { modelHash = 0xf697c81b, type = 3, boneIndex = 0, x = -22.5000, y = -8.1500, z = 1.7000, pitch = -149.5999, roll = -124.6000, yaw = 90.0000, frozenPos = true, dynamic = false, hasCollision = true },
+        { modelHash = 0xf697c81b, type = 3, boneIndex = 0, x = -17.2000, y = -7.9900, z = -11.7200, pitch = 150.4001, roll = -124.0000, yaw = 90.0000, frozenPos = true, dynamic = false, hasCollision = true },
+        { modelHash = 0xf697c81b, type = 3, boneIndex = 0, x = -22.4000, y = -7.9100, z = -2.8000, pitch = 152.0000, roll = -54.8200, yaw = 87.7999, frozenPos = true, dynamic = false, hasCollision = true },
+        { modelHash = 0xf697c81b, type = 3, boneIndex = 0, x = -17.2100, y = -8.0900, z = 10.7800, pitch = -31.6001, roll = 124.1000, yaw = -90.0000, frozenPos = true, dynamic = false, hasCollision = true },
+        { modelHash = 0xf697c81b, type = 3, boneIndex = 0, x = 17.2000, y = -8.0000, z = -11.7300, pitch = -149.0000, roll = -124.1000, yaw = 91.5000, frozenPos = true, dynamic = false, hasCollision = true },
+        { modelHash = 0xf697c81b, type = 3, boneIndex = 0, x = 22.4600, y = -8.0200, z = -2.5700, pitch = -151.0000, roll = -56.0000, yaw = 89.6000, frozenPos = true, dynamic = false, hasCollision = true },
+        { modelHash = 0xf697c81b, type = 3, boneIndex = 0, x = 22.5200, y = -8.1100, z = 1.6500, pitch = -148.6615, roll = 124.6998, yaw = -91.1503, frozenPos = true, dynamic = false, hasCollision = true },
+        { modelHash = 0xf697c81b, type = 3, boneIndex = 0, x = 17.1800, y = -8.0900, z = 10.7400, pitch = 157.7001, roll = -50.5100, yaw = 79.8603, frozenPos = true, dynamic = false, hasCollision = true },
+        { modelHash = 0xd43979f7, type = 3, boneIndex = 0, x = 0.0000, y = -0.7300, z = -2.3900, pitch = 0.0000, roll = 180.0000, yaw = 0.0000, frozenPos = true, dynamic = false, hasCollision = true },
+        { modelHash = 0xd43979f7, type = 3, boneIndex = 0, x = 0.0000, y = -8.8400, z = -2.3900, pitch = 0.0000, roll = 180.0000, yaw = 0.0000, frozenPos = true, dynamic = false, hasCollision = true },
+    }
+}
+
+local Preset_FuckT2Blimp = {
+    modelHash = 0xf7004c86,
+    primaryCol = 0,
+    secondaryCol = 0,
+    attachments = {
+        { modelHash = 0xc54c0cd2, type = 3, boneIndex = 0, x = -7.3000, y = 2.7000, z = 5.2000, pitch = 0.0000, roll = 0.0000, yaw = -90.0000, frozenPos = true, dynamic = false, hasCollision = true },
+        { modelHash = 0xc54c0cd2, type = 3, boneIndex = 0, x = -7.3000, y = -8.4000, z = 5.2000, pitch = 0.0000, roll = 0.0000, yaw = -90.0000, frozenPos = true, dynamic = false, hasCollision = true },
+        { modelHash = 0x2f9f084d, type = 3, boneIndex = 0, x = -7.4000, y = 5.8000, z = 6.9000, pitch = 0.0000, roll = -0.0000, yaw = 90.0000, frozenPos = true, dynamic = true, hasCollision = true },
+        { modelHash = 0x2f9f084d, type = 3, boneIndex = 0, x = -7.4000, y = 6.5700, z = 6.5000, pitch = 0.0000, roll = 90.0000, yaw = 90.0000, frozenPos = true, dynamic = true, hasCollision = true },
+        { modelHash = 0x2f9f084d, type = 3, boneIndex = 0, x = -7.4000, y = 6.5700, z = 5.3400, pitch = 0.0000, roll = 90.0000, yaw = 90.0000, frozenPos = true, dynamic = true, hasCollision = true },
+        { modelHash = 0x2f9f084d, type = 3, boneIndex = 0, x = -7.4000, y = 6.1700, z = 5.9300, pitch = 0.0000, roll = -0.0000, yaw = 90.0000, frozenPos = true, dynamic = true, hasCollision = true },
+        { modelHash = 0x2f9f084d, type = 3, boneIndex = 0, x = -7.4000, y = 4.7000, z = 6.5000, pitch = 0.0000, roll = 90.0000, yaw = 90.0000, frozenPos = true, dynamic = true, hasCollision = true },
+        { modelHash = 0x2f9f084d, type = 3, boneIndex = 0, x = -7.4000, y = 4.7000, z = 5.3400, pitch = 0.0000, roll = 90.0000, yaw = 90.0000, frozenPos = true, dynamic = true, hasCollision = true },
+        { modelHash = 0x2f9f084d, type = 3, boneIndex = 0, x = -7.4000, y = 3.9300, z = 4.9499, pitch = 0.0000, roll = -0.0000, yaw = 90.0000, frozenPos = true, dynamic = true, hasCollision = true },
+        { modelHash = 0x2f9f084d, type = 3, boneIndex = 0, x = -7.4000, y = 3.1699, z = 5.3400, pitch = 0.0000, roll = 90.0000, yaw = 90.0000, frozenPos = true, dynamic = true, hasCollision = true },
+        { modelHash = 0x2f9f084d, type = 3, boneIndex = 0, x = -7.4000, y = 3.1699, z = 6.5000, pitch = 0.0000, roll = 90.0000, yaw = 90.0000, frozenPos = true, dynamic = true, hasCollision = true },
+        { modelHash = 0x2f9f084d, type = 3, boneIndex = 0, x = -7.4000, y = 2.4099, z = 6.5000, pitch = 0.0000, roll = 90.0000, yaw = 90.0000, frozenPos = true, dynamic = true, hasCollision = true },
+        { modelHash = 0x2f9f084d, type = 3, boneIndex = 0, x = -7.4000, y = 2.4099, z = 5.3500, pitch = 0.0000, roll = 90.0000, yaw = 90.0000, frozenPos = true, dynamic = true, hasCollision = true },
+        { modelHash = 0x2f9f084d, type = 3, boneIndex = 0, x = -7.4000, y = 1.6499, z = 4.9599, pitch = 0.0000, roll = -0.0000, yaw = 90.0000, frozenPos = true, dynamic = true, hasCollision = true },
+        { modelHash = 0x2f9f084d, type = 3, boneIndex = 0, x = -7.4000, y = 1.6499, z = 6.9000, pitch = 0.0000, roll = -0.0000, yaw = 90.0000, frozenPos = true, dynamic = true, hasCollision = true },
+        { modelHash = 0x2f9f084d, type = 3, boneIndex = 0, x = -7.4000, y = 0.6399, z = 6.5000, pitch = 0.0000, roll = 90.0000, yaw = 90.0000, frozenPos = true, dynamic = true, hasCollision = true },
+        { modelHash = 0x2f9f084d, type = 3, boneIndex = 0, x = -7.4000, y = 0.6399, z = 5.3700, pitch = 0.0000, roll = 90.0000, yaw = 90.0000, frozenPos = true, dynamic = true, hasCollision = true },
+        { modelHash = 0x2f9f084d, type = 3, boneIndex = 0, x = -7.4000, y = 0.1399, z = 6.2700, pitch = 0.0000, roll = 37.0008, yaw = 90.0000, frozenPos = true, dynamic = true, hasCollision = true },
+        { modelHash = 0x2f9f084d, type = 3, boneIndex = 0, x = -7.4000, y = -0.2601, z = 6.5800, pitch = 0.0000, roll = 37.0008, yaw = 90.0000, frozenPos = true, dynamic = true, hasCollision = true },
+        { modelHash = 0x2f9f084d, type = 3, boneIndex = 0, x = -7.4000, y = 0.0399, z = 5.4800, pitch = 0.0000, roll = -37.0992, yaw = 90.0000, frozenPos = true, dynamic = true, hasCollision = true },
+        { modelHash = 0x2f9f084d, type = 3, boneIndex = 0, x = -7.4000, y = -0.2501, z = 5.2700, pitch = 0.0000, roll = -37.0992, yaw = 90.0000, frozenPos = true, dynamic = true, hasCollision = true },
+        { modelHash = 0x2f9f084d, type = 3, boneIndex = 0, x = -7.4000, y = -6.7300, z = 6.5000, pitch = 0.0000, roll = 90.0000, yaw = 90.0000, frozenPos = true, dynamic = true, hasCollision = true },
+        { modelHash = 0x2f9f084d, type = 3, boneIndex = 0, x = -7.4000, y = -6.7300, z = 5.4000, pitch = 0.0000, roll = 90.0000, yaw = 90.0000, frozenPos = true, dynamic = true, hasCollision = true },
+        { modelHash = 0x2f9f084d, type = 3, boneIndex = 0, x = -7.4000, y = -5.9700, z = 6.8900, pitch = 0.0000, roll = -0.0000, yaw = 90.0000, frozenPos = true, dynamic = true, hasCollision = true },
+        { modelHash = 0x2f9f084d, type = 3, boneIndex = 0, x = -7.4000, y = -7.4800, z = 6.8900, pitch = 0.0000, roll = -0.0000, yaw = 90.0000, frozenPos = true, dynamic = true, hasCollision = true },
+        { modelHash = 0x2f9f084d, type = 3, boneIndex = 0, x = -7.4000, y = -8.8500, z = 6.8900, pitch = 0.0000, roll = -0.0000, yaw = 90.0000, frozenPos = true, dynamic = true, hasCollision = true },
+        { modelHash = 0x2f9f084d, type = 3, boneIndex = 0, x = -7.4000, y = -10.0001, z = 6.8900, pitch = 0.0000, roll = -0.0000, yaw = 90.0000, frozenPos = true, dynamic = true, hasCollision = true },
+        { modelHash = 0x2f9f084d, type = 3, boneIndex = 0, x = -7.4000, y = -10.3901, z = 6.5000, pitch = 0.0000, roll = 90.0000, yaw = 90.0000, frozenPos = true, dynamic = true, hasCollision = true },
+        { modelHash = 0x2f9f084d, type = 3, boneIndex = 0, x = -7.4000, y = -10.0001, z = 5.7500, pitch = 0.0000, roll = -0.0000, yaw = 90.0000, frozenPos = true, dynamic = true, hasCollision = true },
+        { modelHash = 0x2f9f084d, type = 3, boneIndex = 0, x = -7.4000, y = -8.8400, z = 5.7500, pitch = 0.0000, roll = -0.0000, yaw = 90.0000, frozenPos = true, dynamic = true, hasCollision = true },
+        { modelHash = 0x2f9f084d, type = 3, boneIndex = 0, x = -7.4000, y = -8.4500, z = 5.3600, pitch = 0.0000, roll = 90.0000, yaw = 90.0000, frozenPos = true, dynamic = true, hasCollision = true },
+        { modelHash = 0x2f9f084d, type = 3, boneIndex = 0, x = -7.4000, y = -8.8400, z = 4.9699, pitch = 0.0000, roll = -0.0000, yaw = 90.0000, frozenPos = true, dynamic = true, hasCollision = true },
+        { modelHash = 0x2f9f084d, type = 3, boneIndex = 0, x = -7.4000, y = -10.0001, z = 4.9699, pitch = 0.0000, roll = -0.0000, yaw = 90.0000, frozenPos = true, dynamic = true, hasCollision = true },
+    }
+}
+
+local Preset_HamburgersRevenge = {
+    modelHash = 0x2f03547b,
+    primaryCol = 0,
+    secondaryCol = 0,
+    attachments = {
+        { modelHash = 0x65dc08fd, type = 3, boneIndex = 0, x = 0.0000, y = 0.0000, z = 0.0000, pitch = 0.0000, roll = 0.0000, yaw = 0.0000, frozenPos = true, dynamic = true, hasCollision = true },
+    }
+}
+
+local Preset_XmasSleighBoat = {
+    modelHash = 0xa52f6866,
+    primaryCol = 0,
+    secondaryCol = 0,
+    attachments = {
+        { modelHash = 0x107f392c, type = 2, boneIndex = 0, x = 0.0000, y = -0.3000, z = -0.8000, pitch = 0.0000, roll = 0.0000, yaw = 0.0000, frozenPos = false, dynamic = true, hasCollision = true },
+        { modelHash = 0x2fea25bf, type = 3, boneIndex = 0, x = -1.1900, y = 0.1200, z = -0.3000, pitch = -30.0000, roll = -56.0000, yaw = 30.0000, frozenPos = true, dynamic = true, hasCollision = true },
+        { modelHash = 0x2fea25bf, type = 3, boneIndex = 0, x = 1.1900, y = 0.1200, z = -0.3000, pitch = 38.0000, roll = 57.0000, yaw = 20.0000, frozenPos = false, dynamic = true, hasCollision = true },
+        { modelHash = 0xaf7f4400, type = 3, boneIndex = 0, x = 0.0000, y = -2.2000, z = -0.3000, pitch = 0.0000, roll = 0.0000, yaw = 0.0000, frozenPos = false, dynamic = true, hasCollision = true },
+        { modelHash = 0x3794acc9, type = 3, boneIndex = 0, x = -0.3700, y = -3.7000, z = -0.0100, pitch = 0.0000, roll = 0.0000, yaw = 0.0000, frozenPos = true, dynamic = true, hasCollision = true },
+        { modelHash = 0x3794acc9, type = 3, boneIndex = 0, x = 0.3700, y = -3.7000, z = -0.0100, pitch = 0.0000, roll = 0.0000, yaw = 0.0000, frozenPos = false, dynamic = true, hasCollision = true },
+        { modelHash = 0xf3b38b02, type = 3, boneIndex = 0, x = -0.2900, y = 1.0500, z = -0.1600, pitch = 0.0000, roll = 0.0000, yaw = 0.0000, frozenPos = false, dynamic = true, hasCollision = true },
+        { modelHash = 0xd4f8beab, type = 3, boneIndex = 0, x = 0.4400, y = 1.1100, z = -0.5000, pitch = 0.0000, roll = 0.0000, yaw = 0.0000, frozenPos = false, dynamic = true, hasCollision = true },
+        { modelHash = 0x11a7c451, type = 3, boneIndex = 0, x = 0.5100, y = 1.7900, z = -0.3000, pitch = 0.0000, roll = 0.0000, yaw = -75.0000, frozenPos = false, dynamic = true, hasCollision = true },
+        { modelHash = 0x1625b91e, type = 3, boneIndex = 0, x = -0.2700, y = 2.1000, z = -0.0600, pitch = 0.0000, roll = 0.0000, yaw = 72.0000, frozenPos = false, dynamic = true, hasCollision = true },
+        { modelHash = 0x1bd00672, type = 3, boneIndex = 0, x = 0.0000, y = 2.8600, z = 0.0000, pitch = -80.0000, roll = 0.0000, yaw = 0.0000, frozenPos = true, dynamic = true, hasCollision = true },
+        { modelHash = 0x1bd00672, type = 3, boneIndex = 0, x = -0.1900, y = 2.8600, z = 0.0000, pitch = -80.0000, roll = 0.0000, yaw = 0.0000, frozenPos = true, dynamic = true, hasCollision = true },
+        { modelHash = 0x1bd00672, type = 3, boneIndex = 0, x = 0.1900, y = 2.8600, z = 0.0000, pitch = -80.0000, roll = 0.0000, yaw = 0.0000, frozenPos = false, dynamic = true, hasCollision = true },
+        { modelHash = 0xd86b5a95, type = 1, boneIndex = 0, x = 0.6000, y = 5.0000, z = 0.0000, pitch = 0.0000, roll = 0.0000, yaw = 0.0000, frozenPos = true, dynamic = true, hasCollision = true },
+        { modelHash = 0xd86b5a95, type = 1, boneIndex = 0, x = -0.6000, y = 5.0000, z = 0.0000, pitch = 0.0000, roll = 0.0000, yaw = 0.0000, frozenPos = true, dynamic = true, hasCollision = true },
+        { modelHash = 0xd86b5a95, type = 1, boneIndex = 0, x = 0.6000, y = 8.0000, z = 0.0000, pitch = 0.0000, roll = 0.0000, yaw = 0.0000, frozenPos = true, dynamic = true, hasCollision = true },
+        { modelHash = 0xd86b5a95, type = 1, boneIndex = 0, x = -0.6000, y = 8.0000, z = 0.0000, pitch = 0.0000, roll = 0.0000, yaw = 0.0000, frozenPos = true, dynamic = true, hasCollision = true },
+        { modelHash = 0xd86b5a95, type = 1, boneIndex = 0, x = -0.6000, y = 11.0000, z = 0.0000, pitch = 0.0000, roll = 0.0000, yaw = 0.0000, frozenPos = true, dynamic = true, hasCollision = true },
+        { modelHash = 0xd86b5a95, type = 1, boneIndex = 0, x = 0.6000, y = 11.0000, z = 0.0000, pitch = 0.0000, roll = 0.0000, yaw = 0.0000, frozenPos = true, dynamic = true, hasCollision = true },
+        { modelHash = 0xd86b5a95, type = 1, boneIndex = 0, x = 0.6000, y = 14.0000, z = 0.0000, pitch = 0.0000, roll = 0.0000, yaw = 0.0000, frozenPos = true, dynamic = true, hasCollision = true },
+        { modelHash = 0xd86b5a95, type = 1, boneIndex = 0, x = -0.6000, y = 14.0000, z = 0.0000, pitch = 0.0000, roll = 0.0000, yaw = 0.0000, frozenPos = false, dynamic = true, hasCollision = true },
+        { modelHash = 0xb7ffff45, type = 3, boneIndex = 0, x = 0.0000, y = 3.6700, z = 0.0000, pitch = -90.0000, roll = -0.0000, yaw = 0.0000, frozenPos = true, dynamic = true, hasCollision = true },
+        { modelHash = 0xb7ffff45, type = 3, boneIndex = 0, x = 0.0000, y = 7.5101, z = 0.0000, pitch = -90.0000, roll = -0.0000, yaw = 0.0000, frozenPos = false, dynamic = true, hasCollision = true },
+        { modelHash = 0xb63f6584, type = 3, boneIndex = 0, x = -0.5600, y = 5.7500, z = 0.2300, pitch = 0.0000, roll = 67.0000, yaw = 90.0000, frozenPos = true, dynamic = true, hasCollision = true },
+        { modelHash = 0xb63f6584, type = 3, boneIndex = 0, x = -0.5600, y = 8.7601, z = 0.2300, pitch = 0.0000, roll = 67.0000, yaw = 90.0000, frozenPos = true, dynamic = true, hasCollision = true },
+        { modelHash = 0xb63f6584, type = 3, boneIndex = 0, x = -0.5600, y = 11.7601, z = 0.2300, pitch = 0.0000, roll = 67.0000, yaw = 90.0000, frozenPos = true, dynamic = true, hasCollision = true },
+        { modelHash = 0xb63f6584, type = 3, boneIndex = 0, x = -0.5600, y = 14.7602, z = 0.2300, pitch = 0.0000, roll = 67.0000, yaw = 90.0000, frozenPos = true, dynamic = true, hasCollision = true },
+        { modelHash = 0xb63f6584, type = 3, boneIndex = 0, x = 0.6100, y = 14.7602, z = 0.2300, pitch = 0.0000, roll = 67.0000, yaw = 90.0000, frozenPos = true, dynamic = true, hasCollision = true },
+        { modelHash = 0xb63f6584, type = 3, boneIndex = 0, x = 0.6100, y = 11.7401, z = 0.2300, pitch = 0.0000, roll = 67.0000, yaw = 90.0000, frozenPos = true, dynamic = true, hasCollision = true },
+        { modelHash = 0xb63f6584, type = 3, boneIndex = 0, x = 0.6100, y = 8.7401, z = 0.2300, pitch = 0.0000, roll = 67.0000, yaw = 90.0000, frozenPos = true, dynamic = true, hasCollision = true },
+        { modelHash = 0xb63f6584, type = 3, boneIndex = 0, x = 0.6100, y = 5.7300, z = 0.2300, pitch = 0.0000, roll = 67.0000, yaw = 90.0000, frozenPos = false, dynamic = true, hasCollision = true },
+        { modelHash = 0x5d20643d, type = 3, boneIndex = 0, x = 0.0000, y = 5.9000, z = 0.0000, pitch = 0.0000, roll = 0.0000, yaw = 0.0000, frozenPos = true, dynamic = true, hasCollision = true },
+        { modelHash = 0x5d20643d, type = 3, boneIndex = 0, x = 0.0000, y = 9.0000, z = 0.0000, pitch = 0.0000, roll = 0.0000, yaw = 0.0000, frozenPos = true, dynamic = true, hasCollision = true },
+        { modelHash = 0x5d20643d, type = 3, boneIndex = 0, x = 0.0000, y = 11.9000, z = 0.0000, pitch = 0.0000, roll = 0.0000, yaw = 0.0000, frozenPos = true, dynamic = true, hasCollision = true },
+        { modelHash = 0x5d20643d, type = 3, boneIndex = 0, x = 0.0000, y = 14.9000, z = 0.0000, pitch = 0.0000, roll = 0.0000, yaw = 0.0000, frozenPos = false, dynamic = true, hasCollision = true },
+        { modelHash = 0xb467c540, type = 3, boneIndex = 0, x = 0.0000, y = 0.0000, z = 0.0000, pitch = -109.0000, roll = 0.0000, yaw = 0.0000, frozenPos = false, dynamic = true, hasCollision = true },
+    }
+}
+
+local Preset_ZombieSabreGT = {
+    modelHash = 0x9b909c94,
+    primaryCol = 0,
+    secondaryCol = 0,
+    attachments = {
+        { modelHash = 0xc89630b8, type = 3, boneIndex = 0, x = 0.8800, y = 0.8100, z = 0.5000, pitch = 0.0000, roll = 0.0000, yaw = 90.0000, frozenPos = true, dynamic = true, hasCollision = true },
+        { modelHash = 0xc89630b8, type = 3, boneIndex = 0, x = -0.8800, y = 0.8100, z = 0.5000, pitch = 0.0000, roll = 0.0000, yaw = 90.0000, frozenPos = false, dynamic = true, hasCollision = true },
+        { modelHash = 0x7e1240ea, type = 3, boneIndex = 0, x = 0.0000, y = 1.9500, z = -0.0700, pitch = 180.0000, roll = 0.0000, yaw = -90.0000, frozenPos = true, dynamic = true, hasCollision = true },
+        { modelHash = 0x7e1240ea, type = 3, boneIndex = 0, x = -0.7400, y = 1.8000, z = -0.0700, pitch = 180.0000, roll = 0.0000, yaw = -90.0000, frozenPos = true, dynamic = true, hasCollision = true },
+        { modelHash = 0x7e1240ea, type = 3, boneIndex = 0, x = 0.7400, y = 1.8000, z = -0.0700, pitch = 180.0000, roll = 0.0000, yaw = -90.0000, frozenPos = true, dynamic = true, hasCollision = true },
+        { modelHash = 0x7e1240ea, type = 3, boneIndex = 0, x = 0.3400, y = 1.8800, z = -0.0700, pitch = 180.0000, roll = 0.0000, yaw = -90.0000, frozenPos = true, dynamic = true, hasCollision = true },
+        { modelHash = 0x7e1240ea, type = 3, boneIndex = 0, x = -0.3400, y = 1.8800, z = -0.0700, pitch = 180.0000, roll = 0.0000, yaw = -90.0000, frozenPos = false, dynamic = true, hasCollision = true },
+        { modelHash = 0x7fd34040, type = 3, boneIndex = 49, x = -0.0100, y = 2.2300, z = 0.3200, pitch = 87.5478, roll = 45.0000, yaw = 0.0000, frozenPos = false, dynamic = true, hasCollision = true },
+        { modelHash = 0x0f8c9ecb, type = 3, boneIndex = 0, x = -0.6600, y = 1.6140, z = 0.4140, pitch = -99.8000, roll = 45.0000, yaw = 0.0000, frozenPos = false, dynamic = true, hasCollision = true },
+        { modelHash = 0xccdc8715, type = 3, boneIndex = 0, x = 0.0000, y = -1.4800, z = 0.2800, pitch = 0.0000, roll = 0.0000, yaw = 0.0000, frozenPos = false, dynamic = true, hasCollision = true },
+        { modelHash = 0x25c5af13, type = 2, boneIndex = 0, x = 0.0000, y = 0.0000, z = 0.0700, pitch = 0.0000, roll = 0.0000, yaw = 0.0000, frozenPos = false, dynamic = true, hasCollision = true },
+        { modelHash = 0xde657a3f, type = 3, boneIndex = 0, x = 0.0000, y = -0.3300, z = 0.4600, pitch = 0.0000, roll = 0.0000, yaw = 0.0000, frozenPos = false, dynamic = true, hasCollision = true },
+        { modelHash = 0x00e11661, type = 3, boneIndex = 0, x = 0.0000, y = -0.5600, z = 0.8100, pitch = -90.0000, roll = 0.0000, yaw = -0.0000, frozenPos = false, dynamic = true, hasCollision = true },
+        { modelHash = 0xfca454b2, type = 3, boneIndex = 0, x = 0.0000, y = 2.2000, z = 0.0000, pitch = 0.0000, roll = 0.0000, yaw = 0.0000, frozenPos = false, dynamic = true, hasCollision = true },
+        { modelHash = 0xe2174d98, type = 3, boneIndex = 0, x = 0.0000, y = -2.4700, z = 0.4900, pitch = 0.0000, roll = 0.0000, yaw = 0.0000, frozenPos = false, dynamic = true, hasCollision = true },
+        { modelHash = 0xf2f47da7, type = 3, boneIndex = 0, x = -0.1700, y = -2.6100, z = 0.2600, pitch = 23.4001, roll = 0.0000, yaw = 180.0000, frozenPos = false, dynamic = true, hasCollision = true },
+        { modelHash = 0x0a22cea2, type = 3, boneIndex = 0, x = -0.8840, y = 0.5650, z = 0.5400, pitch = 0.0000, roll = 0.0000, yaw = 90.0000, frozenPos = true, dynamic = true, hasCollision = true },
+        { modelHash = 0x0a22cea2, type = 3, boneIndex = 0, x = 0.8840, y = 0.5650, z = 0.5400, pitch = 0.0000, roll = 0.0000, yaw = 90.0000, frozenPos = false, dynamic = true, hasCollision = true },
+        { modelHash = 0x7f2b2371, type = 3, boneIndex = 0, x = -0.4300, y = -0.7600, z = 0.8130, pitch = -90.0000, roll = 0.0000, yaw = 0.0000, frozenPos = true, dynamic = true, hasCollision = true },
+        { modelHash = 0x7f2b2371, type = 3, boneIndex = 0, x = 0.4300, y = -0.7600, z = 0.8130, pitch = 90.0000, roll = 180.0000, yaw = 0.0000, frozenPos = false, dynamic = true, hasCollision = true },
+        { modelHash = 0xf4115c33, type = 3, boneIndex = 0, x = 0.1700, y = 2.3400, z = -0.1000, pitch = -16.0000, roll = -0.0000, yaw = 180.0000, frozenPos = true, dynamic = true, hasCollision = true },
+        { modelHash = 0xf4115c33, type = 3, boneIndex = 0, x = -0.1700, y = 2.3400, z = -0.1000, pitch = -16.0000, roll = -0.0000, yaw = 180.0000, frozenPos = false, dynamic = true, hasCollision = true },
+        { modelHash = 0x9970602c, type = 3, boneIndex = 0, x = -0.8760, y = 0.0100, z = -0.1800, pitch = 0.0000, roll = 0.0000, yaw = -91.0000, frozenPos = true, dynamic = true, hasCollision = true },
+        { modelHash = 0x9970602c, type = 3, boneIndex = 0, x = 0.8760, y = 0.0100, z = -0.1800, pitch = 0.0000, roll = 0.0000, yaw = 91.0000, frozenPos = false, dynamic = true, hasCollision = true },
+    }
+}
+
+local function spawnSpinePincher()
+    spawnXmlVehicleData(Preset_SpinePincher, "The Spine Pincher")
+end
+
+local function spawnFuckT2Blimp()
+    spawnXmlVehicleData(Preset_FuckT2Blimp, "FuckT2 Blimp")
+end
+
+local function spawnHamburgersRevenge()
+    spawnXmlVehicleData(Preset_HamburgersRevenge, "Hamburger's Revenge")
+end
+
+local function spawnXmasSleighBoat()
+    spawnXmlVehicleData(Preset_XmasSleighBoat, "Xmas Sleigh Boat")
+end
+
+local function spawnZombieSabreGT()
+    spawnXmlVehicleData(Preset_ZombieSabreGT, "Zombie Sabre GT")
+end
+
+local function refreshDiscoveredXmlFiles()
+    local files = {}
+    local seen = {}
+    local function addFile(name)
+        if name and name ~= "" and not seen[name:lower()] then
+            seen[name:lower()] = true
+            table.insert(files, name)
+        end
+    end
+
+    addFile("SpinePincher.xml")
+    addFile("Spinethetic-FuckT2Blimp.xml")
+    addFile("Spinethetic-HamburgersRevenge.xml")
+    addFile("Spinethetic-XmasSleighBoat.xml")
+    addFile("Spinethetic-ZombieSabreGT.xml")
+
+    pcall(function()
+        if io and io.popen then
+            local dirsToScan = {
+                "c:\\Users\\Marcos\\Downloads\\business_manager",
+                "C:\\Users\\Marcos\\AppData\\Roaming\\NewWay\\GTAV Enhanced\\scripts",
+                "scripts"
+            }
+            for _, d in ipairs(dirsToScan) do
+                local pipe = io.popen('dir /b "' .. d .. '\\*.xml" 2>nul')
+                if pipe then
+                    for line in pipe:lines() do
+                        line = line:gsub("[\r\n]", "")
+                        if line:lower():find("%.xml$") and not line:lower():find("mpstatssetup") then
+                            addFile(line)
+                        end
+                    end
+                    pipe:close()
+                end
+            end
+        end
+    end)
+
+    S.discoveredXmlFiles = files
+    return files
+end
+
+local function loadAndSpawnXmlVehicle(filePath)
+    local targetPath = tostring(filePath or S.customXmlVehiclePath or "SpinePincher.xml"):gsub('^%s*(.-)%s*$', '%1')
+    if targetPath == "" then targetPath = "SpinePincher.xml" end
+
+    local xmlContent = nil
+    pcall(function()
+        if io and io.open then
+            local pathsToTry = {
+                targetPath,
+                "c:\\Users\\Marcos\\Downloads\\business_manager\\" .. targetPath,
+                "C:\\Users\\Marcos\\AppData\\Roaming\\NewWay\\GTAV Enhanced\\scripts\\" .. targetPath,
+                "scripts/" .. targetPath
+            }
+            for _, p in ipairs(pathsToTry) do
+                local f = io.open(p, "r")
+                if f then
+                    xmlContent = f:read("*a")
+                    f:close()
+                    if xmlContent and xmlContent ~= "" then break end
+                end
+            end
+        end
+    end)
+
+    if xmlContent and xmlContent ~= "" then
+        local data = parseMenyooXml(xmlContent)
+        if data and (data.modelHash ~= 0 or (data.attachments and #data.attachments > 0)) then
+            spawnXmlVehicleData(data, targetPath)
+            return
+        end
+    end
+
+    local lower = targetPath:lower()
+    if lower:find("pincher") then
+        spawnSpinePincher()
+        return
+    elseif lower:find("blimp") or lower:find("fuckt2") then
+        spawnFuckT2Blimp()
+        return
+    elseif lower:find("burger") or lower:find("hamburger") then
+        spawnHamburgersRevenge()
+        return
+    elseif lower:find("sleigh") or lower:find("xmas") then
+        spawnXmasSleighBoat()
+        return
+    elseif lower:find("sabre") or lower:find("zombie") then
+        spawnZombieSabreGT()
+        return
+    end
+
+    notify.warn("Vehicle", "Preset ou arquivo XML nao encontrado: '" .. targetPath .. "'")
 end
 
 ------------------------------------------------------------
@@ -1541,33 +2852,33 @@ local function safeCreateStuntProp(hash, x, y, z, dynamic)
 end
 
 local function clearAllStuntObjects()
-    local count = 0
-    for _, obj in ipairs(S.spawned_stunt_objects) do
-        if isValidEntity(obj) then
-            pcall(function()
-                ENTITY.SET_ENTITY_AS_MISSION_ENTITY(obj, true, true)
-                ENTITY.DELETE_ENTITY(obj)
-            end)
-            count = count + 1
+    script.run_in_callback(function()
+        local count = 0
+        local oldList = S.spawned_stunt_objects or {}
+        S.spawned_stunt_objects = {}
+        for _, obj in ipairs(oldList) do
+            if isValidEntity(obj) then
+                safeDeleteEntity(obj)
+                count = count + 1
+                script.yield(15)
+            end
         end
-    end
-    S.spawned_stunt_objects = {}
-    notify.info("Structures", string.format("All %d structures have been removed!", count))
+        notify.info("Structures", string.format("All %d structures have been removed!", count))
+    end)
 end
 
 local function undoLastStuntObject()
-    if #S.spawned_stunt_objects > 0 then
-        local lastObj = table.remove(S.spawned_stunt_objects)
-        if isValidEntity(lastObj) then
-            pcall(function()
-                ENTITY.SET_ENTITY_AS_MISSION_ENTITY(lastObj, true, true)
-                ENTITY.DELETE_ENTITY(lastObj)
-            end)
-            notify.info("Structures", "Last object removed successfully!")
-            return
+    script.run_in_callback(function()
+        if S.spawned_stunt_objects and #S.spawned_stunt_objects > 0 then
+            local lastObj = table.remove(S.spawned_stunt_objects)
+            if isValidEntity(lastObj) then
+                safeDeleteEntity(lastObj)
+                notify.info("Structures", "Last object removed successfully!")
+                return
+            end
         end
-    end
-    notify.warn("Structures", "No recent object to undo.")
+        notify.warn("Structures", "No recent object to undo.")
+    end)
 end
 
 local function spawnStuntTrack(presetList, presetName)
@@ -2091,10 +3402,12 @@ local function attachPropToPlayer(targetPid, modelName, boneId, offX, offY, offZ
 
         if not S.attached_player_props[actualPid] then S.attached_player_props[actualPid] = {} end
 
+        local isConeProp = (modelName == "prop_mp_cone_01" or modelName == "prop_roadcone02a")
         table.insert(S.attached_player_props[actualPid], {
             obj = obj, hash = hash, modelName = modelName, boneId = boneId or 24818,
             offX = offX or 0.0, offY = offY or 0.0, offZ = offZ or 0.0,
-            rotX = rotX or 0.0, rotY = rotY or 0.0, rotZ = rotZ or 0.0
+            rotX = rotX or 0.0, rotY = rotY or 0.0, rotZ = rotZ or 0.0,
+            isCone = isConeProp
         })
 
         startAttachmentKeeperLoop()
@@ -2103,36 +3416,190 @@ local function attachPropToPlayer(targetPid, modelName, boneId, offX, offY, offZ
     end)
 end
 
+local function attachDualKatanas(targetPid)
+    script.run_in_callback(function()
+        local myLocalPid = getLocalPid()
+        local actualPid = (targetPid == nil or targetPid == -1) and myLocalPid or targetPid
+        local ped = getPlayerPed(actualPid)
+        if not isValidEntity(ped) then notify.warn("Attachments", "Player not found!"); return end
+
+        local leftEntry = Presets.weapon_list["Weapon Katana Left"]
+        local rightEntry = Presets.weapon_list["Weapon Katana Right"]
+        if not leftEntry or not rightEntry then return end
+
+        local hash = getHash(leftEntry.Prop)
+        STREAMING.REQUEST_MODEL(hash)
+        local t = 0
+        while not STREAMING.HAS_MODEL_LOADED(hash) and t < 80 do script.yield(10); t = t + 1 end
+        if not STREAMING.HAS_MODEL_LOADED(hash) then
+            notify.warn("Attachments", "Failed to load Katana model!")
+            return
+        end
+
+        local coords = getTargetCoordsSafe(actualPid, ped)
+
+        -- 1. Attach Katana Left
+        local pL = leftEntry.PropPlacement
+        local objLeft = safeCreateStuntProp(hash, coords.x, coords.y, coords.z, false)
+        if isValidEntity(objLeft) then
+            configureStuntEntity(objLeft, actualPid)
+            attachEntityDirect(objLeft, ped, leftEntry.PropBone or 24817, pL[1], pL[2], pL[3], pL[4], pL[5], pL[6])
+            if not S.attached_player_props[actualPid] then S.attached_player_props[actualPid] = {} end
+            table.insert(S.attached_player_props[actualPid], {
+                obj = objLeft, hash = hash, modelName = leftEntry.Prop, boneId = leftEntry.PropBone or 24817,
+                offX = pL[1], offY = pL[2], offZ = pL[3], rotX = pL[4], rotY = pL[5], rotZ = pL[6],
+                isLeftKatana = true
+            })
+        end
+
+        script.yield(50)
+
+        -- 2. Attach Katana Right
+        local pR = rightEntry.PropPlacement
+        local objRight = safeCreateStuntProp(hash, coords.x, coords.y, coords.z, false)
+        if isValidEntity(objRight) then
+            configureStuntEntity(objRight, actualPid)
+            attachEntityDirect(objRight, ped, rightEntry.PropBone or 24817, pR[1], pR[2], pR[3], pR[4], pR[5], pR[6])
+            table.insert(S.attached_player_props[actualPid], {
+                obj = objRight, hash = hash, modelName = rightEntry.Prop, boneId = rightEntry.PropBone or 24817,
+                offX = pR[1], offY = pR[2], offZ = pR[3], rotX = pR[4], rotY = pR[5], rotZ = pR[6],
+                isRightKatana = true
+            })
+        end
+
+        STREAMING.SET_MODEL_AS_NO_LONGER_NEEDED(hash)
+        startAttachmentKeeperLoop()
+
+        local pName = (actualPid == myLocalPid) and "You" or getPlayerName(actualPid)
+        notify.success("Attachments", "Dual Katanas anexadas com sucesso em " .. pName .. "!")
+    end)
+end
+
+local function removeUniversalTunerObject()
+    script.run_in_callback(function()
+        if S.tunerObj and isValidEntity(S.tunerObj) then
+            pcall(function()
+                ENTITY.DETACH_ENTITY(S.tunerObj, true, true)
+                safeDeleteEntity(S.tunerObj)
+            end)
+            S.tunerObj = nil
+        end
+    end)
+end
+
+local removeTunerAttachment = removeUniversalTunerObject
+
+local function selectTunerObject(idx)
+    S.tunerSelectedIdx = idx
+    local preset = Presets.tuner_objects[idx]
+    if preset then
+        S.tunerName = preset.name
+        S.tunerModel = preset.model
+        S.tunerBone = preset.bone
+        S.tunerX = preset.x
+        S.tunerY = preset.y
+        S.tunerZ = preset.z
+        S.tunerRotX = preset.rx
+        S.tunerRotY = preset.ry
+        S.tunerRotZ = preset.rz
+    end
+end
+
+local function updateUniversalTunerTransform()
+    local ped = getLocalPed()
+    if isValidEntity(S.tunerObj) and isValidEntity(ped) then
+        attachEntityDirect(S.tunerObj, ped, S.tunerBone or 24818, S.tunerX, S.tunerY, S.tunerZ, S.tunerRotX, S.tunerRotY, S.tunerRotZ)
+    end
+end
+
+local function spawnUniversalTunerObject()
+    script.run_in_callback(function()
+        removeUniversalTunerObject()
+        script.yield(30)
+
+        local ped = getLocalPed()
+        if not isValidEntity(ped) then return end
+
+        local modelToSpawn = S.tunerModel
+        if modelToSpawn == "custom" then
+            modelToSpawn = S.customAttachModelInput or "prop_mp_cone_01"
+        end
+
+        local hash = getHash(modelToSpawn)
+        if not hash or hash == 0 then notify.warn("Tuner", "Modelo invalido!"); return end
+
+        STREAMING.REQUEST_MODEL(hash)
+        local t = 0
+        while not STREAMING.HAS_MODEL_LOADED(hash) and t < 80 do script.yield(10); t = t + 1 end
+        if not STREAMING.HAS_MODEL_LOADED(hash) then notify.warn("Tuner", "Falha ao carregar modelo: " .. tostring(modelToSpawn)); return end
+
+        local coords = ENTITY.GET_ENTITY_COORDS(ped, true)
+        local obj = safeCreateStuntProp(hash, coords.x, coords.y, coords.z, false)
+        STREAMING.SET_MODEL_AS_NO_LONGER_NEEDED(hash)
+
+        if not isValidEntity(obj) then notify.error("Tuner", "Erro ao criar objeto no mundo!"); return end
+
+        configureStuntEntity(obj, getLocalPid())
+        attachEntityDirect(obj, ped, S.tunerBone or 24818, S.tunerX, S.tunerY, S.tunerZ, S.tunerRotX, S.tunerRotY, S.tunerRotZ)
+
+        S.tunerObj = obj
+        notify.success("Tuner", string.format("Objeto [%s] spawnado para ajuste ao vivo!", tostring(S.tunerName)))
+    end)
+end
+
 local function removePlayerAttachedProps(targetPid)
-    local actualPid = (targetPid == -1) and getLocalPid() or targetPid
-    local list = S.attached_player_props[actualPid]
-    local count = 0
-    if list then
-        for _, item in ipairs(list) do
-            local obj = type(item) == "table" and item.obj or item
-            if isValidEntity(obj) then
-                pcall(function() ENTITY.DETACH_ENTITY(obj, true, true); safeDeleteEntity(obj) end)
-                count = count + 1
+    script.run_in_callback(function()
+        local actualPid = (targetPid == -1 or targetPid == nil) and getLocalPid() or targetPid
+        local list = S.attached_player_props[actualPid]
+        S.attached_player_props[actualPid] = nil
+        local count = 0
+        if list then
+            for _, item in ipairs(list) do
+                local obj = type(item) == "table" and item.obj or item
+                if isValidEntity(obj) then
+                    pcall(function()
+                        ENTITY.DETACH_ENTITY(obj, true, true)
+                        safeDeleteEntity(obj)
+                    end)
+                    count = count + 1
+                    script.yield(10)
+                end
             end
         end
-        S.attached_player_props[actualPid] = nil
-    end
-    notify.info("Attachments", string.format("%d objects removed from player!", count))
+        if actualPid == getLocalPid() and S.tunerObj and isValidEntity(S.tunerObj) then
+            safeDeleteEntity(S.tunerObj)
+            S.tunerObj = nil
+        end
+        notify.info("Attachments", string.format("%d objects removed from player!", count))
+    end)
 end
 
 local function removeAllAttachedProps()
-    local count = 0
-    for targetPid, list in pairs(S.attached_player_props) do
-        for _, item in ipairs(list) do
-            local obj = type(item) == "table" and item.obj or item
-            if isValidEntity(obj) then
-                pcall(function() ENTITY.DETACH_ENTITY(obj, true, true); safeDeleteEntity(obj) end)
-                count = count + 1
+    script.run_in_callback(function()
+        local count = 0
+        local oldProps = S.attached_player_props or {}
+        S.attached_player_props = {}
+        for targetPid, list in pairs(oldProps) do
+            if list then
+                for _, item in ipairs(list) do
+                    local obj = type(item) == "table" and item.obj or item
+                    if isValidEntity(obj) then
+                        pcall(function()
+                            ENTITY.DETACH_ENTITY(obj, true, true)
+                            safeDeleteEntity(obj)
+                        end)
+                        count = count + 1
+                        script.yield(10)
+                    end
+                end
             end
         end
-    end
-    S.attached_player_props = {}
-    notify.info("Attachments", string.format("All %d attached objects removed!", count))
+        if S.tunerObj and isValidEntity(S.tunerObj) then
+            safeDeleteEntity(S.tunerObj)
+            S.tunerObj = nil
+        end
+        notify.info("Attachments", string.format("All %d attached objects removed!", count))
+    end)
 end
 
 local STAND_CAGE_MODELS = {
@@ -3068,58 +4535,27 @@ end
 local isEnemyJetsSpawning = false
 
 local function clearActiveDogfightJets()
-    S.dogfightAttackRunning = false
-    S.dogfightSessionId = S.dogfightSessionId + 1
+    script.run_in_callback(function()
+        S.dogfightAttackRunning = false
+        S.dogfightSessionId = S.dogfightSessionId + 1
 
-    for _, item in ipairs(S.activeDogfightJets) do
-        pcall(function()
-            if item.blip and HUD and HUD.DOES_BLIP_EXIST and HUD.DOES_BLIP_EXIST(item.blip) then
-                HUD.SET_BLIP_DISPLAY(item.blip, 0)
-                HUD.REMOVE_BLIP(item.blip)
-            end
-            if isValidEntity(item.pilot) then safeDeleteEntity(item.pilot) end
-            if isValidEntity(item.jet) then safeDeleteEntity(item.jet) end
-        end)
-    end
-    S.activeDogfightJets = {}
+        local list = S.activeDogfightJets or {}
+        S.activeDogfightJets = {}
 
-    purgeAllJetBlips()
-
-    local purged = 0
-    pcall(function()
-        local hashes = { getHash("lazer"), getHash("besra"), getHash("hydra"), getHash("pyro"), getHash("raiju"), getHash("strikeforce") }
-        local pilotHash = getHash("s_m_y_blackops_01")
-        local myPed = getLocalPed()
-
-        if entities and entities.get_all_vehicles_as_handles then
-            for _, v in ipairs(entities.get_all_vehicles_as_handles()) do
-                if isValidEntity(v) and not (PED and PED.IS_PED_IN_VEHICLE and PED.IS_PED_IN_VEHICLE(myPed, v, false)) then
-                    local model = ENTITY.GET_ENTITY_MODEL(v)
-                    for _, h in ipairs(hashes) do
-                        if model == h then
-                            removeBlipForEntity(v)
-                            safeDeleteEntity(v)
-                            purged = purged + 1
-                            break
-                        end
-                    end
+        for _, item in ipairs(list) do
+            pcall(function()
+                if item.blip and HUD and HUD.DOES_BLIP_EXIST and HUD.DOES_BLIP_EXIST(item.blip) then
+                    safeRemoveBlip(item.blip)
                 end
-            end
+                if isValidEntity(item.pilot) then safeDeleteEntity(item.pilot) end
+                if isValidEntity(item.jet) then safeDeleteEntity(item.jet) end
+            end)
+            script.yield(15)
         end
 
-        if entities and entities.get_all_peds_as_handles then
-            for _, p in ipairs(entities.get_all_peds_as_handles()) do
-                if isValidEntity(p) and not PED.IS_PED_A_PLAYER(p) and ENTITY.GET_ENTITY_MODEL(p) == pilotHash then
-                    removeBlipForEntity(p)
-                    safeDeleteEntity(p)
-                    purged = purged + 1
-                end
-            end
-        end
+        purgeAllJetBlips()
+        notify.info("Jets", "Todos os caças e pilotos foram removidos do mapa.")
     end)
-
-    purgeAllJetBlips()
-    notify.info("Jets", "All fighter jets and pilots have been removed from the map.")
 end
 
 local function triggerDogfightAttack(targetPid, count)
@@ -4006,6 +5442,915 @@ local function renderPlayerTargetSelector(currentSelectedPid, onSelectCallback, 
 end
 
 ------------------------------------------------------------
+-- MICRO-DRONE TATICO OVERWATCH GUARDIÃO
+------------------------------------------------------------
+
+local function deleteOverwatchDrone()
+    script.run_in_callback(function()
+        S.overwatchIsDiving = false
+        local drone = S.overwatchDroneObj
+        S.overwatchDroneObj = nil
+        S.overwatchTargetPed = nil
+        S.overwatchLockStartTime = 0
+        if drone and isValidEntity(drone) then
+            safeDeleteEntity(drone)
+        end
+    end)
+end
+
+local function spawnOverwatchDrone()
+    if S.overwatchDroneObj and isValidEntity(S.overwatchDroneObj) then
+        return S.overwatchDroneObj
+    end
+
+    local myPed = getLocalPed()
+    if not isValidEntity(myPed) then return nil end
+
+    local pCoords = ENTITY.GET_ENTITY_COORDS(myPed, true)
+    local droneModel = S.overwatchDroneModel or "m24_2_prop_m42_drone_01a"
+    local chosenHash = getHash(droneModel)
+
+    if not requestAndLoadModel(chosenHash, 300) then
+        chosenHash = getHash("ba_prop_battle_drone_quad")
+        if not requestAndLoadModel(chosenHash, 200) then
+            chosenHash = getHash("ch_prop_casino_drone_01a")
+            if not requestAndLoadModel(chosenHash, 150) then
+                chosenHash = getHash("prop_drone_01")
+                requestAndLoadModel(chosenHash, 150)
+            end
+        end
+    end
+
+    local hOff = S.overwatchHeightOffset or 2.2
+    local sOff = S.overwatchSideOffset or 0.0
+    -- Criação estática (dynamic = false) para impedir qualquer queda pela física do motor
+    local drone = safeCreateStuntProp(chosenHash, pCoords.x + sOff, pCoords.y - 0.1, pCoords.z + hOff, false)
+
+    if isValidEntity(drone) then
+        pcall(function()
+            getControlOfEntity(drone)
+            safeSetInvincible(drone, true)
+            ENTITY.SET_ENTITY_COLLISION(drone, false, false)
+            if ENTITY.SET_ENTITY_NO_COLLISION_ENTITY then
+                ENTITY.SET_ENTITY_NO_COLLISION_ENTITY(drone, myPed, false)
+            end
+            ENTITY.FREEZE_ENTITY_POSITION(drone, true)
+            if ENTITY.SET_ENTITY_HAS_GRAVITY then
+                ENTITY.SET_ENTITY_HAS_GRAVITY(drone, false)
+            end
+            if ENTITY.SET_ENTITY_DYNAMIC then
+                ENTITY.SET_ENTITY_DYNAMIC(drone, false)
+            end
+            ENTITY.SET_ENTITY_VELOCITY(drone, 0.0, 0.0, 0.0)
+            ENTITY.SET_ENTITY_ANGULAR_VELOCITY(drone, 0.0, 0.0, 0.0)
+            ENTITY.SET_ENTITY_VISIBLE(drone, true, false)
+            if ENTITY.SET_ENTITY_LOCALLY_VISIBLE then
+                ENTITY.SET_ENTITY_LOCALLY_VISIBLE(drone)
+            end
+        end)
+        S.overwatchDroneObj = drone
+        notify.success("Overwatch", "Drone Tatico M42 ativo e escoltando voce!")
+        return drone
+    else
+        notify.warn("Overwatch", "Nao foi possivel carregar o modelo do drone.")
+    end
+    return nil
+end
+
+local function isPedOfferingThreat(candidate, myPed)
+    if not isValidEntity(candidate) or not isValidEntity(myPed) then return false end
+    if candidate == myPed or PED.IS_PED_INJURED(candidate) then return false end
+
+    -- 1. Verificação se o ped é outro jogador na sessão
+    local isPlayerThreat = false
+    pcall(function()
+        if NETWORK and NETWORK.NETWORK_GET_PLAYER_INDEX_FROM_PED then
+            local pid = NETWORK.NETWORK_GET_PLAYER_INDEX_FROM_PED(candidate)
+            if pid and pid ~= -1 and pid ~= getLocalPid() then
+                if PLAYER and PLAYER.IS_PLAYER_FREE_AIMING_AT_ENTITY and PLAYER.IS_PLAYER_FREE_AIMING_AT_ENTITY(pid, myPed) then
+                    isPlayerThreat = true
+                elseif PLAYER and PLAYER.IS_PLAYER_TARGETTING_ENTITY and PLAYER.IS_PLAYER_TARGETTING_ENTITY(pid, myPed) then
+                    isPlayerThreat = true
+                elseif PLAYER and PLAYER.IS_PLAYER_FREE_AIMING and PLAYER.IS_PLAYER_FREE_AIMING(pid) then
+                    -- Jogador mirando com arma: checar se está voltado na direção do nosso personagem
+                    local pCoords = ENTITY.GET_ENTITY_COORDS(myPed, true)
+                    local cCoords = ENTITY.GET_ENTITY_COORDS(candidate, true)
+                    local heading = math.rad(ENTITY.GET_ENTITY_HEADING(candidate))
+                    local lookDirX = -math.sin(heading)
+                    local lookDirY =  math.cos(heading)
+                    local toPlayerX = pCoords.x - cCoords.x
+                    local toPlayerY = pCoords.y - cCoords.y
+                    local len = math.sqrt(toPlayerX * toPlayerX + toPlayerY * toPlayerY)
+                    if len > 0.01 then
+                        local dot = (lookDirX * (toPlayerX / len) + lookDirY * (toPlayerY / len))
+                        if dot > 0.55 then
+                            isPlayerThreat = true
+                        end
+                    end
+                end
+            end
+        end
+    end)
+    if isPlayerThreat then return true end
+
+    -- 2. Verificação de combate nativo ou disparos ativos
+    local isShootingOrCombat = false
+    pcall(function()
+        if PED and PED.IS_PED_SHOOTING and PED.IS_PED_SHOOTING(candidate) then
+            isShootingOrCombat = true
+        elseif PED and PED.IS_PED_IN_COMBAT and PED.IS_PED_IN_COMBAT(candidate, myPed) then
+            isShootingOrCombat = true
+        elseif PED and PED.GET_PED_TARGET_FROM_COMBAT_PED and PED.GET_PED_TARGET_FROM_COMBAT_PED(candidate) == myPed then
+            isShootingOrCombat = true
+        elseif PED and PED.IS_PED_AIMING_FROM_COVER and PED.IS_PED_AIMING_FROM_COVER(candidate) then
+            isShootingOrCombat = true
+        end
+    end)
+    if isShootingOrCombat then return true end
+
+    -- 3. Verificação de dano recente contra o jogador
+    local hasDamagedMe = false
+    pcall(function()
+        if ENTITY and ENTITY.HAS_ENTITY_BEEN_DAMAGED_BY_ENTITY and ENTITY.HAS_ENTITY_BEEN_DAMAGED_BY_ENTITY(myPed, candidate, true) then
+            hasDamagedMe = true
+        end
+    end)
+    if hasDamagedMe then return true end
+
+    -- 4. Ped/NPC armado apontando arma na direção do jogador
+    local isArmedAiming = false
+    pcall(function()
+        local isArmed = false
+        if WEAPON and WEAPON.IS_PED_ARMED then
+            isArmed = WEAPON.IS_PED_ARMED(candidate, 7)
+        end
+
+        if isArmed then
+            local isFacing = false
+            if PED and PED.IS_PED_FACING_PED then
+                isFacing = PED.IS_PED_FACING_PED(candidate, myPed, 65.0)
+            else
+                local pCoords = ENTITY.GET_ENTITY_COORDS(myPed, true)
+                local cCoords = ENTITY.GET_ENTITY_COORDS(candidate, true)
+                local heading = math.rad(ENTITY.GET_ENTITY_HEADING(candidate))
+                local lookDirX = -math.sin(heading)
+                local lookDirY =  math.cos(heading)
+                local toPlayerX = pCoords.x - cCoords.x
+                local toPlayerY = pCoords.y - cCoords.y
+                local len = math.sqrt(toPlayerX * toPlayerX + toPlayerY * toPlayerY)
+                if len > 0.01 and (lookDirX * (toPlayerX / len) + lookDirY * (toPlayerY / len)) > 0.55 then
+                    isFacing = true
+                end
+            end
+
+            if isFacing then
+                if PED and PED.GET_IS_TASK_ACTIVE then
+                    if PED.GET_IS_TASK_ACTIVE(candidate, 12) or -- TASK_AIM_GUN_ON_FOOT
+                       PED.GET_IS_TASK_ACTIVE(candidate, 290) or -- CEventGunAimedAt
+                       PED.GET_IS_TASK_ACTIVE(candidate, 4) or
+                       PED.GET_IS_TASK_ACTIVE(candidate, 300) then
+                        isArmedAiming = true
+                    end
+                end
+                if PED and PED.IS_PED_DOING_DRIVEBY and PED.IS_PED_DOING_DRIVEBY(candidate) then
+                    isArmedAiming = true
+                end
+            end
+        end
+    end)
+    if isArmedAiming then return true end
+
+    return false
+end
+
+local function triggerOverwatchMissileStrike(targetPed)
+    if not isValidEntity(targetPed) then return end
+    local myPed = getLocalPed()
+    if not isValidEntity(myPed) then return end
+
+    local tCoords = ENTITY.GET_ENTITY_COORDS(targetPed, true)
+
+    pcall(function()
+        if AUDIO and AUDIO.PLAY_SOUND_FRONTEND then
+            AUDIO.PLAY_SOUND_FRONTEND(-1, "Airhorn", "DLC_TG_Running_Back_Sounds", true)
+            AUDIO.PLAY_SOUND_FRONTEND(-1, "Bomb_Disarmed", "GTAO_Speed_Convoy_Soundset", true)
+            AUDIO.PLAY_SOUND_FRONTEND(-1, "ScreenFlash", "WastedSounds", true)
+        end
+    end)
+
+    local skyX = tCoords.x + (math.random(-10, 10) * 0.1)
+    local skyY = tCoords.y + (math.random(-10, 10) * 0.1)
+    local skyZ = tCoords.z + 180.0
+
+    local rocketHash = getHash("VEHICLE_WEAPON_SPACE_ROCKET")
+    if rocketHash == 0 then rocketHash = getHash("WEAPON_EXPLOSION") end
+
+    -- 1. Projétil orbital pesado com dano fulminante (10.000 de dano)
+    pcall(function()
+        MISC.SHOOT_SINGLE_BULLET_BETWEEN_COORDS(
+            skyX, skyY, skyZ,
+            tCoords.x, tCoords.y, tCoords.z,
+            10000,
+            true,
+            rocketHash,
+            myPed,
+            true,
+            false,
+            950.0
+        )
+    end)
+
+    -- 2. Explosão Orbital Devastadora (Tag 29 = Orbital Cannon) no ponto exato
+    pcall(function()
+        if FIRE and FIRE.ADD_EXPLOSION then
+            FIRE.ADD_EXPLOSION(tCoords.x, tCoords.y, tCoords.z, 29, 10.0, true, false, 1.5)
+            FIRE.ADD_EXPLOSION(tCoords.x, tCoords.y, tCoords.z, 2, 5.0, true, false, 1.0)
+        end
+    end)
+
+    -- 3. Destruição do veículo inimigo caso o alvo esteja dentro de um
+    pcall(function()
+        if PED and PED.IS_PED_IN_ANY_VEHICLE and PED.IS_PED_IN_ANY_VEHICLE(targetPed, false) then
+            local tVeh = PED.GET_VEHICLE_PED_IS_IN(targetPed, false)
+            if isValidEntity(tVeh) then
+                getControlOfEntity(tVeh)
+                if VEHICLE and VEHICLE.EXPLODE_VEHICLE then
+                    VEHICLE.EXPLODE_VEHICLE(tVeh, true, false)
+                end
+                ENTITY.SET_ENTITY_HEALTH(tVeh, 0)
+            end
+        end
+    end)
+
+    -- 4. Dano letal garantido no ped (eliminação 100% imediata)
+    pcall(function()
+        if isValidEntity(targetPed) and not PED.IS_PED_INJURED(targetPed) then
+            getControlOfEntity(targetPed)
+            if PED and PED.APPLY_DAMAGE_TO_PED then
+                PED.APPLY_DAMAGE_TO_PED(targetPed, 10000, false)
+            end
+            ENTITY.SET_ENTITY_HEALTH(targetPed, 0)
+        end
+    end)
+end
+
+local function triggerOverwatchMachineGunBurst(targetPed, droneCoords)
+    if not isValidEntity(targetPed) then return end
+    local myPed = getLocalPed()
+    if not isValidEntity(myPed) then return end
+
+    -- Munição pura de metralhadora balística real (SEM NENHUMA EXPLOSÃO)
+    local bulletHash = getHash("WEAPON_COMBATMG_MK2")
+    if bulletHash == 0 then bulletHash = 2634544996 end
+
+    pcall(function()
+        if WEAPON then
+            if WEAPON.REQUEST_WEAPON_ASSET then
+                WEAPON.REQUEST_WEAPON_ASSET(bulletHash, 31, 0)
+            end
+            if WEAPON.HAS_PED_GOT_WEAPON and not WEAPON.HAS_PED_GOT_WEAPON(myPed, bulletHash, false) then
+                WEAPON.GIVE_WEAPON_TO_PED(myPed, bulletHash, 9999, false, false)
+            end
+        end
+    end)
+
+    local bulletDmg = 45
+
+    local curDronePos = droneCoords
+    if S.overwatchDroneObj and isValidEntity(S.overwatchDroneObj) then
+        curDronePos = ENTITY.GET_ENTITY_COORDS(S.overwatchDroneObj, true)
+    end
+
+    local tCoords = ENTITY.GET_ENTITY_COORDS(targetPed, true)
+
+    local dirX = tCoords.x - curDronePos.x
+    local dirY = tCoords.y - curDronePos.y
+    local dirZ = (tCoords.z + 0.35) - curDronePos.z
+    local len = math.sqrt(dirX * dirX + dirY * dirY + dirZ * dirZ)
+    if len > 0.001 then
+        dirX = dirX / len
+        dirY = dirY / len
+        dirZ = dirZ / len
+    else
+        dirX, dirY, dirZ = 0, 0, -1
+    end
+
+    -- Vetor lateral para canos duplos
+    local rightX = -dirY
+    local rightY = dirX
+
+    -- Áudio autêntico de metralhadora tática
+    pcall(function()
+        if AUDIO and AUDIO.PLAY_SOUND_FROM_COORD then
+            AUDIO.PLAY_SOUND_FROM_COORD(-1, "Air_Defences_Guns_Fire", curDronePos.x, curDronePos.y, curDronePos.z, "DLC_sum20_Business_Battle_AC_Sounds", false, 0, false)
+        end
+    end)
+
+    -- Execução 100% não-bloqueante (SEM YIELD) para preservar o voo fluido a 60 FPS
+    for _, side in ipairs({ -0.20, 0.20 }) do
+        local muzzleX = curDronePos.x + (dirX * 0.90) + (rightX * side)
+        local muzzleY = curDronePos.y + (dirY * 0.90) + (rightY * side)
+        local muzzleZ = curDronePos.z - 0.05 + (dirZ * 0.10)
+
+        local spreadX = (math.random(-2, 2) * 0.01)
+        local spreadY = (math.random(-2, 2) * 0.01)
+        local spreadZ = (math.random(-2, 2) * 0.01)
+
+        local destX = tCoords.x + spreadX
+        local destY = tCoords.y + spreadY
+        local destZ = tCoords.z + 0.35 + spreadZ
+
+        -- Traçante luminoso visível (linha incandescente dourada da metralhadora)
+        if GRAPHICS and GRAPHICS.DRAW_LINE then
+            GRAPHICS.DRAW_LINE(muzzleX, muzzleY, muzzleZ, destX, destY, destZ, 255, 220, 60, 240)
+        end
+
+        pcall(function()
+            if MISC and MISC.SHOOT_SINGLE_BULLET_BETWEEN_COORDS then
+                MISC.SHOOT_SINGLE_BULLET_BETWEEN_COORDS(
+                    muzzleX, muzzleY, muzzleZ,
+                    destX, destY, destZ,
+                    bulletDmg,
+                    true,
+                    bulletHash,
+                    myPed,
+                    true,
+                    false,
+                    3500.0
+                )
+            end
+        end)
+    end
+
+    -- Dano balístico direto ao alvo (sem explosão)
+    pcall(function()
+        if PED and PED.APPLY_DAMAGE_TO_PED and isValidEntity(targetPed) then
+            PED.APPLY_DAMAGE_TO_PED(targetPed, bulletDmg, false)
+        end
+    end)
+end
+
+local function startOverwatchLoop()
+    if S.overwatchLoopActive then return end
+    S.overwatchLoopActive = true
+
+    script.run_in_callback(function()
+        notify.info("Overwatch", "Drone Tático Ativado!")
+        showFeedNotification("~g~[OVERWATCH] ~w~Drone Tático voando e escoltando.")
+
+        local bestThreat = nil
+        local lastScanTime = 0
+
+        while S.overwatchActive do
+            pcall(function()
+                local myPed = getLocalPed()
+                if not isValidEntity(myPed) or PED.IS_PED_INJURED(myPed) then
+                    deleteOverwatchDrone()
+                    script.yield(500)
+                    return
+                end
+
+                -- Se o drone foi despachado para mergulho kamikaze e ainda está em voo
+                if S.overwatchIsDiving then
+                    script.yield(100)
+                    return
+                end
+
+                local drone = S.overwatchDroneObj
+                if not isValidEntity(drone) then
+                    drone = spawnOverwatchDrone()
+                end
+
+                if not isValidEntity(drone) then
+                    script.yield(100)
+                    return
+                end
+
+                local now = gameTimer()
+
+                -- Determina entidade pai (se o jogador estiver em veículo, acompanha o teto do veículo)
+                local parentEnt = myPed
+                if PED and PED.IS_PED_IN_ANY_VEHICLE and PED.IS_PED_IN_ANY_VEHICLE(myPed, false) then
+                    local veh = PED.GET_VEHICLE_PED_IS_IN(myPed, false)
+                    if isValidEntity(veh) then
+                        parentEnt = veh
+                        if ENTITY.SET_ENTITY_NO_COLLISION_ENTITY then
+                            ENTITY.SET_ENTITY_NO_COLLISION_ENTITY(drone, veh, false)
+                        end
+                    end
+                end
+
+                local pCoords = ENTITY.GET_ENTITY_COORDS(parentEnt, true)
+                local pHeading = ENTITY.GET_ENTITY_HEADING(parentEnt)
+                local rad = math.rad(pHeading)
+                local fwdX = -math.sin(rad)
+                local fwdY =  math.cos(rad)
+                local rightX =  math.cos(rad)
+                local rightY =  math.sin(rad)
+
+                local offX = S.overwatchSideOffset or 0.0
+                local offY = -0.10
+                local baseHeight = S.overwatchHeightOffset or 2.2
+                local offZ = (parentEnt == myPed) and baseHeight or (baseHeight + 1.0)
+
+                -- Flutuação orgânica dupla (micro-correntes de ar de sustentação)
+                local hoverBob = (math.sin(now / 380.0) * 0.04) + (math.cos(now / 720.0) * 0.015)
+                local targetX = pCoords.x + (rightX * offX) + (fwdX * offY)
+                local targetY = pCoords.y + (rightY * offX) + (fwdY * offY)
+                local targetZ = pCoords.z + offZ + hoverBob
+
+                -- Movimento Suave com Interpolação Amortecida (Lerp Fluido)
+                local curCoords = ENTITY.GET_ENTITY_COORDS(drone, true)
+                local dx = targetX - curCoords.x
+                local dy = targetY - curCoords.y
+                local dz = targetZ - curCoords.z
+                local distToTarget = math.sqrt(dx*dx + dy*dy + dz*dz)
+
+                local followRate = 0.16
+                if distToTarget > 12.0 then
+                    followRate = 1.0
+                elseif distToTarget > 3.0 then
+                    followRate = 0.35
+                end
+
+                local nextX = curCoords.x + (dx * followRate)
+                local nextY = curCoords.y + (dy * followRate)
+                local nextZ = curCoords.z + (dz * followRate)
+
+                -- Inclinação dinâmica de voo (Pitch e Roll baseados na velocidade de deslocamento)
+                local velX = (nextX - curCoords.x) * 30.0
+                local velY = (nextY - curCoords.y) * 30.0
+                local forwardDot = (velX * fwdX + velY * fwdY)
+                local rightDot   = (velX * rightX + velY * rightY)
+
+                local targetPitch = math.max(-12.0, math.min(12.0, forwardDot * -3.5))
+                local targetRoll  = math.max(-15.0, math.min(15.0, rightDot * -4.5))
+
+                -- Varredura de ameaças a cada 100ms para alta sensibilidade
+                if (now - lastScanTime) >= 100 then
+                    lastScanTime = now
+                    local bestDist = S.overwatchProtectionRadius or 50.0
+                    local minFireDist = (S.overwatchWeaponMode == 2 or S.overwatchWeaponMode == 3) and 1.0 or ((S.overwatchWeaponMode == 4) and 0.5 or 5.0)
+
+                    -- Se já tivermos uma ameaça válida travada, mantém foco nela para não perder o alvo
+                    local keepThreat = false
+                    if isValidEntity(bestThreat) and not PED.IS_PED_INJURED(bestThreat) then
+                        local cCoords = ENTITY.GET_ENTITY_COORDS(bestThreat, true)
+                        local cdx = cCoords.x - pCoords.x
+                        local cdy = cCoords.y - pCoords.y
+                        local cdz = cCoords.z - pCoords.z
+                        local dist = math.sqrt(cdx*cdx + cdy*cdy + cdz*cdz)
+                        if dist >= minFireDist and dist <= (bestDist * 1.25) then
+                            if S.overwatchAggressiveMode or isPedOfferingThreat(bestThreat, myPed) then
+                                keepThreat = true
+                            end
+                        end
+                    end
+
+                    if not keepThreat then
+                        local allPeds = getAllNearbyPeds(bestDist)
+                        local candidateThreat = nil
+                        local candidateDist = bestDist + 1.0
+
+                        for _, candidate in ipairs(allPeds) do
+                            if isValidEntity(candidate) and candidate ~= myPed and not PED.IS_PED_INJURED(candidate) then
+                                local cCoords = ENTITY.GET_ENTITY_COORDS(candidate, true)
+                                local cdx = cCoords.x - pCoords.x
+                                local cdy = cCoords.y - pCoords.y
+                                local cdz = cCoords.z - pCoords.z
+                                local dist = math.sqrt(cdx*cdx + cdy*cdy + cdz*cdz)
+
+                                if dist >= minFireDist and dist <= bestDist then
+                                    local isThreat = false
+                                    if S.overwatchAggressiveMode then
+                                        -- Modo Totalmente Agressivo: Alveja TODOS no raio
+                                        isThreat = true
+                                    else
+                                        -- Modo Defensivo: Apontando arma para o jogador ou oferecendo perigo
+                                        isThreat = isPedOfferingThreat(candidate, myPed)
+                                    end
+
+                                    if isThreat and dist < candidateDist then
+                                        candidateDist = dist
+                                        candidateThreat = candidate
+                                    end
+                                end
+                            end
+                        end
+                        bestThreat = candidateThreat
+                    end
+                end
+
+                -- Se a ameaça foi eliminada
+                if bestThreat and (not isValidEntity(bestThreat) or PED.IS_PED_INJURED(bestThreat)) then
+                    bestThreat = nil
+                    S.overwatchTargetPed = nil
+                    S.overwatchLockStartTime = 0
+                end
+
+                local isMgOnly = (S.overwatchWeaponMode == 2)
+                local isHybrid = (S.overwatchWeaponMode == 3)
+                local effectiveCooldown = S.overwatchCooldown or 3.0
+                if isMgOnly or isHybrid then
+                    effectiveCooldown = 0.10 -- 100ms entre rajadas para a metralhadora
+                end
+                local canShoot = (now - S.overwatchLastStrikeTime) >= (effectiveCooldown * 1000)
+
+                -- Rotação angular suave com atan2 matematicamente correto no espaço GTA V
+                local desiredHeading = pHeading
+                if isValidEntity(bestThreat) then
+                    local tCoords = ENTITY.GET_ENTITY_COORDS(bestThreat, true)
+                    local atanFunc = math.atan2 or math.atan
+                    desiredHeading = (math.deg(atanFunc(-(tCoords.x - nextX), tCoords.y - nextY)) + 360.0) % 360.0
+
+                    -- Mira vertical dinâmica (aponta o nariz do drone para o tórax do alvo)
+                    local tdz = (tCoords.z + 0.35) - nextZ
+                    local dist2D = math.sqrt((tCoords.x - nextX)^2 + (tCoords.y - nextY)^2)
+                    if dist2D > 0.5 then
+                        local aimPitch = math.deg(atanFunc(tdz, dist2D))
+                        targetPitch = math.max(-28.0, math.min(22.0, aimPitch))
+                    end
+                    targetRoll = targetRoll * 0.25
+                end
+
+                local curHeading = ENTITY.GET_ENTITY_HEADING(drone)
+                local hDiff = (desiredHeading - curHeading + 180.0) % 360.0 - 180.0
+                local nextHeading = (curHeading + hDiff * 0.28) % 360.0
+
+                ENTITY.FREEZE_ENTITY_POSITION(drone, true)
+                if ENTITY.SET_ENTITY_HAS_GRAVITY then
+                    ENTITY.SET_ENTITY_HAS_GRAVITY(drone, false)
+                end
+                ENTITY.SET_ENTITY_COLLISION(drone, false, false)
+                ENTITY.SET_ENTITY_COORDS_NO_OFFSET(drone, nextX, nextY, nextZ, false, false, false)
+                ENTITY.SET_ENTITY_VELOCITY(drone, 0.0, 0.0, 0.0)
+                ENTITY.SET_ENTITY_ANGULAR_VELOCITY(drone, 0.0, 0.0, 0.0)
+
+                pcall(function()
+                    if ENTITY.SET_ENTITY_ROTATION then
+                        ENTITY.SET_ENTITY_ROTATION(drone, targetPitch, targetRoll, nextHeading, 2, true)
+                    else
+                        ENTITY.SET_ENTITY_HEADING(drone, nextHeading)
+                    end
+                end)
+
+                if isValidEntity(bestThreat) then
+                    local tCoords = ENTITY.GET_ENTITY_COORDS(bestThreat, true)
+
+                    -- Trava laser vermelho vivo contínuo no peito do alvo
+                    if GRAPHICS and GRAPHICS.DRAW_LINE then
+                        GRAPHICS.DRAW_LINE(nextX, nextY, nextZ, tCoords.x, tCoords.y, tCoords.z + 0.25, 255, 0, 0, 245)
+                    end
+
+                    -- Notifica APENAS quando o drone se sente ameaçado (ao travar na ameaça)
+                    if S.overwatchTargetPed ~= bestThreat then
+                        S.overwatchTargetPed = bestThreat
+                        S.overwatchLockStartTime = now
+                        showFeedNotification("~r~[OVERWATCH] ~w~Ameaça detectada! Mirando no alvo...")
+                        pcall(function()
+                            if AUDIO and AUDIO.PLAY_SOUND_FRONTEND then
+                                AUDIO.PLAY_SOUND_FRONTEND(-1, "Beep_Red", "DLC_HEIST_HACKING_SNAKE_SOUNDS", true)
+                            end
+                        end)
+                    end
+
+                    local lockDelay = (isMgOnly or isHybrid) and 60 or (S.overwatchWeaponMode == 4 and 180 or 500)
+                    if (now - S.overwatchLockStartTime) >= lockDelay and canShoot then
+                        local dCoords = { x = nextX, y = nextY, z = nextZ }
+                        if S.overwatchWeaponMode == 1 then
+                            -- Apenas Mísseis Orbitais (com explosão pesada)
+                            triggerOverwatchMissileStrike(bestThreat)
+                            S.overwatchLastStrikeTime = gameTimer()
+                        elseif S.overwatchWeaponMode == 2 then
+                            -- Apenas Metralhadora Tática (apenas balas balísticas, SEM explosão)
+                            triggerOverwatchMachineGunBurst(bestThreat, dCoords)
+                            S.overwatchLastStrikeTime = gameTimer()
+                        elseif S.overwatchWeaponMode == 3 then
+                            -- Ambos Juntos (Metralhadora contínua + Míssil Orbital simultâneo)
+                            triggerOverwatchMachineGunBurst(bestThreat, dCoords)
+                            if (now - (S.overwatchLastMissileTime or 0)) >= ((S.overwatchCooldown or 3.0) * 1000) then
+                                triggerOverwatchMissileStrike(bestThreat)
+                                S.overwatchLastMissileTime = gameTimer()
+                            end
+                            S.overwatchLastStrikeTime = gameTimer()
+                        elseif S.overwatchWeaponMode == 4 then
+                            local tName = "Ameaça Armada"
+                            local cDrone = drone
+                            S.overwatchDroneObj = nil
+                            S.overwatchIsDiving = true
+                            triggerKamikazeFlight(cDrone, bestThreat, tCoords, tName, true)
+                            S.overwatchLastStrikeTime = gameTimer()
+                        end
+
+                        if PED.IS_PED_INJURED(bestThreat) then
+                            bestThreat = nil
+                            S.overwatchTargetPed = nil
+                            S.overwatchLockStartTime = 0
+                        end
+                    end
+                else
+                    S.overwatchTargetPed = nil
+                    S.overwatchLockStartTime = 0
+                end
+            end)
+            script.yield(0)
+        end
+
+        deleteOverwatchDrone()
+        S.overwatchLoopActive = false
+        notify.info("Overwatch", "Micro-Drone Guardiao Desativado.")
+        showFeedNotification("~y~[OVERWATCH] ~w~Micro-Drone recolhido.")
+    end)
+end
+
+------------------------------------------------------------
+-- DRONE KAMIKAZE TÁTICO (SUICIDA / FPV)
+------------------------------------------------------------
+
+local function clearActiveKamikazeDrones()
+    script.run_in_callback(function()
+        if S.activeKamikazeDrones then
+            local list = S.activeKamikazeDrones
+            S.activeKamikazeDrones = {}
+            for _, drone in ipairs(list) do
+                if isValidEntity(drone) then
+                    safeDeleteEntity(drone)
+                    script.yield(15)
+                end
+            end
+        end
+        notify.info("Kamikaze", "Drones kamikaze limpos e abortados.")
+    end)
+end
+
+local function triggerKamikazeFlight(drone, targetPed, targetCoords, targetName, isCompanionDrone)
+    if not isValidEntity(drone) then return end
+
+    pcall(function()
+        safeSetInvincible(drone, true)
+        ENTITY.SET_ENTITY_COLLISION(drone, false, false)
+        ENTITY.FREEZE_ENTITY_POSITION(drone, true)
+        if ENTITY.SET_ENTITY_HAS_GRAVITY then ENTITY.SET_ENTITY_HAS_GRAVITY(drone, false) end
+        if ENTITY.SET_ENTITY_DYNAMIC then ENTITY.SET_ENTITY_DYNAMIC(drone, false) end
+        ENTITY.SET_ENTITY_VISIBLE(drone, true, false)
+        if ENTITY.SET_ENTITY_LOCALLY_VISIBLE then ENTITY.SET_ENTITY_LOCALLY_VISIBLE(drone) end
+    end)
+
+    table.insert(S.activeKamikazeDrones, drone)
+
+    notify.warn("Kamikaze", "Drone Suicida FPV lançado em rota de colisao contra: " .. (targetName or "Alvo"))
+    showFeedNotification("~r~[KAMIKAZE] ~w~Drone Suicida FPV em mergulho contra ~y~" .. (targetName or "Alvo"))
+
+    pcall(function()
+        if AUDIO and AUDIO.PLAY_SOUND_FRONTEND then
+            AUDIO.PLAY_SOUND_FRONTEND(-1, "Airhorn", "DLC_TG_Running_Back_Sounds", true)
+            AUDIO.PLAY_SOUND_FRONTEND(-1, "10_SEC_WARNING", "HUD_MINI_GAME_SOUNDSET", true)
+        end
+    end)
+
+    script.run_in_callback(function()
+        local startTime = gameTimer()
+        local lastBeepTime = 0
+        local droneCurCoords = ENTITY.GET_ENTITY_COORDS(drone, true)
+        local dronePos = { x = droneCurCoords.x, y = droneCurCoords.y, z = droneCurCoords.z }
+
+        local myPed = getLocalPed()
+        local myInitialPos = isValidEntity(myPed) and ENTITY.GET_ENTITY_COORDS(myPed, true) or dronePos
+
+        local maxDuration = 25000 -- 25s timeout
+        local frameDelta = 0.02
+
+        while true do
+            script.yield(20)
+            if not isValidEntity(drone) then break end
+
+            local now = gameTimer()
+            local elapsed = (now - startTime)
+            if elapsed > maxDuration then break end
+
+            -- Atualiza coordenadas em tempo real do alvo e verifica veículo
+            if isValidEntity(targetPed) then
+                targetCoords = ENTITY.GET_ENTITY_COORDS(targetPed, true)
+            end
+
+            if not targetCoords then break end
+
+            local aimZ = targetCoords.z + 0.35
+            if isValidEntity(targetPed) and PED.IS_PED_IN_ANY_VEHICLE and PED.IS_PED_IN_ANY_VEHICLE(targetPed, false) then
+                local veh = PED.GET_VEHICLE_PED_IS_IN(targetPed, false)
+                if isValidEntity(veh) then
+                    local vCoords = ENTITY.GET_ENTITY_COORDS(veh, true)
+                    targetCoords = vCoords
+                    aimZ = vCoords.z + 0.6
+                end
+            end
+
+            local dx = targetCoords.x - dronePos.x
+            local dy = targetCoords.y - dronePos.y
+            local dz = aimZ - dronePos.z
+            local dist = math.sqrt(dx * dx + dy * dy + dz * dz)
+
+            -- Linha de telemetria laser vermelho vivo super visível conectando ao alvo
+            if GRAPHICS and GRAPHICS.DRAW_LINE then
+                GRAPHICS.DRAW_LINE(dronePos.x, dronePos.y, dronePos.z, targetCoords.x, targetCoords.y, aimZ, 255, 15, 15, 255)
+            end
+
+            -- Beep de aproximação cada vez mais rápido
+            local beepInterval = math.max(60, math.min(450, dist * 12))
+            if (now - lastBeepTime) >= beepInterval then
+                lastBeepTime = now
+                pcall(function()
+                    if AUDIO and AUDIO.PLAY_SOUND_FRONTEND then
+                        AUDIO.PLAY_SOUND_FRONTEND(-1, "Beep_Red", "DLC_HEIST_HACKING_SNAKE_SOUNDS", true)
+                    end
+                end)
+            end
+
+            -- Distância do jogador local para proteção contra suicídio acidental
+            local currentMyPos = isValidEntity(myPed) and ENTITY.GET_ENTITY_COORDS(myPed, true) or myInitialPos
+            local distFromLocalPlayer = math.sqrt((dronePos.x - currentMyPos.x)^2 + (dronePos.y - currentMyPos.y)^2 + (dronePos.z - currentMyPos.z)^2)
+
+            -- Tempo mínimo de voo de 350ms garante que você veja o drone saindo da cabeça mesmo para inimigos muito colados
+            local minTimePassed = (elapsed >= 350)
+            local canDetonateNow = (dist <= 2.2 and minTimePassed) or (dist <= 1.0)
+
+            if canDetonateNow or (isValidEntity(targetPed) and PED.IS_PED_INJURED(targetPed) and minTimePassed) then
+                local boomX = (dist <= 2.2) and targetCoords.x or dronePos.x
+                local boomY = (dist <= 2.2) and targetCoords.y or dronePos.y
+                local boomZ = (dist <= 2.2) and aimZ or dronePos.z
+
+                -- Protege o jogador local temporariamente se estiver no raio de blast
+                if distFromLocalPlayer < 8.0 and isValidEntity(myPed) then
+                    safeSetInvincible(myPed, true)
+                end
+
+                pcall(function()
+                    if FIRE and FIRE.ADD_EXPLOSION then
+                        -- Tag 29: Canhão Orbital | Tag 2: Explosão Pesada | Tag 9: Tanque Incendiário
+                        FIRE.ADD_EXPLOSION(boomX, boomY, boomZ, 29, 10.0, true, false, 2.0)
+                        FIRE.ADD_EXPLOSION(boomX, boomY, boomZ, 2, 8.0, true, false, 1.2)
+                        FIRE.ADD_EXPLOSION(boomX, boomY, boomZ, 9, 8.0, true, false, 1.2)
+                    end
+
+                    if isValidEntity(targetPed) then
+                        if PED.IS_PED_IN_ANY_VEHICLE and PED.IS_PED_IN_ANY_VEHICLE(targetPed, false) then
+                            local veh = PED.GET_VEHICLE_PED_IS_IN(targetPed, false)
+                            if isValidEntity(veh) and VEHICLE and VEHICLE.EXPLODE_VEHICLE then
+                                VEHICLE.EXPLODE_VEHICLE(veh, true, false)
+                            end
+                        end
+                        ENTITY.SET_ENTITY_HEALTH(targetPed, 0)
+                    end
+
+                    if AUDIO and AUDIO.PLAY_SOUND_FRONTEND then
+                        AUDIO.PLAY_SOUND_FRONTEND(-1, "Bomb_Disarmed", "GTAO_Speed_Convoy_Soundset", true)
+                        AUDIO.PLAY_SOUND_FRONTEND(-1, "ScreenFlash", "WastedSounds", true)
+                    end
+                end)
+
+                showFeedNotification("~r~[KAMIKAZE] ~w~Drone Suicida DETONOU o alvo ~y~" .. (targetName or "") .. "~w~!")
+                notify.success("Kamikaze", "Alvo " .. (targetName or "inimigo") .. " aniquilado por impacto direto!")
+                break
+            end
+
+            -- Rampa de velocidade progressiva
+            local curSpeed = 42.0
+            if dist < 22.0 and elapsed < 400 then
+                curSpeed = 16.0 + (elapsed / 400.0) * 26.0 -- Acelera visivelmente de 16 a 42 m/s
+            end
+
+            local step = math.min(curSpeed * frameDelta, dist)
+            local normX = dx / math.max(0.001, dist)
+            local normY = dy / math.max(0.001, dist)
+            local normZ = dz / math.max(0.001, dist)
+
+            -- Nos primeiros 250ms após sair da cabeça, ganha um leve arco de projeção para a frente
+            local arcZ = 0.0
+            if elapsed < 250 and dist < 25.0 then
+                arcZ = 0.03
+            end
+
+            dronePos.x = dronePos.x + (normX * step)
+            dronePos.y = dronePos.y + (normY * step)
+            dronePos.z = dronePos.z + (normZ * step) + arcZ
+
+            -- Rotação e inclinação apontando diretamente para o alvo
+            local targetHeading = (math.deg(math.atan(dy, dx)) - 90.0 + 360.0) % 360.0
+            local pitchAngle = math.deg(math.atan(dz, math.sqrt(dx*dx + dy*dy)))
+
+            ENTITY.SET_ENTITY_COORDS_NO_OFFSET(drone, dronePos.x, dronePos.y, dronePos.z, false, false, false)
+            pcall(function()
+                if ENTITY.SET_ENTITY_ROTATION then
+                    ENTITY.SET_ENTITY_ROTATION(drone, -pitchAngle, 0.0, targetHeading, 2, true)
+                else
+                    ENTITY.SET_ENTITY_HEADING(drone, targetHeading)
+                end
+            end)
+        end
+
+        if isValidEntity(drone) then
+            safeDeleteEntity(drone)
+        end
+
+        for idx, d in ipairs(S.activeKamikazeDrones) do
+            if d == drone then
+                table.remove(S.activeKamikazeDrones, idx)
+                break
+            end
+        end
+
+        -- Se o drone era o guardião da cabeça, re-spawna um novo após o impacto
+        if isCompanionDrone and S.overwatchActive then
+            script.yield(3000)
+            if S.overwatchActive and (not S.overwatchDroneObj or not isValidEntity(S.overwatchDroneObj)) then
+                S.overwatchIsDiving = false
+                spawnOverwatchDrone()
+                showFeedNotification("~g~[OVERWATCH] ~w~Novo Micro-Drone Guardiao reconstruido e em posicao!")
+            end
+        end
+    end)
+end
+
+local function triggerKamikazeDrone(targetPid)
+    if targetPid == -2 then
+        if triggerKamikazeAllSession then
+            triggerKamikazeAllSession()
+        end
+        return
+    end
+
+    local myLocalPid = getLocalPid()
+    local actualPid = (targetPid == nil or targetPid == -1) and myLocalPid or targetPid
+    local targetPed = getPlayerPed(actualPid)
+    local targetName = (actualPid == myLocalPid) and "Você" or getPlayerName(actualPid)
+    local targetCoords = getTargetCoordsSafe(actualPid, targetPed)
+
+    if not targetCoords or (targetCoords.x == 0 and targetCoords.y == 0 and targetCoords.z == 0) then
+        notify.warn("Kamikaze", "Alvo inválido ou não encontrado no mapa.")
+        return
+    end
+
+    script.run_in_callback(function()
+        local drone = nil
+        local isCompanion = false
+
+        -- Se o drone companheiro sobre a cabeça estiver ativo, USA ELE DIRETAMENTE!
+        if S.overwatchActive and S.overwatchDroneObj and isValidEntity(S.overwatchDroneObj) then
+            drone = S.overwatchDroneObj
+            S.overwatchDroneObj = nil -- Desanexa do loop da cabeça para não congelar as coordenadas
+            S.overwatchIsDiving = true
+            isCompanion = true
+        else
+            -- Spawna um novo drone tático acima da cabeça do jogador
+            local droneHash = getHash("ba_prop_battle_drone_quad")
+            if not requestAndLoadModel(droneHash, 200) then
+                droneHash = getHash("m24_2_prop_m42_drone_01a")
+                if not requestAndLoadModel(droneHash, 200) then
+                    droneHash = getHash("ch_prop_casino_drone_01a")
+                    requestAndLoadModel(droneHash, 200)
+                end
+            end
+
+            local myPed = getLocalPed()
+            local myCoords = isValidEntity(myPed) and ENTITY.GET_ENTITY_COORDS(myPed, true) or targetCoords
+            local hOff = S.overwatchHeightOffset or 2.2
+            local spawnX = myCoords.x
+            local spawnY = myCoords.y
+            local spawnZ = myCoords.z + hOff
+
+            drone = safeCreateStuntProp(droneHash, spawnX, spawnY, spawnZ, false)
+        end
+
+        if not isValidEntity(drone) then
+            notify.error("Kamikaze", "Não foi possível preparar o drone kamikaze.")
+            return
+        end
+
+        triggerKamikazeFlight(drone, targetPed, targetCoords, targetName, isCompanion)
+    end)
+end
+
+local function triggerKamikazeAllSession()
+    local players = getActivePlayersList()
+    if #players == 0 then
+        notify.warn("Kamikaze", "Nenhum jogador encontrado na sessao.")
+        return
+    end
+
+    notify.warn("Kamikaze", string.format("Ataque Global! Despachando Drones Kamikaze para os %d jogadores...", #players))
+    showFeedNotification("~r~[KAMIKAZE GLOBAL] ~w~Enxame de Drones Suicidas despachado para toda a sessao!")
+
+    script.run_in_callback(function()
+        for _, pid in ipairs(players) do
+            triggerKamikazeDrone(pid)
+            script.yield(200)
+        end
+    end)
+end
+
+
+
+------------------------------------------------------------
 -- IMGUI TAB RENDERERS (ENGLISH)
 ------------------------------------------------------------
 
@@ -4022,6 +6367,185 @@ local function renderTabJets()
     if imgui.button("Attack Entire Session (2 Jets per Player)##launch_jets_all_btn") then triggerDogfightAttackAllSession() end
     imgui.same_line()
     if imgui.button("Clear / Purge Jets from Map##clear_jets_btn") then clearActiveDogfightJets() end
+    imgui.end_tab_item()
+end
+
+local function renderTabOverwatchDrone()
+    if not imgui.begin_tab_item("Drone Overwatch") then return end
+    imgui.spacing()
+    imgui.text("=== MICRO-DRONE TATICO OVERWATCH GUARDIÃO ===")
+    imgui.text("Defesa aerea pessoal autonoma com trava laser e missil orbital.")
+    imgui.separator()
+    imgui.spacing()
+
+    local c1, v1 = imgui.checkbox("Ativar Micro-Drone Guardiao##ow_active_chk", S.overwatchActive)
+    if c1 then
+        S.overwatchActive = v1
+        if S.overwatchActive then
+            startOverwatchLoop()
+        else
+            script.run_in_callback(function()
+                deleteOverwatchDrone()
+            end)
+        end
+    end
+
+    imgui.spacing()
+    imgui.text("Modo de Comportamento:")
+    local c2, v2 = imgui.checkbox("Modo Exterminio Total (Atira em TODOS no raio!)##ow_aggr_chk", S.overwatchAggressiveMode)
+    if c2 then
+        S.overwatchAggressiveMode = v2
+        notify.info("Overwatch", S.overwatchAggressiveMode and "Modo: Exterminio Total (Atira em TODOS no raio!)" or "Modo: Defensivo (Apenas Atacantes)")
+    end
+    if not S.overwatchAggressiveMode then
+        imgui.text("Status: Modo Defensivo (Dispara apenas quando atacado)")
+    else
+        imgui.text("Status: TOTALMENTE AGRESSIVO! (Atira e elimina TODOS os peds no raio)")
+    end
+
+    imgui.spacing()
+    imgui.separator()
+    imgui.spacing()
+
+    imgui.text("Armamento do Drone (Selecione o Tipo de Tiro):")
+    if imgui.button((S.overwatchWeaponMode == 1 and "[X] Misseis Orbitais" or "Misseis Orbitais") .. "##ow_wpn_1") then
+        S.overwatchWeaponMode = 1
+        notify.info("Overwatch", "Armamento: Misseis Orbitais (Apenas Misseis com Explosao)")
+    end
+    imgui.same_line()
+    if imgui.button((S.overwatchWeaponMode == 2 and "[X] Metralhadora Tatica" or "Metralhadora Tatica") .. "##ow_wpn_2") then
+        S.overwatchWeaponMode = 2
+        notify.info("Overwatch", "Armamento: Metralhadora Tatica (Apenas Balas, SEM Explosao)")
+    end
+    imgui.same_line()
+    if imgui.button((S.overwatchWeaponMode == 3 and "[X] Ambos Juntos" or "Ambos Juntos") .. "##ow_wpn_3") then
+        S.overwatchWeaponMode = 3
+        notify.info("Overwatch", "Armamento: Ambos Juntos (Metralhadora + Misseis)")
+    end
+    imgui.same_line()
+    if imgui.button((S.overwatchWeaponMode == 4 and "[X] Kamikaze Suicida" or "Kamikaze Suicida") .. "##ow_wpn_4") then
+        S.overwatchWeaponMode = 4
+        notify.info("Overwatch", "Armamento: Drone Kamikaze (Sai da sua cabeca e mergulha no alvo!)")
+    end
+
+    if S.overwatchWeaponMode == 1 then
+        imgui.text("Modo Ativo: Misseis Orbitais (Apenas Misseis com impacto e explosao pesada)")
+    elseif S.overwatchWeaponMode == 2 then
+        imgui.text("Modo Ativo: Metralhadora Tatica (Apenas Balas balisticas continuas com tracantes, SEM explosao)")
+    elseif S.overwatchWeaponMode == 3 then
+        imgui.text("Modo Ativo: Ambos Juntos (Rajadas continuas de metralhadora + Misseis simultaneos)")
+    elseif S.overwatchWeaponMode == 4 then
+        imgui.text("Modo Ativo: Drone Kamikaze Suicida! (O drone sai da sua cabeca, mergulha no inimigo e se auto-reconstroi)")
+    end
+
+    imgui.spacing()
+    imgui.separator()
+    imgui.spacing()
+
+    imgui.text("Raio de Protecao: " .. math.floor(S.overwatchProtectionRadius) .. "m")
+    if imgui.button("25m##ow_rad25") then S.overwatchProtectionRadius = 25.0 end
+    imgui.same_line()
+    if imgui.button("50m##ow_rad50") then S.overwatchProtectionRadius = 50.0 end
+    imgui.same_line()
+    if imgui.button("75m##ow_rad75") then S.overwatchProtectionRadius = 75.0 end
+    imgui.same_line()
+    if imgui.button("100m##ow_rad100") then S.overwatchProtectionRadius = 100.0 end
+
+    imgui.spacing()
+    imgui.text("Intervalo entre Disparos: " .. string.format("%.1f", S.overwatchCooldown) .. "s")
+    if imgui.button("2.0s##ow_cd2") then S.overwatchCooldown = 2.0 end
+    imgui.same_line()
+    if imgui.button("3.5s##ow_cd35") then S.overwatchCooldown = 3.5 end
+    imgui.same_line()
+    if imgui.button("5.0s##ow_cd5") then S.overwatchCooldown = 5.0 end
+    imgui.same_line()
+    if imgui.button("8.0s##ow_cd8") then S.overwatchCooldown = 8.0 end
+
+    imgui.spacing()
+    imgui.text("Trava de Seguranca: Misseis bloqueados se alvo < 8m do jogador.")
+    imgui.spacing()
+    imgui.separator()
+    imgui.spacing()
+
+    imgui.text("Posicionamento e Altura do Drone:")
+    imgui.text("Altura Acima da Cabeca (Z): " .. string.format("%.1f", S.overwatchHeightOffset) .. "m")
+    if imgui.button("1.8m##ow_h18") then S.overwatchHeightOffset = 1.8 end
+    imgui.same_line()
+    if imgui.button("2.2m (Padrao Cabeca)##ow_h22") then S.overwatchHeightOffset = 2.2 end
+    imgui.same_line()
+    if imgui.button("2.8m (Alto)##ow_h28") then S.overwatchHeightOffset = 2.8 end
+    imgui.same_line()
+    if imgui.button("3.5m (Topo)##ow_h35") then S.overwatchHeightOffset = 3.5 end
+
+    imgui.spacing()
+    imgui.text("Alinhamento Horizontal:")
+    if imgui.button("Centralizado Acima da Cabeca (Padrao)##ow_pos_center") then S.overwatchSideOffset = 0.0 end
+    imgui.same_line()
+    if imgui.button("Ombro Direito##ow_pos_right") then S.overwatchSideOffset = 0.8 end
+    imgui.same_line()
+    if imgui.button("Ombro Esquerdo##ow_pos_left") then S.overwatchSideOffset = -0.8 end
+
+    imgui.spacing()
+    imgui.separator()
+    imgui.spacing()
+
+    if imgui.button("Disparar Ataque Orbital no Ponto da Mira##ow_aim_strike_btn") then
+        script.run_in_callback(function()
+            local ped = getLocalPed()
+            if not isValidEntity(ped) then return end
+            local camDir = getCameraDirection()
+            local pCoords = ENTITY.GET_ENTITY_COORDS(ped, true)
+            local targetX = pCoords.x + camDir.x * 35.0
+            local targetY = pCoords.y + camDir.y * 35.0
+            local targetZ = pCoords.z + camDir.z * 35.0
+
+            local skyZ = targetZ + 180.0
+            local rocketHash = getHash("VEHICLE_WEAPON_SPACE_ROCKET")
+            if rocketHash == 0 then rocketHash = getHash("WEAPON_EXPLOSION") end
+
+            MISC.SHOOT_SINGLE_BULLET_BETWEEN_COORDS(
+                targetX, targetY, skyZ,
+                targetX, targetY, targetZ,
+                10000, true, rocketHash, ped, true, false, 950.0
+            )
+            pcall(function()
+                if FIRE and FIRE.ADD_EXPLOSION then
+                    FIRE.ADD_EXPLOSION(targetX, targetY, targetZ, 29, 10.0, true, false, 1.5)
+                    FIRE.ADD_EXPLOSION(targetX, targetY, targetZ, 2, 5.0, true, false, 1.0)
+                end
+                if AUDIO and AUDIO.PLAY_SOUND_FRONTEND then
+                    AUDIO.PLAY_SOUND_FRONTEND(-1, "Airhorn", "DLC_TG_Running_Back_Sounds", true)
+                    AUDIO.PLAY_SOUND_FRONTEND(-1, "ScreenFlash", "WastedSounds", true)
+                end
+            end)
+            showFeedNotification("~r~[OVERWATCH] ~w~Ataque orbital manual devastador executado!")
+        end)
+    end
+
+    imgui.spacing()
+    imgui.separator()
+    imgui.spacing()
+    imgui.text("=== DRONE KAMIKAZE TÁTICO (SUICIDA / FPV) ===")
+    imgui.text("Despache um drone suicida teleguiado de alta velocidade contra outro jogador.")
+    imgui.spacing()
+
+    imgui.text("Selecione o Jogador Alvo:")
+    renderPlayerTargetSelector(S.selectedKamikazePid, function(pid) S.selectedKamikazePid = pid end, "kamikaze_drone", true)
+    imgui.spacing()
+
+    if imgui.button("Lancar Drone Kamikaze no Alvo Selecionado##launch_kamikaze_single") then
+        triggerKamikazeDrone(S.selectedKamikazePid)
+    end
+    imgui.same_line()
+    if imgui.button("Lancar Enxame Kamikaze na Sessao Inteira (Caos Global)##launch_kamikaze_all") then
+        triggerKamikazeAllSession()
+    end
+    imgui.same_line()
+    if imgui.button("Abortar / Limpar Drones Kamikaze##clear_kamikaze_btn") then
+        clearActiveKamikazeDrones()
+        notify.info("Kamikaze", "Drones kamikaze ativos cancelados e removidos.")
+    end
+
     imgui.end_tab_item()
 end
 
@@ -4161,6 +6685,87 @@ local function renderTabVehicleControls()
     if imgui.button(S.isCarryingPlayer and "Release Carried Player##carry_ply_btn" or "Carry Player in Arms##carry_ply_btn") then
         startCarryingPlayer(getTargetPlayerPed())
     end
+    imgui.end_tab_item()
+end
+
+local function renderTabXmlVehicles()
+    if not imgui.begin_tab_item("XML Vehicles") then return end
+    imgui.spacing()
+    imgui.text("Spinethetic Custom XML Vehicles (Menyoo / Stand Advanced Loader):")
+    imgui.separator()
+    imgui.spacing()
+
+    -- Quick Spawn Presets
+    if imgui.button(">> SPAWN THE SPINE PINCHER <<##tab_pincher_btn") then
+        loadAndSpawnXmlVehicle("SpinePincher.xml")
+    end
+    imgui.same_line()
+    if imgui.button(">> SPAWN FUCKT2 BLIMP <<##tab_blimp_btn") then
+        loadAndSpawnXmlVehicle("Spinethetic-FuckT2Blimp.xml")
+    end
+    imgui.same_line()
+    if imgui.button("Limpar Veiculo##tab_clean_veh_btn") then
+        cleanCustomVehicle(true)
+    end
+    imgui.same_line()
+    if imgui.button("Descongelar / Destravar##tab_unfreeze_btn") then
+        unfreezeCustomVehicle()
+    end
+
+    imgui.spacing()
+    if imgui.button("Hamburger's Revenge##tab_burger_btn") then
+        loadAndSpawnXmlVehicle("Spinethetic-HamburgersRevenge.xml")
+    end
+    imgui.same_line()
+    if imgui.button("Xmas Sleigh Boat##tab_sleigh_btn") then
+        loadAndSpawnXmlVehicle("Spinethetic-XmasSleighBoat.xml")
+    end
+    imgui.same_line()
+    if imgui.button("Zombie Sabre GT##tab_zombie_btn") then
+        loadAndSpawnXmlVehicle("Spinethetic-ZombieSabreGT.xml")
+    end
+
+    imgui.spacing(); imgui.separator(); imgui.spacing()
+    imgui.text("Opcoes de Spawn:")
+    local cWarp, vWarp = imgui.checkbox("Entrar no banco do motorista automaticamente##xml_warp_chk", S.xmlWarpInside ~= false)
+    if cWarp then S.xmlWarpInside = vWarp end
+    imgui.same_line()
+    local cGod, vGod = imgui.checkbox("Invencivel (Godmode)##xml_god_chk", S.xmlInvincible ~= false)
+    if cGod then S.xmlInvincible = vGod end
+    imgui.same_line()
+    local cAir, vAir = imgui.checkbox("Spawnar no Ar (+15m)##xml_air_chk", S.xmlSpawnInAir or false)
+    if cAir then S.xmlSpawnInAir = vAir end
+
+    imgui.spacing(); imgui.separator(); imgui.spacing()
+    imgui.text("Arquivos XML Detectados na Pasta:")
+    if imgui.button("Escanear / Atualizar Lista de XMLs##xml_scan_btn") or not S.discoveredXmlFiles or #S.discoveredXmlFiles == 0 then
+        refreshDiscoveredXmlFiles()
+    end
+
+    if S.discoveredXmlFiles and #S.discoveredXmlFiles > 0 then
+        for i, xmlFile in ipairs(S.discoveredXmlFiles) do
+            if imgui.button("Spawn##xml_spawn_btn_" .. tostring(i)) then
+                S.customXmlVehiclePath = xmlFile
+                loadAndSpawnXmlVehicle(xmlFile)
+            end
+            imgui.same_line()
+            imgui.text(xmlFile)
+        end
+    end
+
+    imgui.spacing(); imgui.separator(); imgui.spacing()
+    imgui.text("Arquivo XML Manual (Nome ou Caminho Completo):")
+    local cPath, vPath = imgui.input_text("Arquivo XML##tab_xml_input", S.customXmlVehiclePath or "SpinePincher.xml")
+    if cPath then S.customXmlVehiclePath = vPath end
+    if imgui.button("Carregar & Spawnar Arquivo XML##tab_spawn_file_btn") then
+        loadAndSpawnXmlVehicle(S.customXmlVehiclePath)
+    end
+
+    if S.lastXmlSpawnedName and S.lastXmlSpawnedName ~= "" then
+        imgui.same_line()
+        imgui.text("[OK: " .. S.lastXmlSpawnedName .. "]")
+    end
+
     imgui.end_tab_item()
 end
 
@@ -4338,6 +6943,11 @@ local function renderTabArenaObjectSpawner()
     if imgui.button("Speed Ring##sp_ring") then spawnSinglePropAtPlayer("ar_prop_ar_speed_ring", S.customSpawnDistance, S.customSpawnHeight, S.customSpawnYaw, S.customSpawnFreeze, S.selectedPropSpawnPid) end
     imgui.same_line()
     if imgui.button("Mega Loop##sp_loop") then spawnSinglePropAtPlayer("ar_prop_ar_jump_loop", S.customSpawnDistance, S.customSpawnHeight, S.customSpawnYaw, S.customSpawnFreeze, S.selectedPropSpawnPid) end
+
+    imgui.spacing(); imgui.separator(); imgui.spacing()
+    if imgui.button("Undo Last Spawned Prop##undo_prop_btn") then undoLastStuntObject() end
+    imgui.same_line()
+    if imgui.button("Clear All Spawned Props & Structures##clear_all_stunt_btn") then clearAllStuntObjects() end
     imgui.end_tab_item()
 end
 
@@ -4365,6 +6975,7 @@ local function renderTabPlayerAttachments()
         imgui.text("COLLECTIVE MODE ACTIVE: Objects and cages will be applied to ALL players!")
     end
 
+    --[[
     imgui.spacing(); imgui.separator(); imgui.spacing()
     imgui.text("INESCAPABLE CAGES (STAND C++ ENGINE)")
     
@@ -4388,6 +6999,7 @@ local function renderTabPlayerAttachments()
     if imgui.button("Ape Cage##cage_ape") then applyCage("v_med_apecrate") end
     imgui.same_line()
     if imgui.button("Random Inescapable Cage##cage_rand") then applyCage("random") end
+    ]]
 
     imgui.spacing(); imgui.separator(); imgui.spacing()
     imgui.text("Attach Props to Player Body:")
@@ -4400,13 +7012,13 @@ local function renderTabPlayerAttachments()
         end
     end
 
-    if imgui.button("Cone on Head##att_cone") then applyProp("prop_mp_cone_01", 24818, 0.0, 0.0, 0.70, 0.0, 90.0, 0.0) end
+    if imgui.button("Cone on Head##att_cone") then applyProp("prop_mp_cone_01", 24818, S.coneX, S.coneY, S.coneZ, S.coneRotX, S.coneRotY, S.coneRotZ) end
     imgui.same_line()
-    if imgui.button("Toilet##att_toilet") then applyProp("prop_ld_toilet_01", 11816, 0.0, 0.0, -0.25, 0.0, 90.0, 0.0) end
+    if imgui.button("Toilet##att_toilet") then applyProp("prop_ld_toilet_01", 11816, 0.300, -0.150, 0.0, 176.0, 270.0, 0.0) end
     imgui.same_line()
     if imgui.button("Head Cage##att_cage") then applyProp("prop_feeder1_cr", 11816, 0.0, 0.0, -0.6, 0.0, 90.0, 0.0) end
 
-    if imgui.button("Campfire Flame##att_fire") then applyProp("prop_beach_fire", 11816, 0.0, 0.0, -0.3, 0.0, 90.0, 0.0) end
+    if imgui.button("Campfire Flame##att_fire") then applyProp("prop_beach_fire", 11816, 0.050, -0.050, 0.0, 0.0, 90.0, 0.0) end
     imgui.same_line()
     if imgui.button("Christmas Tree##att_xmas") then applyProp("prop_mp_xmas_tree_01", 11816, 0.0, 0.0, -0.5, 0.0, 90.0, 0.0) end
     imgui.same_line()
@@ -4415,10 +7027,34 @@ local function renderTabPlayerAttachments()
     if imgui.button("Flying Saucer UFO##att_ufo") then applyProp("p_spinning_anus_s", 11816, 0.0, 0.0, 1.5, 0.0, 90.0, 0.0) end
 
     imgui.spacing(); imgui.separator(); imgui.spacing()
-    local cModel, vModel = imgui.input_text("Custom Model##cust_att_model", S.customAttachModelInput or "prop_mp_cone_01")
-    if cModel then S.customAttachModelInput = vModel end
+    imgui.text("Attach Plushies Arcade (Pelúcias):")
+    for i, plush in ipairs(Presets.plushie_list) do
+        if (i - 1) % 3 ~= 0 then imgui.same_line() end
+        if imgui.button(plush.label .. "##att_plush_" .. tostring(i)) then
+            applyProp(plush.model, 24818, 0.270, 0.010, -0.150, 186.0, 88.0, -10.0)
+        end
+    end
+
+    imgui.spacing(); imgui.separator(); imgui.spacing()
+    imgui.text("Attach Weapon Props (Katanas on Back / Costas):")
+
+    local function applyWeaponProp(propEntry)
+        if not propEntry then return end
+        local p = propEntry.PropPlacement
+        applyProp(propEntry.Prop, propEntry.PropBone, p[1], p[2], p[3], p[4], p[5], p[6])
+    end
+
+    if imgui.button("Weapon Katana Left (Costas)##att_katana_left") then
+        applyWeaponProp(Presets.weapon_list["Weapon Katana Left"])
+    end
     imgui.same_line()
-    if imgui.button("Attach Custom Model##att_custom_btn") then applyProp(S.customAttachModelInput or "prop_mp_cone_01", 24818, 0.0, 0.0, 0.0, 0.0, 90.0, 0.0) end
+    if imgui.button("Weapon Katana Right (Costas)##att_katana_right") then
+        applyWeaponProp(Presets.weapon_list["Weapon Katana Right"])
+    end
+    imgui.same_line()
+    if imgui.button("Dual Katanas (Left + Right)##att_katana_dual") then
+        attachDualKatanas(S.selectedAttachmentPid)
+    end
 
     imgui.spacing(); imgui.separator(); imgui.spacing()
     if not S.attachPresetModeAll then
@@ -4455,9 +7091,11 @@ end
 local function renderGUI()
     if not imgui.begin_tab_bar("SpyreX_Main_Tabs") then return end
     renderTabJets()
+    renderTabOverwatchDrone()
     renderTabEarRape()
     renderTabAirdrop()
     renderTabVehicleControls()
+    renderTabXmlVehicles()
     renderTabAreaChaos()
     renderTabKungFuMaster()
     renderTabStuntTracks()
@@ -4485,6 +7123,10 @@ end
 if event and event.register_handler and menu_event and menu_event.Unload then
     event.register_handler(menu_event.Unload, function()
         pcall(function()
+            cleanCustomVehicle(false)
+            deleteOverwatchDrone()
+            clearActiveKamikazeDrones()
+            removeTunerAttachment()
             if GRAPHICS and GRAPHICS.ANIMPOSTFX_STOP_ALL then
                 GRAPHICS.ANIMPOSTFX_STOP_ALL()
             end
