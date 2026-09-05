@@ -6,10 +6,30 @@
 
 ## 🚀 Principais Recursos:
 
+* 🎯 **Lock Múltiplo de Mísseis Avançado (AcjokerScript Vulkan Engine)**:
+  - Mira periscópio holográfica em até 10 alvos simultâneos (`mpsubmarine_periscope`);
+  - Sons autênticos de trava Vulkan (`VULKAN_LOCK_ON_AMBER` locking -> `VULKAN_LOCK_ON_RED` locked);
+  - Disparo de mísseis teleguiados em alta velocidade com perseguição dinâmica de trajetória;
+  - Alternância de pods de disparo (esquerdo e direito) e indicador de recarga HUD;
+  - Filtro inteligente de alvos: Jogadores, Veículos Ocupados, Polícia/Exército, Inimigos e **Ignorar Amigos**.
+
+* 🤝 **Módulo de Amigos & Proteção Mútua (Social Club & Stand Friends)**:
+  - Reconhecimento automático de amigos da Social Club/Rockstar e lista do menu;
+  - **Pacto Geral de Proteção**: Impede ataques acidentais de Jatos Lazer (Dogfight), Drones e Trolling contra amigos;
+  - **Ferramentas de Suporte Amigável**:
+    - **Max Protect**: Restauração total de vida, colete, remoção de nível de procurado e godmode veicular;
+    - **Fogos de Artifício**: Show pirotécnico disparado no céu sobre a posição do amigo;
+    - **Chuva de Dinheiro**: Efeito visual de rede com chuva de cédulas;
+    - **Serviço Veicular**: Reparo instantâneo, lavagem, upgrade de performance e turbo.
+
+* 🔄 **Auto-Updater Automático do GitHub**:
+  - Integração com `stand-lua-auto-updater` para manter o script sempre na versão mais recente direto do repositório `NaoNerfaMeuQ/nyx`;
+  - Instalação e atualização transparente e assíncrona sem travar a execução do jogo.
+
 * 🧲 **Telecinese & Física**:
   - Segurar veículos e jogadores com a força da mira;
   - Arremessar veículos a alta velocidade (150 m/s);
-  - Controle dinâmico de distância.
+  - Controle dinâmico de distância e arremesso vetorial.
 
 * 🌪️ **Caos no Mundo & Gravidade**:
   - **Vórtice Gravitacional**: Atrai todos os veículos da sessão em espiral;
@@ -19,7 +39,7 @@
   - **Apocalipse Zumbi**: Hordas agressivas armadas.
 
 * 🛩️ **Combate Aéreo (Dogfight)**:
-  - Esquadrão de caças Lazer armados com canhões explosivos de 20mm perseguindo o alvo selecionado.
+  - Esquadrão de caças Lazer armados com canhões explosivos de 20mm perseguindo o alvo selecionado (com filtro protetor de amigos).
 
 * 🔊 **Troll Pesado**:
   - Ear Rape com buzinas e alarmes rápidos;
@@ -36,16 +56,7 @@
   - Badge exclusiva `[🌙 NYX USER]` na lista de jogadores;
   - Pacto de não-agressão com aviso de confirmação antes de qualquer ataque a membros.
 
-* 👗 **Guarda-Roupa, Animações & Itens**:
-  - Gerenciador completo de roupas, textura e props;
-  - Dezenas de animações organizadas por categoria (Polícia, Danças, Trabalho, etc.);
-  - Itens acopláveis nas costas (Violão, Taco, Pé de Cabra).
-
 ---
 
-## ⌨️ Controles do Menu:
-* **F9**: Abrir / Fechar Menu
-* **Setas ↑ / ↓**: Navegar entre opções
-* **Setas ← / →**: Alterar valores / seletores
-* **Enter**: Selecionar / Alternar (ATIVO / DESATIVADO)
-* **Backspace**: Voltar ao menu anterior
+## 🧪 Script Isolado para Teste Rápido:
+- **`test_homing_missiles.lua`**: Script leve e autocontido criado especificamente para testar o sistema de mísseis com lock sonoro/visual, filtros de amigos e spawns de alvos sem precisar carregar toda a suíte principal.
