@@ -1,6 +1,5 @@
 import sys
 import random
-import zlib
 
 def random_var(prefix="_0x"):
     return prefix + "".join(random.choices("0123456789abcdef", k=6))
@@ -20,7 +19,6 @@ def full_virtualize_obfuscate(source_code):
         
     formatted_data = ",".join(str(b) for b in encrypted_bytes)
     
-    # Variable names
     v_data = random_var("_nyx_bin_")
     v_key1 = random_var("_k1_")
     v_key2 = random_var("_k2_")
@@ -29,10 +27,9 @@ def full_virtualize_obfuscate(source_code):
     v_loader = random_var("_nyx_vm_")
     v_chk = random_var("_sig_")
     
-    # Checksum for anti-tamper
     checksum = sum(encrypted_bytes) % 65535
     
-    obfuscated_code = f"""-- [ NYX SECURITY | MILITARY GRADE LUA VIRTUALIZATION ENGINE v2.0 ]
+    obfuscated_code = f"""-- [ NYX SECURITY | MILITARY GRADE LUA VIRTUALIZATION ENGINE v2.1 ]
 -- [ WARNING: TAMPERING WITH THIS FILE WILL CORRUPT THE RUNTIME ENVIRONMENT ]
 
 local {v_data} = {{{formatted_data}}}
@@ -49,10 +46,31 @@ local function {v_loader}()
         return nil
     end
 
+    local _unp = table.unpack or unpack
     local {v_buf} = {{}}
-    for _i = 1, #{v_data} do
-        local _b = ({v_data}[_i] - {v_key1} - ((_i - 1) % {v_key2}) + 512) % 256
-        {v_buf}[_i] = string.char(_b)
+    local _ok = pcall(function()
+        local _ch = {{}}
+        local _chs = 0
+        for _i = 1, #{v_data} do
+            local _b = ({v_data}[_i] - {v_key1} - ((_i - 1) % {v_key2}) + 512) % 256
+            _chs = _chs + 1
+            _ch[_chs] = _b
+            if _chs >= 1024 then
+                {v_buf}[#{v_buf} + 1] = string.char(_unp(_ch, 1, _chs))
+                _ch = {{}}
+                _chs = 0
+            end
+        end
+        if _chs > 0 then
+            {v_buf}[#{v_buf} + 1] = string.char(_unp(_ch, 1, _chs))
+        end
+    end)
+    if not _ok or #{v_buf} == 0 then
+        {v_buf} = {{}}
+        for _i = 1, #{v_data} do
+            local _b = ({v_data}[_i] - {v_key1} - ((_i - 1) % {v_key2}) + 512) % 256
+            {v_buf}[_i] = string.char(_b)
+        end
     end
 
     local _ld = (loadstring or load or (_ENV and _ENV.loadstring) or (_G and _G.loadstring))
@@ -72,7 +90,7 @@ end
 
 if __name__ == "__main__":
     if len(sys.argv) < 3:
-        print("Usage: python obfuscator.py <input.lua> <output.lua>")
+        print("Usage: python obfuscator.py in_file out_file")
         sys.exit(1)
         
     in_file = sys.argv[1]
@@ -86,4 +104,4 @@ if __name__ == "__main__":
     with open(out_file, "w", encoding="utf-8") as f:
         f.write(obf)
         
-    print(f"Successfully virtualized & encrypted {in_file} -> {out_file}")
+    print(f"Successfully virtualized {in_file} -> {out_file}")
