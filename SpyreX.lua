@@ -148,6 +148,8 @@ local S = {
     overwatchMgDamage = 50,
     overwatchSoundId = -1,
     overwatchAnonymousKills = true, -- Kills Anônimas (Modo Fantasma): não atribui mortes ao jogador por padrão
+    overwatchCinematicIntro = true, -- Ativa introdução cinemática com scan facial biométrico
+    overwatchFarewellOrbit = true,  -- Ativa órbita de 360 graus e disparo hipersônico ao desligar
 
     -- Drone Kamikaze Tático (Suicida)
     selectedKamikazePid = -1,
@@ -206,8 +208,11 @@ local S = {
     watchdogLastKickCheck = 0,
     watchdogBaselineSet = false,
     watchdogReportStats = {},
-    watchdogRecentAlerts = {}
+    watchdogRecentAlerts = {},
 
+    -- Friends & Whitelist Security
+    protectFriends = true,
+    highlightFriends = true
 }
 
 local Presets = {
@@ -440,6 +445,94 @@ local function getActivePlayersList()
         if active then table.insert(list, i) end
     end
     return list
+end
+
+------------------------------------------------------------
+-- ROCKSTAR SOCIAL CLUB / NETWORK FRIEND DETECTION & ACTIONS
+------------------------------------------------------------
+
+local function isPlayerFriend(pid)
+    if pid == nil or pid < 0 or pid == getLocalPid() then return false end
+    local isFriend = false
+    pcall(function()
+        local name = getPlayerName(pid)
+        if NETWORK and NETWORK.NETWORK_IS_FRIEND_IN_MULTIPLAYER then
+            isFriend = NETWORK.NETWORK_IS_FRIEND_IN_MULTIPLAYER(name)
+        elseif NETWORK and NETWORK.NETWORK_IS_FRIEND_ONLINE then
+            isFriend = NETWORK.NETWORK_IS_FRIEND_ONLINE(name)
+        elseif NETWORK and NETWORK.NETWORK_IS_FRIEND then
+            isFriend = NETWORK.NETWORK_IS_FRIEND(name)
+        end
+    end)
+    return isFriend
+end
+
+local function isPedFriend(ped)
+    if not isValidEntity(ped) then return false end
+    local isFr = false
+    pcall(function()
+        for _, pid in ipairs(getActivePlayersList()) do
+            if getPlayerPed(pid) == ped then
+                if isPlayerFriend(pid) then isFr = true end
+                break
+            end
+        end
+    end)
+    return isFr
+end
+
+local function friendMaxProtect(pid)
+    local ped = getPlayerPed(pid)
+    if not isValidEntity(ped) then
+        notify.warn("Friends", "Target friend ped is invalid or out of range.")
+        return
+    end
+    script.run_in_callback(function()
+        pcall(function()
+            ENTITY.SET_ENTITY_HEALTH(ped, 200, 0)
+            PED.SET_PED_ARMOUR(ped, 100)
+            PLAYER.CLEAR_PLAYER_WANTED_LEVEL(pid)
+            WEAPON.GIVE_DELAYED_WEAPON_TO_PED(ped, getHash("WEAPON_APPISTOL"), 9999, false)
+            WEAPON.GIVE_DELAYED_WEAPON_TO_PED(ped, getHash("WEAPON_SPECIALCARBINE"), 9999, false)
+            WEAPON.GIVE_DELAYED_WEAPON_TO_PED(ped, getHash("WEAPON_HOMINGLAUNCHER"), 9999, false)
+            if PED.IS_PED_IN_ANY_VEHICLE(ped, false) then
+                local veh = PED.GET_VEHICLE_PED_IS_IN(ped, false)
+                if isValidEntity(veh) then
+                    VEHICLE.SET_VEHICLE_FIXED(veh)
+                    VEHICLE.SET_VEHICLE_DEFORMATION_FIXED(veh)
+                    VEHICLE.SET_VEHICLE_DIRT_LEVEL(veh, 0.0)
+                    ENTITY.SET_ENTITY_INVINCIBLE(veh, true)
+                end
+            end
+        end)
+        notify.success("Friends", "Max HP, Armor & Defense Weapons applied to " .. getPlayerName(pid))
+        showFeedNotification("~g~[FRIEND SHIELD] ~w~Max Armor and weapons granted to " .. getPlayerName(pid))
+    end)
+end
+
+local function friendServiceVehicle(pid)
+    local ped = getPlayerPed(pid)
+    if not isValidEntity(ped) then
+        notify.warn("Friends", "Target friend ped is invalid or out of range.")
+        return
+    end
+    script.run_in_callback(function()
+        pcall(function()
+            if PED.IS_PED_IN_ANY_VEHICLE(ped, false) then
+                local veh = PED.GET_VEHICLE_PED_IS_IN(ped, false)
+                if isValidEntity(veh) then
+                    VEHICLE.SET_VEHICLE_FIXED(veh)
+                    VEHICLE.SET_VEHICLE_DEFORMATION_FIXED(veh)
+                    VEHICLE.SET_VEHICLE_DIRT_LEVEL(veh, 0.0)
+                    VEHICLE.SET_VEHICLE_ENGINE_ON(veh, true, true, false)
+                    notify.success("Friends", "Vehicle repaired and serviced for " .. getPlayerName(pid))
+                    showFeedNotification("~g~[VEHICLE REPAIR] ~w~Vehicle fully repaired for " .. getPlayerName(pid))
+                end
+            else
+                notify.warn("Friends", getPlayerName(pid) .. " is not currently inside a vehicle.")
+            end
+        end)
+    end)
 end
 
 local function getTargetCoordsSafe(pid, ped)
@@ -5172,6 +5265,10 @@ local function triggerDogfightAttack(targetPid, count)
     local targetPed = getPlayerPed(actualPid)
     local targetCoords = getTargetCoordsSafe(actualPid, targetPed)
     local targetName = (actualPid == myLocalPid) and "You" or getPlayerName(actualPid)
+    if actualPid ~= myLocalPid and S.protectFriends and isPlayerFriend(actualPid) then
+        notify.warn("Jets", targetName .. " is protected by Friend Whitelist! Attack cancelled.")
+        return
+    end
     local jetCount = 5
 
     isEnemyJetsSpawning = true
@@ -5379,6 +5476,19 @@ local function triggerDogfightAttackAllSession()
     local players = getActivePlayersList()
     if #players == 0 then
         notify.warn("Jets", "No players found in session.")
+        return
+    end
+
+    if S.protectFriends then
+        local targetPlayers = {}
+        for _, p in ipairs(players) do
+            if not isPlayerFriend(p) then table.insert(targetPlayers, p) end
+        end
+        players = targetPlayers
+    end
+
+    if #players == 0 then
+        notify.info("Jets", "All session players are friends / protected by whitelist.")
         return
     end
 
@@ -5767,12 +5877,21 @@ local function triggerEarRapeTremor(targetPid, burstSecs)
                 if not S.isTrollAudioActive then break end
                 if isAll then
                     local players = getActivePlayersList()
+                    if S.protectFriends then
+                        local filtered = {}
+                        for _, p in ipairs(players) do
+                            if not isPlayerFriend(p) then table.insert(filtered, p) end
+                        end
+                        players = filtered
+                    end
                     if #players > 0 then
                         local targetIdx = ((i - 1) % #players) + 1
                         runSingleEarRapeStep(players[targetIdx])
                     end
                 else
-                    runSingleEarRapeStep(actualPid)
+                    if not (S.protectFriends and isPlayerFriend(actualPid)) then
+                        runSingleEarRapeStep(actualPid)
+                    end
                 end
                 script.yield(intervalMs)
             end
@@ -5786,12 +5905,21 @@ local function triggerEarRapeTremor(targetPid, burstSecs)
                 stepCount = stepCount + 1
                 if isAll then
                     local players = getActivePlayersList()
+                    if S.protectFriends then
+                        local filtered = {}
+                        for _, p in ipairs(players) do
+                            if not isPlayerFriend(p) then table.insert(filtered, p) end
+                        end
+                        players = filtered
+                    end
                     if #players > 0 then
                         local targetIdx = ((stepCount - 1) % #players) + 1
                         runSingleEarRapeStep(players[targetIdx])
                     end
                 else
-                    runSingleEarRapeStep(actualPid)
+                    if not (S.protectFriends and isPlayerFriend(actualPid)) then
+                        runSingleEarRapeStep(actualPid)
+                    end
                 end
                 script.yield(intervalMs)
             end
@@ -6119,6 +6247,7 @@ local function renderPlayerTargetSelector(currentSelectedPid, onSelectCallback, 
             local isSel = (currentSelectedPid == pid)
             local pName = getPlayerName(pid)
             local isLocal = (pid == localPid)
+            local isFriend = isPlayerFriend(pid)
             local hostTag = ""
             if pid == sHostPid and pid == scHostPid then
                 hostTag = " [HOST|SH]"
@@ -6127,9 +6256,22 @@ local function renderPlayerTargetSelector(currentSelectedPid, onSelectCallback, 
             elseif pid == scHostPid then
                 hostTag = " [SH]"
             end
-            local label = string.format("%s[%02d] %s%s%s##p_%s_%d", isSel and "[X] " or "", pid, pName, isLocal and " (You)" or "", hostTag, idTag, pid)
+            local friendTag = (isFriend and S.highlightFriends ~= false) and " [FRIEND]" or ""
+            local label = string.format("%s[%02d] %s%s%s%s##p_%s_%d", isSel and "[X] " or "", pid, pName, isLocal and " (You)" or "", hostTag, friendTag, idTag, pid)
             if imgui.button(label) then
                 onSelectCallback(pid)
+            end
+        end
+
+        if currentSelectedPid and currentSelectedPid >= 0 and isPlayerFriend(currentSelectedPid) then
+            imgui.spacing()
+            imgui.text("Friend Support Actions (" .. getPlayerName(currentSelectedPid) .. "):")
+            if imgui.button("Heal, Max Armor & Defense Weapons##btn_fr_heal_" .. idTag) then
+                friendMaxProtect(currentSelectedPid)
+            end
+            imgui.same_line()
+            if imgui.button("Repair & Service Vehicle##btn_fr_veh_" .. idTag) then
+                friendServiceVehicle(currentSelectedPid)
             end
         end
     end
@@ -6176,7 +6318,229 @@ local function startOverwatchFlightSound(drone)
     end)
 end
 
-local function deleteOverwatchDrone()
+--- Executa a animação de despedida cinemática:
+-- O drone desce, executa 2 voltas rasantes de 360° em espiral ao redor do jogador,
+-- para na frente dos olhos com um bip/aceno de despedida e dispara em velocidade hipersônica pro céu.
+-- @param drone number Handle do drone
+-- @param myPed number Handle do jogador local
+local function playDroneHypersonicFarewell(drone, myPed)
+    if not isValidEntity(drone) or not isValidEntity(myPed) then return end
+
+    loadDroneAudioBank()
+    pcall(function()
+        requestPtfxAsset("core")
+    end)
+
+    -- Entidade pai (suporte automático se estiver a pé ou em veículo)
+    local parentEnt = myPed
+    if PED and PED.IS_PED_IN_ANY_VEHICLE and PED.IS_PED_IN_ANY_VEHICLE(myPed, false) then
+        local veh = PED.GET_VEHICLE_PED_IS_IN(myPed, false)
+        if isValidEntity(veh) then parentEnt = veh end
+    end
+
+    local isVeh = (parentEnt ~= myPed)
+    local totalDuration = 4100.0 -- 4.1 segundos: 2.4s órbita lenta contínua + 1.7s disparo hipersônico direto
+    local startTime = gameTimer()
+    local launchFxTriggered = false
+    local lastPtfxTime = 0
+    local trailPoints = {}
+
+    -- Inicia som contínuo de propulsão acelerando
+    pcall(function()
+        if AUDIO and AUDIO.PLAY_SOUND_FROM_ENTITY then
+            AUDIO.PLAY_SOUND_FROM_ENTITY(-1, "Flight_Loop", drone, "DLC_BATTLE_DRONE_SOUNDS", false, 0)
+        end
+    end)
+
+    local launchStartCoords = nil
+    local launchHeading = 0.0
+
+    while true do
+        local elapsed = gameTimer() - startTime
+        if elapsed >= totalDuration or not isValidEntity(drone) or not isValidEntity(myPed) then
+            break
+        end
+
+        local pCoords = ENTITY.GET_ENTITY_COORDS(parentEnt, true)
+        local pHeading = ENTITY.GET_ENTITY_HEADING(parentEnt)
+        local radH = math.rad(pHeading)
+
+        local fwdX = -math.sin(radH)
+        local fwdY =  math.cos(radH)
+        local rightX =  math.cos(radH)
+        local rightY =  math.sin(radH)
+
+        local chestZ = pCoords.z + (isVeh and 0.40 or 0.25)
+
+        local curX, curY, curZ = 0.0, 0.0, 0.0
+        local pitch, roll, yaw = 0.0, 0.0, pHeading
+
+        ----------------------------------------------------
+        -- FASE 1: DUAS VOLTAS LENTAS E FLUIDAS DE 360° (0.0s - 2.4s)
+        ----------------------------------------------------
+        if elapsed < 2400.0 then
+            local t = elapsed / 2400.0
+            -- 2 voltas completas = 720 graus = 4 * PI (1.2s por volta - cadenciada e suave)
+            local totalAngle = t * (math.pi * 4.0)
+            local currentAngle = radH + totalAngle
+
+            -- Raio dinâmico amplo: começa a 1.25m e contrai suavemente para 0.90m
+            local radius = 1.25 - (t * 0.35)
+
+            -- Altura desce suavemente do topo da cabeça até o peito com flutuação orgânica
+            local curHeight = ((1.0 - t) * (S.overwatchHeightOffset or 2.2)) + (t * (chestZ - pCoords.z))
+            curHeight = curHeight + (math.sin(t * math.pi * 4.0) * 0.04)
+
+            curX = pCoords.x + (math.sin(currentAngle) * radius)
+            curY = pCoords.y + (math.cos(currentAngle) * radius)
+            curZ = pCoords.z + curHeight
+
+            -- Inclinação aerodinâmica equilibrada (Banking Roll suave para a curva)
+            roll = -22.0
+            pitch = 4.0
+            -- Yaw apontado tangencialmente para a frente do arco de voo
+            yaw = (math.deg(currentAngle) + 90.0) % 360.0
+
+            -- Guarda as coordenadas contínuas para lançamento imediato sem descontinuidade
+            launchStartCoords = { x = curX, y = curY, z = curZ }
+            launchHeading = pHeading
+
+            -- Brilho ciano suave sob o drone iluminando o corpo do jogador
+            pcall(function()
+                if GRAPHICS and GRAPHICS.DRAW_LIGHT_WITH_RANGE then
+                    GRAPHICS.DRAW_LIGHT_WITH_RANGE(curX, curY, curZ, 0, 180, 255, 2.2, 1.4)
+                end
+            end)
+
+        ----------------------------------------------------
+        -- FASE 2: DISPARO HIPERSÔNICO DIRETO PRAS NUVENS (2.4s - 4.1s)
+        ----------------------------------------------------
+        else
+            local t = (elapsed - 2400.0) / 1700.0
+
+            -- Ignição instantânea: Som de flash/laser/telemetria + estouro de partículas de propulsão
+            if not launchFxTriggered then
+                launchFxTriggered = true
+                pcall(function()
+                    if AUDIO and AUDIO.PLAY_SOUND_FROM_COORD then
+                        AUDIO.PLAY_SOUND_FROM_COORD(-1, "ScreenFlash", curX, curY, curZ, "WastedSounds", false, 0, false)
+                    end
+                    if AUDIO and AUDIO.PLAY_SOUND_FROM_ENTITY then
+                        AUDIO.PLAY_SOUND_FROM_ENTITY(-1, "Laser_Shoot", drone, "DLC_BATTLE_DRONE_SOUNDS", false, 0)
+                        AUDIO.PLAY_SOUND_FROM_ENTITY(-1, "Focus_Bip", drone, "DLC_BATTLE_DRONE_SOUNDS", false, 0)
+                    end
+                    if AUDIO and AUDIO.PLAY_SOUND_FRONTEND then
+                        AUDIO.PLAY_SOUND_FRONTEND(-1, "Focus_Bip", "DLC_BATTLE_DRONE_SOUNDS", true)
+                    end
+                    if GRAPHICS and GRAPHICS.START_NETWORKED_PARTICLE_FX_NON_LOOPED_AT_COORD then
+                        GRAPHICS.USE_PARTICLE_FX_ASSET("core")
+                        -- Arco elétrico na ignição dos propulsores
+                        GRAPHICS.START_NETWORKED_PARTICLE_FX_NON_LOOPED_AT_COORD(
+                            "sp_electric_arc", curX, curY, curZ, 0.0, 0.0, 0.0, 2.2, false, false, false, false
+                        )
+                        -- Pulso de fumaça de aceleração máxima
+                        GRAPHICS.START_NETWORKED_PARTICLE_FX_NON_LOOPED_AT_COORD(
+                            "veh_exhaust_rcbandito", curX, curY, curZ, 0.0, 0.0, 0.0, 2.5, false, false, false, false
+                        )
+                    end
+                end)
+            end
+
+            -- Aceleração hiperbólica agressiva (arranca com impulso e corta o ar velozmente)
+            local launchEase = math.pow(t, 2.4)
+
+            if not launchStartCoords then
+                launchStartCoords = ENTITY.GET_ENTITY_COORDS(drone, true)
+                launchHeading = pHeading
+            end
+
+            local launchRad = math.rad(launchHeading)
+            local lFwdX = -math.sin(launchRad)
+            local lFwdY =  math.cos(launchRad)
+
+            -- Projeta 135 metros para a frente e 95 metros para cima cortando as nuvens
+            local dist = launchEase * 135.0
+            local height = launchEase * 95.0
+
+            curX = launchStartCoords.x + (lFwdX * dist)
+            curY = launchStartCoords.y + (lFwdY * dist)
+            curZ = launchStartCoords.z + height
+
+            -- Transição suave de inclinação nos primeiros 150ms de decolagem
+            local pitchEase = math.min(1.0, t / 0.12)
+            pitch = ((1.0 - pitchEase) * 4.0) + (pitchEase * -42.0)
+            roll = ((1.0 - pitchEase) * -22.0) + ((t * 720.0) % 360.0)
+            yaw = launchHeading
+
+            -- Emite partículas periódicas de propulsor ao longo do trajeto (a cada 50ms)
+            if (gameTimer() - lastPtfxTime) >= 50 then
+                lastPtfxTime = gameTimer()
+                pcall(function()
+                    if GRAPHICS and GRAPHICS.START_NETWORKED_PARTICLE_FX_NON_LOOPED_AT_COORD then
+                        GRAPHICS.USE_PARTICLE_FX_ASSET("core")
+                        GRAPHICS.START_NETWORKED_PARTICLE_FX_NON_LOOPED_AT_COORD(
+                            "veh_exhaust_rcbandito", curX, curY, curZ, 0.0, 0.0, 0.0, 1.4, false, false, false, false
+                        )
+                    end
+                end)
+            end
+
+            -- Registra rastro de luz sci-fi (light ribbon neon trail)
+            table.insert(trailPoints, { x = curX, y = curY, z = curZ, t = gameTimer() })
+            while #trailPoints > 0 and (gameTimer() - trailPoints[1].t > 650) do
+                table.remove(trailPoints, 1)
+            end
+
+            -- Desenha fita de luz neon ciana contínua conectando os pontos recentes
+            pcall(function()
+                if GRAPHICS and GRAPHICS.DRAW_LINE then
+                    for i = 1, #trailPoints - 1 do
+                        local pA = trailPoints[i]
+                        local pB = trailPoints[i + 1]
+                        local ageFrac = (gameTimer() - pA.t) / 650.0
+                        local alpha = math.floor((1.0 - math.min(1.0, math.max(0.0, ageFrac))) * 240)
+                        if alpha > 8 then
+                            -- Feixe ciano neon principal
+                            GRAPHICS.DRAW_LINE(pA.x, pA.y, pA.z, pB.x, pB.y, pB.z, 0, 220, 255, alpha)
+                            -- Núcleo de alta energia branco-azulado
+                            GRAPHICS.DRAW_LINE(pA.x, pA.y, pA.z, pB.x, pB.y, pB.z, 220, 250, 255, math.floor(alpha * 0.75))
+                            -- Fitas volumétricas laterais
+                            GRAPHICS.DRAW_LINE(pA.x, pA.y, pA.z + 0.04, pB.x, pB.y, pB.z + 0.04, 0, 180, 255, math.floor(alpha * 0.45))
+                            GRAPHICS.DRAW_LINE(pA.x, pA.y, pA.z - 0.04, pB.x, pB.y, pB.z - 0.04, 0, 180, 255, math.floor(alpha * 0.45))
+                        end
+                    end
+                end
+            end)
+
+            -- Corona de luz azul intensa acompanhando o drone em alta velocidade
+            pcall(function()
+                if GRAPHICS and GRAPHICS.DRAW_LIGHT_WITH_RANGE then
+                    GRAPHICS.DRAW_LIGHT_WITH_RANGE(curX, curY, curZ, 0, 220, 255, 14.0, 8.0)
+                end
+            end)
+
+            -- Desvanecimento suave de opacidade no horizonte (dissolve na atmosfera)
+            if t > 0.40 then
+                local alpha = math.floor((1.0 - ((t - 0.40) / 0.60)) * 255)
+                ENTITY.SET_ENTITY_ALPHA(drone, math.max(0, alpha), false)
+            end
+        end
+
+        ENTITY.SET_ENTITY_COORDS_NO_OFFSET(drone, curX, curY, curZ, false, false, false)
+        ENTITY.SET_ENTITY_ROTATION(drone, pitch, roll, yaw, 2, true)
+
+        script.yield(0)
+    end
+
+    showFeedNotification("~b~[OVERWATCH] ~w~Guardian Drone recalled and dispatched into orbit.")
+end
+
+local isDeletingOverwatchDrone = false
+
+local function deleteOverwatchDrone(skipAnimation)
+    if isDeletingOverwatchDrone then return end
+    isDeletingOverwatchDrone = true
+
     script.run_in_callback(function()
         stopOverwatchFlightSound()
         S.overwatchIsDiving = false
@@ -6184,13 +6548,184 @@ local function deleteOverwatchDrone()
         S.overwatchDroneObj = nil
         S.overwatchTargetPed = nil
         S.overwatchLockStartTime = 0
+
         if drone and isValidEntity(drone) then
+            local myPed = getLocalPed()
+            if not skipAnimation and isValidEntity(myPed) and not PED.IS_PED_INJURED(myPed) and (S.overwatchFarewellOrbit ~= false) then
+                playDroneHypersonicFarewell(drone, myPed)
+            end
             safeDeleteEntity(drone)
         end
+
+        isDeletingOverwatchDrone = false
     end)
 end
 
-local function spawnOverwatchDrone()
+------------------------------------------------------------
+-- CINEMATIC INTRO: BIOMETRIC HOLO-INSPECTION (AAA DEPLOYMENT)
+------------------------------------------------------------
+
+local function easeInOutQuad(t)
+    return t < 0.5 and (2.0 * t * t) or (1.0 - math.pow(-2.0 * t + 2.0, 2.0) / 2.0)
+end
+
+local function easeInOutCubic(t)
+    return t < 0.5 and (4.0 * t * t * t) or (1.0 - math.pow(-2.0 * t + 2.0, 3.0) / 2.0)
+end
+
+--- Executa a introdução cinemática com scan biométrico
+-- @param drone number Handle da entidade do drone
+-- @param myPed number Handle do ped local
+local function playCinematicDroneInspection(drone, myPed)
+    if not isValidEntity(drone) or not isValidEntity(myPed) then return end
+
+    loadDroneAudioBank()
+
+    -- Bip inicial de boot do sistema
+    pcall(function()
+        if AUDIO and AUDIO.PLAY_SOUND_FROM_ENTITY then
+            AUDIO.PLAY_SOUND_FROM_ENTITY(-1, "Blip_Alert", drone, "DLC_BATTLE_DRONE_SOUNDS", false, 0)
+        end
+    end)
+
+    local totalDuration = 3200.0 -- 3.2 segundos totais
+    local startTime = gameTimer()
+    local scanBeepPlayed = false
+
+    while true do
+        local elapsed = gameTimer() - startTime
+        if elapsed >= totalDuration or not isValidEntity(drone) or not isValidEntity(myPed) then
+            break
+        end
+
+        -- Suporte dinâmico a pé ou em veículo
+        local parentEnt = myPed
+        if PED and PED.IS_PED_IN_ANY_VEHICLE and PED.IS_PED_IN_ANY_VEHICLE(myPed, false) then
+            local veh = PED.GET_VEHICLE_PED_IS_IN(myPed, false)
+            if isValidEntity(veh) then parentEnt = veh end
+        end
+
+        local pCoords = ENTITY.GET_ENTITY_COORDS(parentEnt, true)
+        local pHeading = ENTITY.GET_ENTITY_HEADING(parentEnt)
+        local radH = math.rad(pHeading)
+
+        local fwdX = -math.sin(radH)
+        local fwdY =  math.cos(radH)
+        local rightX =  math.cos(radH)
+        local rightY =  math.sin(radH)
+
+        local isVeh = (parentEnt ~= myPed)
+        local headZ = pCoords.z + (isVeh and 0.45 or 0.68)
+
+        local curX, curY, curZ = 0.0, 0.0, 0.0
+        local pitch, roll, yaw = 0.0, 0.0, pHeading
+
+        ----------------------------------------------------
+        -- FASE 1: DECOLAGEM E CURVA DE OMBRO (0.0s - 1.0s)
+        ----------------------------------------------------
+        if elapsed < 1000.0 then
+            local t = elapsed / 1000.0
+            local ease = easeInOutQuad(t)
+
+            local offRight = (1.0 - ease) * 0.45 + (math.sin(t * math.pi) * 0.30)
+            local offFwd   = (-0.35 * (1.0 - ease)) + (0.65 * ease)
+            local offZ     = (0.20 * (1.0 - ease)) + ((headZ - pCoords.z) * ease)
+
+            curX = pCoords.x + (rightX * offRight) + (fwdX * offFwd)
+            curY = pCoords.y + (rightY * offRight) + (fwdY * offFwd)
+            curZ = pCoords.z + offZ
+
+            roll = -math.sin(t * math.pi) * 22.0
+            pitch = math.sin(t * math.pi) * 8.0
+
+            local dx = pCoords.x - curX
+            local dy = pCoords.y - curY
+            yaw = (math.deg(math.atan2(-dx, dy)) + 360.0) % 360.0
+
+        ----------------------------------------------------
+        -- FASE 2: SCAN FACIAL BIOMÉTRICO (1.0s - 2.2s)
+        ----------------------------------------------------
+        elseif elapsed >= 1000.0 and elapsed < 2200.0 then
+            local t = (elapsed - 1000.0) / 1200.0
+
+            if t > 0.4 and not scanBeepPlayed then
+                scanBeepPlayed = true
+                pcall(function()
+                    if AUDIO and AUDIO.PLAY_SOUND_FROM_ENTITY then
+                        AUDIO.PLAY_SOUND_FROM_ENTITY(-1, "Focus_Bip", drone, "DLC_BATTLE_DRONE_SOUNDS", false, 0)
+                    end
+                end)
+            end
+
+            local scanBob = math.sin(t * math.pi * 3.0) * 0.045
+            local offFwd = 0.65 + (math.cos(t * math.pi * 2.0) * 0.02)
+            local offRight = math.sin(t * math.pi) * 0.03
+
+            curX = pCoords.x + (rightX * offRight) + (fwdX * offFwd)
+            curY = pCoords.y + (rightY * offRight) + (fwdY * offFwd)
+            curZ = headZ + scanBob
+
+            local dx = pCoords.x - curX
+            local dy = pCoords.y - curY
+            local dz = headZ - curZ
+            local dist2D = math.sqrt(dx * dx + dy * dy)
+
+            yaw = (math.deg(math.atan2(-dx, dy)) + 360.0) % 360.0
+            pitch = math.deg(math.atan2(dz, dist2D))
+            roll = math.sin(t * math.pi * 2.0) * 2.5
+
+            pcall(function()
+                if GRAPHICS and GRAPHICS.DRAW_LINE then
+                    GRAPHICS.DRAW_LINE(curX, curY, curZ, pCoords.x, pCoords.y, headZ + scanBob, 0, 220, 255, 180)
+                    local fanOffset = 0.08
+                    GRAPHICS.DRAW_LINE(curX, curY, curZ, pCoords.x + (rightX * fanOffset), pCoords.y + (rightY * fanOffset), headZ, 0, 180, 255, 100)
+                    GRAPHICS.DRAW_LINE(curX, curY, curZ, pCoords.x - (rightX * fanOffset), pCoords.y - (rightY * fanOffset), headZ, 0, 180, 255, 100)
+                end
+                if GRAPHICS and GRAPHICS.DRAW_LIGHT_WITH_RANGE then
+                    GRAPHICS.DRAW_LIGHT_WITH_RANGE(curX, curY, curZ, 0, 200, 255, 1.2, 2.5)
+                end
+            end)
+
+        ----------------------------------------------------
+        -- FASE 3: ASCENSÃO TÁTICA E GUARDA (2.2s - 3.2s)
+        ----------------------------------------------------
+        else
+            local t = (elapsed - 2200.0) / 1000.0
+            local ease = easeInOutCubic(t)
+
+            local targetHeight = S.overwatchHeightOffset or 2.2
+            local offFwd   = 0.65 * (1.0 - ease)
+            local offRight = (S.overwatchSideOffset or 0.0) * ease
+            local offZ     = (headZ - pCoords.z) + ((targetHeight - (headZ - pCoords.z)) * ease)
+
+            curX = pCoords.x + (rightX * offRight) + (fwdX * offFwd)
+            curY = pCoords.y + (rightY * offRight) + (fwdY * offFwd)
+            curZ = pCoords.z + offZ
+
+            local startYaw = (pHeading + 180.0) % 360.0
+            local targetYaw = pHeading
+            local diffYaw = ((targetYaw - startYaw + 540.0) % 360.0) - 180.0
+            yaw = (startYaw + (diffYaw * ease)) % 360.0
+
+            pitch = (1.0 - ease) * -12.0
+            roll = math.sin(t * math.pi) * 6.0
+        end
+
+        ENTITY.SET_ENTITY_COORDS_NO_OFFSET(drone, curX, curY, curZ, false, false, false)
+        ENTITY.SET_ENTITY_ROTATION(drone, pitch, roll, yaw, 2, true)
+
+        script.yield(0)
+    end
+
+    pcall(function()
+        if AUDIO and AUDIO.PLAY_SOUND_FRONTEND then
+            AUDIO.PLAY_SOUND_FRONTEND(-1, "Arming", "DLC_BATTLE_DRONE_SOUNDS", true)
+        end
+    end)
+    showFeedNotification("~b~[OVERWATCH] ~w~Biometric scan verified. Guardian Protocol active.")
+end
+
+local function spawnOverwatchDrone(skipIntro)
     if S.overwatchDroneObj and isValidEntity(S.overwatchDroneObj) then
         return S.overwatchDroneObj
     end
@@ -6215,8 +6750,26 @@ local function spawnOverwatchDrone()
 
     local hOff = S.overwatchHeightOffset or 2.2
     local sOff = S.overwatchSideOffset or 0.0
+    local shouldPlayAnim = S.overwatchCinematicIntro and not skipIntro
+
+    local spawnX = pCoords.x + sOff
+    local spawnY = pCoords.y - 0.1
+    local spawnZ = pCoords.z + hOff
+
+    if shouldPlayAnim then
+        local pHeading = ENTITY.GET_ENTITY_HEADING(myPed)
+        local radH = math.rad(pHeading)
+        local fwdX = -math.sin(radH)
+        local fwdY =  math.cos(radH)
+        local rightX =  math.cos(radH)
+        local rightY =  math.sin(radH)
+        spawnX = pCoords.x + (rightX * 0.45) - (fwdX * 0.35)
+        spawnY = pCoords.y + (rightY * 0.45) - (fwdY * 0.35)
+        spawnZ = pCoords.z + 0.20
+    end
+
     -- Criação estática (dynamic = false) para impedir qualquer queda pela física do motor
-    local drone = safeCreateStuntProp(chosenHash, pCoords.x + sOff, pCoords.y - 0.1, pCoords.z + hOff, false)
+    local drone = safeCreateStuntProp(chosenHash, spawnX, spawnY, spawnZ, false)
 
     if isValidEntity(drone) then
         pcall(function()
@@ -6242,6 +6795,11 @@ local function spawnOverwatchDrone()
         end)
         S.overwatchDroneObj = drone
         startOverwatchFlightSound(drone)
+
+        if shouldPlayAnim then
+            playCinematicDroneInspection(drone, myPed)
+        end
+
         return drone
     else
         notify.warn("Overwatch", "Could not load drone model.")
@@ -6599,7 +7157,7 @@ local function startOverwatchLoop()
             pcall(function()
                 local myPed = getLocalPed()
                 if not isValidEntity(myPed) or PED.IS_PED_INJURED(myPed) then
-                    deleteOverwatchDrone()
+                    deleteOverwatchDrone(true)
                     script.yield(500)
                     return
                 end
@@ -6701,14 +7259,18 @@ local function startOverwatchLoop()
                     -- Se já tivermos uma ameaça válida travada, mantém foco nela para não perder o alvo
                     local keepThreat = false
                     if isValidEntity(bestThreat) and not PED.IS_PED_INJURED(bestThreat) then
-                        local cCoords = ENTITY.GET_ENTITY_COORDS(bestThreat, true)
-                        local cdx = cCoords.x - pCoords.x
-                        local cdy = cCoords.y - pCoords.y
-                        local cdz = cCoords.z - pCoords.z
-                        local dist = math.sqrt(cdx*cdx + cdy*cdy + cdz*cdz)
-                        if dist >= minFireDist and dist <= (bestDist * 1.25) then
-                            if S.overwatchAggressiveMode or isPedOfferingThreat(bestThreat, myPed) then
-                                keepThreat = true
+                        if S.protectFriends and isPedFriend(bestThreat) then
+                            bestThreat = nil
+                        else
+                            local cCoords = ENTITY.GET_ENTITY_COORDS(bestThreat, true)
+                            local cdx = cCoords.x - pCoords.x
+                            local cdy = cCoords.y - pCoords.y
+                            local cdz = cCoords.z - pCoords.z
+                            local dist = math.sqrt(cdx*cdx + cdy*cdy + cdz*cdz)
+                            if dist >= minFireDist and dist <= (bestDist * 1.25) then
+                                if S.overwatchAggressiveMode or isPedOfferingThreat(bestThreat, myPed) then
+                                    keepThreat = true
+                                end
                             end
                         end
                     end
@@ -6720,25 +7282,28 @@ local function startOverwatchLoop()
 
                         for _, candidate in ipairs(allPeds) do
                             if isValidEntity(candidate) and candidate ~= myPed and not PED.IS_PED_INJURED(candidate) then
-                                local cCoords = ENTITY.GET_ENTITY_COORDS(candidate, true)
-                                local cdx = cCoords.x - pCoords.x
-                                local cdy = cCoords.y - pCoords.y
-                                local cdz = cCoords.z - pCoords.z
-                                local dist = math.sqrt(cdx*cdx + cdy*cdy + cdz*cdz)
+                                local isFriendCand = S.protectFriends and isPedFriend(candidate)
+                                if not isFriendCand then
+                                    local cCoords = ENTITY.GET_ENTITY_COORDS(candidate, true)
+                                    local cdx = cCoords.x - pCoords.x
+                                    local cdy = cCoords.y - pCoords.y
+                                    local cdz = cCoords.z - pCoords.z
+                                    local dist = math.sqrt(cdx*cdx + cdy*cdy + cdz*cdz)
 
-                                if dist >= minFireDist and dist <= bestDist then
-                                    local isThreat = false
-                                    if S.overwatchAggressiveMode then
-                                        -- Modo Totalmente Agressivo: Alveja TODOS no raio
-                                        isThreat = true
-                                    else
-                                        -- Modo Defensivo: Apontando arma para o jogador ou oferecendo perigo
-                                        isThreat = isPedOfferingThreat(candidate, myPed)
-                                    end
+                                    if dist >= minFireDist and dist <= bestDist then
+                                        local isThreat = false
+                                        if S.overwatchAggressiveMode then
+                                            -- Modo Totalmente Agressivo: Alveja TODOS no raio
+                                            isThreat = true
+                                        else
+                                            -- Modo Defensivo: Apontando arma para o jogador ou oferecendo perigo
+                                            isThreat = isPedOfferingThreat(candidate, myPed)
+                                        end
 
-                                    if isThreat and dist < candidateDist then
-                                        candidateDist = dist
-                                        candidateThreat = candidate
+                                        if isThreat and dist < candidateDist then
+                                            candidateDist = dist
+                                            candidateThreat = candidate
+                                        end
                                     end
                                 end
                             end
@@ -7189,6 +7754,10 @@ local function triggerKamikazeDrone(targetPid)
     local actualPid = (targetPid == nil or targetPid == -1) and myLocalPid or targetPid
     local targetPed = getPlayerPed(actualPid)
     local targetName = (actualPid == myLocalPid) and "You" or getPlayerName(actualPid)
+    if actualPid ~= myLocalPid and S.protectFriends and isPlayerFriend(actualPid) then
+        notify.warn("Kamikaze", targetName .. " is protected by Friend Whitelist! Attack cancelled.")
+        return
+    end
     local targetCoords = getTargetCoordsSafe(actualPid, targetPed)
 
     if not targetCoords or (targetCoords.x == 0 and targetCoords.y == 0 and targetCoords.z == 0) then
@@ -7234,11 +7803,23 @@ local function triggerKamikazeAllSession()
         return
     end
 
-    notify.warn("Kamikaze", string.format("Global Strike! Dispatching Kamikaze Drones to %d players...", #players))
-    showFeedNotification("~r~[GLOBAL KAMIKAZE] ~w~Kamikaze Drone Swarm dispatched across entire session!")
+    local targetList = {}
+    for _, pid in ipairs(players) do
+        if not (S.protectFriends and isPlayerFriend(pid)) then
+            table.insert(targetList, pid)
+        end
+    end
+
+    if #targetList == 0 then
+        notify.info("Kamikaze", "All players in session are friends / protected.")
+        return
+    end
+
+    notify.warn("Kamikaze", string.format("Global Strike! Dispatching Kamikaze Drones to %d players...", #targetList))
+    showFeedNotification("~r~[GLOBAL KAMIKAZE] ~w~Kamikaze Drone Swarm dispatched across hostile players!")
 
     script.run_in_callback(function()
-        for _, pid in ipairs(players) do
+        for _, pid in ipairs(targetList) do
             triggerKamikazeDrone(pid)
             script.yield(200)
         end
@@ -7299,6 +7880,10 @@ end
 ------------------------------------------------------------
 
 local function triggerRemoteEmp(targetPid)
+    if S.protectFriends and isPlayerFriend(targetPid) then
+        notify.warn("EMP", getPlayerName(targetPid) .. " is protected by Friend Whitelist! Attack cancelled.")
+        return
+    end
     local ped = getPlayerPed(targetPid)
     if not isValidEntity(ped) then
         notify.warn("EMP", "Target player invalid or out of range!")
@@ -7356,6 +7941,10 @@ local function triggerRemoteEmp(targetPid)
 end
 
 local function triggerSpaceLaunch(targetPid)
+    if S.protectFriends and isPlayerFriend(targetPid) then
+        notify.warn("Space Launch", getPlayerName(targetPid) .. " is protected by Friend Whitelist! Attack cancelled.")
+        return
+    end
     local ped = getPlayerPed(targetPid)
     if not isValidEntity(ped) then
         notify.warn("Space Launch", "Target player invalid or out of range!")
@@ -7621,9 +8210,21 @@ local function triggerOrbitalStrike(targetPid, isLoop)
             return
         end
 
+        local targetList = {}
+        for _, pid in ipairs(players) do
+            if not (S.protectFriends and isPlayerFriend(pid)) then
+                table.insert(targetList, pid)
+            end
+        end
+
+        if #targetList == 0 then
+            notify.info("Orbital", "All session players are friends / protected by whitelist.")
+            return
+        end
+
         script.run_in_callback(function()
-            notify.warn("Orbital", string.format("Global Strike! Firing at %d players...", #players))
-            for _, pid in ipairs(players) do
+            notify.warn("Orbital", string.format("Global Strike! Firing at %d hostile players...", #targetList))
+            for _, pid in ipairs(targetList) do
                 local ped = getPlayerPed(pid)
                 local coords = getTargetCoordsSafe(pid, ped)
                 if coords and (coords.x ~= 0 or coords.y ~= 0) then
@@ -7631,13 +8232,17 @@ local function triggerOrbitalStrike(targetPid, isLoop)
                     script.yield(80)
                 end
             end
-            notify.success("Orbital", "All session targets struck by Orbital Cannon!")
+            notify.success("Orbital", "Hostile session targets struck by Orbital Cannon!")
         end)
         return
     end
 
     -- Ataque em Jogador Especifico
     local actualPid = (targetPid == nil or targetPid == -1) and myLocalPid or targetPid
+    if actualPid ~= myLocalPid and S.protectFriends and isPlayerFriend(actualPid) then
+        notify.warn("Orbital", getPlayerName(actualPid) .. " is protected by Friend Whitelist! Strike cancelled.")
+        return
+    end
     local targetPed = getPlayerPed(actualPid)
     local targetName = (actualPid == myLocalPid) and "You" or getPlayerName(actualPid)
 
@@ -7753,6 +8358,14 @@ local function renderTabOverwatchDrone()
             end)
         end
     end
+    imgui.same_line()
+    local cIntro, vIntro = imgui.checkbox("Biometric Holo-Scan Intro##ow_intro_chk", S.overwatchCinematicIntro)
+    if cIntro then S.overwatchCinematicIntro = vIntro end
+    imgui.same_line()
+    local cFare, vFare = imgui.checkbox("Hypersonic Orbit Farewell on Recall##ow_fare_chk", S.overwatchFarewellOrbit)
+    if cFare then S.overwatchFarewellOrbit = vFare end
+
+    imgui.spacing()
 
     imgui.spacing()
     imgui.text("Behavior Mode:")
@@ -8357,8 +8970,12 @@ local function renderTabPlayerAttachments()
     imgui.text("Attach Props to Player Body:")
     local function applyProp(modelOrHash, boneId, offX, offY, offZ, rotX, rotY, rotZ)
         if S.attachPresetModeAll then
-            for _, pid in ipairs(getActivePlayersList()) do attachPropToPlayer(pid, modelOrHash, boneId, offX, offY, offZ, rotX, rotY, rotZ) end
-            notify.success("Attachments", "Object attached to ALL players!")
+            for _, pid in ipairs(getActivePlayersList()) do
+                if not (S.protectFriends and isPlayerFriend(pid)) then
+                    attachPropToPlayer(pid, modelOrHash, boneId, offX, offY, offZ, rotX, rotY, rotZ)
+                end
+            end
+            notify.success("Attachments", "Object attached to all hostile players (friends spared)!")
         else
             attachPropToPlayer(S.selectedAttachmentPid, modelOrHash, boneId, offX, offY, offZ, rotX, rotY, rotZ)
         end
@@ -8433,6 +9050,20 @@ local function renderTabOptionsAndHotkeys()
     imgui.spacing(); imgui.separator(); imgui.spacing()
     local c3, v3 = imgui.checkbox("Enable Telekinesis Hotkeys (SPACE = Launch | E = Grab/Hold)##hk_chk", S.hotkeysEnabled)
     if c3 then S.hotkeysEnabled = v3; if S.hotkeysEnabled then startHotkeyLoop() end end
+
+    imgui.spacing(); imgui.separator(); imgui.spacing()
+    imgui.text("Friends & Whitelist Security:")
+    imgui.separator()
+    imgui.spacing()
+
+    local cPF, vPF = imgui.checkbox("Protect Friends / Whitelist (Immunity against attacks & trolls)##chk_protect_friends", S.protectFriends)
+    if cPF then
+        S.protectFriends = vPF
+        notify.info("Whitelist", S.protectFriends and "Friend protection ENABLED" or "Friend protection DISABLED")
+    end
+
+    local cHF, vHF = imgui.checkbox("Highlight Friends in Target Selector ([FRIEND] Tag)##chk_highlight_friends", S.highlightFriends)
+    if cHF then S.highlightFriends = vHF end
 
     imgui.spacing(); imgui.separator(); imgui.spacing()
     imgui.text("Session & Host Manager:")

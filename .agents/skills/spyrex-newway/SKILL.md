@@ -47,6 +47,14 @@ O NewWay roda a interface DirectX e a Game Fiber separadamente:
 2. Loops contínuos em corrotinas **DEVEM conter `script.yield(ms)`**. Nunca congele corrotinas em chamadas síncronas.
 3. **Exclusão de Entidades em Botões de UI:** Nunca destrua ou delete entidades diretamente na thread síncrona do ImGui (ex: botões de cancelamento). Sempre envolva em corrotinas seguras ou sinalize flags de término para limpeza automática no game tick.
 
+### 2.3 Fontes Oficiais de Consulta de Nativas (NativeDB & JSONs)
+Sempre que precisar consultar ou validar nomes exatos, hashes, namespaces, parâmetros, tipos de dados ou retornos de funções nativas do GTA V antes de utilizá-las no código:
+1. **`natives.json` (Local / Workspace):** Base completa com todas as nativas padrão do GTA V indexadas por namespace (`PLAYER`, `PED`, `VEHICLE`, `ENTITY`, `NETWORK`, `AUDIO`, `GRAPHICS`, `WEAPON`, etc.) com assinaturas de tipos e documentação de uso.
+2. **`natives_gen9.json` (Local / Workspace):** Base de nativas adaptada para a versão Gen 9 (Enhanced Edition e atualizações de novas gerações).
+3. **[GTA V Native Database](https://nativedb.dotindustries.dev/gta5/natives) (Online):** Consulta interativa online com documentação atualizada da comunidade, exemplos de uso e pesquisa rápida de hashes e parâmetros.
+
+> ⚠️ **Regra de Validação Prévia:** Antes de chamar qualquer nativa que haja dúvida sobre quantidade ou tipagem estrita de parâmetros (como visto nos erros de invoker `_I` descritos na Seção 4), consulte obrigatoriamente sua assinatura em um dos arquivos JSON locais (`natives.json` / `natives_gen9.json`) ou no NativeDB online.
+
 ---
 
 ## 3. Padrão Visual e Internacionalização (UI em Inglês)
