@@ -9034,8 +9034,6 @@ local function renderTabPlayerAttachments()
     imgui.end_tab_item()
 end
 
-local playSpyreXCinematicWelcome = nil
-
 local function renderTabOptionsAndHotkeys()
     if not imgui.begin_tab_item("Options & Hotkeys") then return end
     imgui.spacing()
@@ -9173,15 +9171,6 @@ local function renderTabOptionsAndHotkeys()
         end
     end
 
-    imgui.spacing()
-    imgui.separator()
-    imgui.text("Cinematic Presentation:")
-    if imgui.button("Replay Cinematic Welcome Banner##spyrex_replay_welcome_btn") then
-        if playSpyreXCinematicWelcome then
-            playSpyreXCinematicWelcome(4500)
-        end
-    end
-
     imgui.end_tab_item()
 end
 
@@ -9239,7 +9228,7 @@ end
 -- CINEMATIC WELCOME EXPERIENCE (COMBO COMPLETO)
 ------------------------------------------------------------
 
-playSpyreXCinematicWelcome = function(durationMs)
+local function playSpyreXCinematicWelcome(durationMs)
     durationMs = durationMs or 4500
 
     local playerName = "Operator"
@@ -9253,27 +9242,30 @@ playSpyreXCinematicWelcome = function(durationMs)
         end
     end)
 
-    local titleFormatted = "~HUD_COLOUR_PURPLE~S~b~P~c~Y~w~R~b~E~HUD_COLOUR_PURPLE~X ~s~V2.1"
+    local titleFormatted = "~HUD_COLOUR_PURPLE~N~b~Y~c~X ~s~2.0V"
     local subtitleFormatted = "~w~Welcome, ~b~" .. playerName .. " ~s~• ~c~Tactical Systems Active"
+
+    -- Foto da Notificação do Feed (YouTube oficial)
+    local currentIconTxd = "CHAR_YOUTUBE"
 
     -- 1. Notificacao Toast NewWay
     pcall(function()
         if notify and notify.info then
-            notify.info("SpyreX", "Advanced Suite v2.1 initialized for " .. playerName)
+            notify.info("Nyx 2.0V", "Advanced Suite initialized for " .. playerName)
         end
     end)
 
-    -- 2. Notificacao Feed Rockstar (Acima do mini-mapa)
+    -- 2. Notificacao Feed Rockstar (Acima do mini-mapa com foto customizavel e marcadores ASCII)
     pcall(function()
         if HUD and HUD.BEGIN_TEXT_COMMAND_THEFEED_POST then
             HUD.BEGIN_TEXT_COMMAND_THEFEED_POST("STRING")
-            HUD.ADD_TEXT_COMPONENT_SUBSTRING_PLAYER_NAME("~g~✔ ~s~Guardian Drone  ~g~✔ ~s~Whitelist  ~g~✔ ~s~Combat Matrix")
+            HUD.ADD_TEXT_COMPONENT_SUBSTRING_PLAYER_NAME("~g~[+] ~s~Guardian Drone  ~g~[+] ~s~Whitelist  ~g~[+] ~s~Combat Matrix")
             if HUD.END_TEXT_COMMAND_THEFEED_POST_MESSAGETEXT then
                 HUD.END_TEXT_COMMAND_THEFEED_POST_MESSAGETEXT(
-                    "CHAR_ALL_PLAYERS_CONF", "CHAR_ALL_PLAYERS_CONF",
+                    currentIconTxd, currentIconTxd,
                     true, 4,
-                    "~HUD_COLOUR_PURPLE~SpyreX ~b~Online",
-                    "~c~Enhanced Suite v2.1"
+                    "~HUD_COLOUR_PURPLE~Nyx ~b~2.0V",
+                    "~c~Enhanced Suite"
                 )
             elseif HUD.END_TEXT_COMMAND_THEFEED_POST_TICKER then
                 HUD.END_TEXT_COMMAND_THEFEED_POST_TICKER(false, true)
@@ -9356,5 +9348,5 @@ local showNyxWelcomeMessage = playSpyreXCinematicWelcome
 playSpyreXCinematicWelcome(4500)
 
 if log and log.info then
-    log.info("SpyreX.lua v2.1 loaded successfully! Enjoy.")
+    log.info("Nyx 2.0V loaded successfully! Enjoy.")
 end
