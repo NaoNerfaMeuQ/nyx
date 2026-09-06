@@ -9034,6 +9034,8 @@ local function renderTabPlayerAttachments()
     imgui.end_tab_item()
 end
 
+local playSpyreXCinematicWelcome = nil
+
 local function renderTabOptionsAndHotkeys()
     if not imgui.begin_tab_item("Options & Hotkeys") then return end
     imgui.spacing()
@@ -9171,6 +9173,15 @@ local function renderTabOptionsAndHotkeys()
         end
     end
 
+    imgui.spacing()
+    imgui.separator()
+    imgui.text("Cinematic Presentation:")
+    if imgui.button("Replay Cinematic Welcome Banner##spyrex_replay_welcome_btn") then
+        if playSpyreXCinematicWelcome then
+            playSpyreXCinematicWelcome(4500)
+        end
+    end
+
     imgui.end_tab_item()
 end
 
@@ -9225,74 +9236,45 @@ if event and event.register_handler and menu_event and menu_event.Unload then
 end
 
 ------------------------------------------------------------
--- INICIALIZACAO & MENSAGEM NA TELA COM CORES GRADIENTES
+-- CINEMATIC WELCOME EXPERIENCE (COMBO COMPLETO)
 ------------------------------------------------------------
 
-local NyxColorThemes = {
-    cyberpunk = {
-        title = "~p~N~q~y~b~x",
-        subtitle = "~w~A ~b~NewWay ~s~Script",
-        shardCol = 0
-    },
-    rainbow = {
-        title = "~r~N~y~y~g~x",
-        subtitle = "~w~A ~b~NewWay ~s~Script",
-        shardCol = 0
-    },
-    electric_blue = {
-        title = "~b~N~c~y~p~x",
-        subtitle = "~w~A ~b~NewWay ~s~Script",
-        shardCol = 0
-    },
-    sunset_fire = {
-        title = "~y~N~o~y~r~x",
-        subtitle = "~w~A ~b~NewWay ~s~Script",
-        shardCol = 0
-    },
-    matrix_green = {
-        title = "~g~N~g~y~w~x",
-        subtitle = "~w~A ~b~NewWay ~s~Script",
-        shardCol = 0
-    },
-    gold_luxury = {
-        title = "~HUD_COLOUR_GOLD~N~y~y~w~x",
-        subtitle = "~w~A ~b~NewWay ~s~Script",
-        shardCol = 0
-    }
-}
+playSpyreXCinematicWelcome = function(durationMs)
+    durationMs = durationMs or 4500
 
-local function showNyxWelcomeMessage(themeNameOrTitle, subtitle, durationMs)
-    local theme = nil
-    local titleFormatted = nil
-    local subtitleFormatted = nil
-    local shardCol = 0
+    local playerName = "Operator"
+    pcall(function()
+        local pid = getLocalPid()
+        if pid and pid ~= -1 then
+            local name = getPlayerName(pid)
+            if name and name ~= "" then
+                playerName = name
+            end
+        end
+    end)
 
-    if type(themeNameOrTitle) == "string" and NyxColorThemes[themeNameOrTitle] then
-        theme = NyxColorThemes[themeNameOrTitle]
-        titleFormatted = theme.title
-        subtitleFormatted = theme.subtitle
-        shardCol = theme.shardCol or 0
-    elseif type(themeNameOrTitle) == "string" and themeNameOrTitle ~= "" then
-        titleFormatted = themeNameOrTitle
-        subtitleFormatted = subtitle or "~w~A ~b~NewWay ~s~Script"
-    else
-        theme = NyxColorThemes.cyberpunk
-        titleFormatted = theme.title
-        subtitleFormatted = theme.subtitle
-    end
+    local titleFormatted = "~HUD_COLOUR_PURPLE~S~b~P~c~Y~w~R~b~E~HUD_COLOUR_PURPLE~X ~s~V2.1"
+    local subtitleFormatted = "~w~Welcome, ~b~" .. playerName .. " ~s~• ~c~Tactical Systems Active"
 
-    durationMs = durationMs or 4000
+    -- 1. Notificacao Toast NewWay
+    pcall(function()
+        if notify and notify.info then
+            notify.info("SpyreX", "Advanced Suite v2.1 initialized for " .. playerName)
+        end
+    end)
 
-    -- 1. Notificacao NewWay UI Toast
-    notify.info("Nyx", "A NewWay Script")
-
-    -- 2. GTA V Feed Post Notification (Acima do mini-mapa)
+    -- 2. Notificacao Feed Rockstar (Acima do mini-mapa)
     pcall(function()
         if HUD and HUD.BEGIN_TEXT_COMMAND_THEFEED_POST then
             HUD.BEGIN_TEXT_COMMAND_THEFEED_POST("STRING")
-            HUD.ADD_TEXT_COMPONENT_SUBSTRING_PLAYER_NAME(tostring(subtitleFormatted))
+            HUD.ADD_TEXT_COMPONENT_SUBSTRING_PLAYER_NAME("~g~✔ ~s~Guardian Drone  ~g~✔ ~s~Whitelist  ~g~✔ ~s~Combat Matrix")
             if HUD.END_TEXT_COMMAND_THEFEED_POST_MESSAGETEXT then
-                HUD.END_TEXT_COMMAND_THEFEED_POST_MESSAGETEXT("CHAR_ALL_PLAYERS_CONF", "CHAR_ALL_PLAYERS_CONF", true, 4, tostring(titleFormatted), "~b~Script Loaded")
+                HUD.END_TEXT_COMMAND_THEFEED_POST_MESSAGETEXT(
+                    "CHAR_ALL_PLAYERS_CONF", "CHAR_ALL_PLAYERS_CONF",
+                    true, 4,
+                    "~HUD_COLOUR_PURPLE~SpyreX ~b~Online",
+                    "~c~Enhanced Suite v2.1"
+                )
             elseif HUD.END_TEXT_COMMAND_THEFEED_POST_TICKER then
                 HUD.END_TEXT_COMMAND_THEFEED_POST_TICKER(false, true)
             end
@@ -9303,15 +9285,38 @@ local function showNyxWelcomeMessage(themeNameOrTitle, subtitle, durationMs)
     pcall(function()
         if HUD and HUD.BEGIN_TEXT_COMMAND_PRINT then
             HUD.BEGIN_TEXT_COMMAND_PRINT("STRING")
-            HUD.ADD_TEXT_COMPONENT_SUBSTRING_PLAYER_NAME(tostring(titleFormatted) .. " ~s~- " .. tostring(subtitleFormatted))
+            HUD.ADD_TEXT_COMPONENT_SUBSTRING_PLAYER_NAME(titleFormatted .. " ~s~- " .. subtitleFormatted)
             HUD.END_TEXT_COMMAND_PRINT(durationMs, true)
         end
     end)
 
-    -- 4. Shard Banner Gigante no Centro da Tela (Scaleform MP_BIG_MESSAGE_FREEMODE)
+    -- 4. Som Marcante e Impactante (Multi-camadas: Drone Bip + Checkpoint + Conquista)
+    pcall(function()
+        loadDroneAudioBank()
+        if AUDIO and AUDIO.PLAY_SOUND_FRONTEND then
+            AUDIO.PLAY_SOUND_FRONTEND(-1, "Focus_Bip", "DLC_BATTLE_DRONE_SOUNDS", true)
+            AUDIO.PLAY_SOUND_FRONTEND(-1, "CHECKPOINT_PERFECT", "HUD_MINI_GAME_SOUNDSET", true)
+            AUDIO.PLAY_SOUND_FRONTEND(-1, "PROPERTY_PURCHASE", "HUD_AWARDS", true)
+        end
+    end)
+
+    -- 5. Efeito Visual Cinemático e Shard Banner da Rockstar (Scaleform MP_BIG_MESSAGE_FREEMODE)
     if script and script.run_in_callback then
         script.run_in_callback(function()
             pcall(function()
+                if GRAPHICS and GRAPHICS.ANIMPOSTFX_STOP_ALL then
+                    GRAPHICS.ANIMPOSTFX_STOP_ALL()
+                end
+                if GRAPHICS and GRAPHICS.ANIMPOSTFX_PLAY then
+                    GRAPHICS.ANIMPOSTFX_PLAY("CamPushInNeutral", 1200, false)
+                end
+                if GRAPHICS and GRAPHICS.SET_TIMECYCLE_MODIFIER then
+                    GRAPHICS.SET_TIMECYCLE_MODIFIER("cinema")
+                    if GRAPHICS.SET_TIMECYCLE_MODIFIER_STRENGTH then
+                        GRAPHICS.SET_TIMECYCLE_MODIFIER_STRENGTH(0.60)
+                    end
+                end
+
                 if not GRAPHICS or not GRAPHICS.REQUEST_SCALEFORM_MOVIE then return end
                 local sf = GRAPHICS.REQUEST_SCALEFORM_MOVIE("MP_BIG_MESSAGE_FREEMODE")
                 local maxWait = 0
@@ -9324,46 +9329,19 @@ local function showNyxWelcomeMessage(themeNameOrTitle, subtitle, durationMs)
                     GRAPHICS.BEGIN_SCALEFORM_MOVIE_METHOD(sf, "SHOW_SHARD_CENTERED_MP_MESSAGE")
                     GRAPHICS.SCALEFORM_MOVIE_METHOD_ADD_PARAM_PLAYER_NAME_STRING(tostring(titleFormatted))
                     GRAPHICS.SCALEFORM_MOVIE_METHOD_ADD_PARAM_PLAYER_NAME_STRING(tostring(subtitleFormatted))
-                    GRAPHICS.SCALEFORM_MOVIE_METHOD_ADD_PARAM_INT(shardCol)
+                    GRAPHICS.SCALEFORM_MOVIE_METHOD_ADD_PARAM_INT(0)
                     GRAPHICS.END_SCALEFORM_MOVIE_METHOD()
 
-                    local start = (MISC and MISC.GET_GAME_TIMER and MISC.GET_GAME_TIMER()) or 0
-                    while (((MISC and MISC.GET_GAME_TIMER and MISC.GET_GAME_TIMER()) or 0) - start) < durationMs do
+                    local start = gameTimer()
+                    while (gameTimer() - start) < durationMs do
                         GRAPHICS.DRAW_SCALEFORM_MOVIE_FULLSCREEN(sf, 255, 255, 255, 255, 0)
                         script.yield(0)
                     end
                     GRAPHICS.SET_SCALEFORM_MOVIE_AS_NO_LONGER_NEEDED(sf)
                 end
-            end)
-        end)
-    end
 
-    -- 5. Limpeza de Efeitos Antigos & Disparo de Efeito Psicodélico Temporário
-    pcall(function()
-        if GRAPHICS and GRAPHICS.ANIMPOSTFX_STOP_ALL then
-            GRAPHICS.ANIMPOSTFX_STOP_ALL()
-        end
-    end)
-
-    -- Som Marcante & Impactante (Sub-bass cinematográfico + Fanfarra Synth de Conquista)
-    pcall(function()
-        if AUDIO and AUDIO.PLAY_SOUND_FRONTEND then
-            AUDIO.PLAY_SOUND_FRONTEND(-1, "ScreenFlash", "WastedSounds", true)
-            AUDIO.PLAY_SOUND_FRONTEND(-1, "BASE_JUMP_PASSED", "HUD_AWARDS", true)
-        end
-    end)
-
-    -- Efeito Psicodélico Suave Neon (Sem clarão branco/brilho excessivo)
-    if script and script.run_in_callback then
-        script.run_in_callback(function()
-            pcall(function()
-                local fxName = "InchPurple"
-                if GRAPHICS and GRAPHICS.ANIMPOSTFX_PLAY then
-                    GRAPHICS.ANIMPOSTFX_PLAY(fxName, 1400, false)
-                end
-                script.yield(1400)
-                if GRAPHICS and GRAPHICS.ANIMPOSTFX_STOP then
-                    GRAPHICS.ANIMPOSTFX_STOP(fxName)
+                if GRAPHICS and GRAPHICS.CLEAR_TIMECYCLE_MODIFIER then
+                    GRAPHICS.CLEAR_TIMECYCLE_MODIFIER()
                 end
                 if GRAPHICS and GRAPHICS.ANIMPOSTFX_STOP_ALL then
                     GRAPHICS.ANIMPOSTFX_STOP_ALL()
@@ -9373,8 +9351,10 @@ local function showNyxWelcomeMessage(themeNameOrTitle, subtitle, durationMs)
     end
 end
 
-showNyxWelcomeMessage("cyberpunk", nil, 4000)
+local showNyxWelcomeMessage = playSpyreXCinematicWelcome
+
+playSpyreXCinematicWelcome(4500)
 
 if log and log.info then
-    log.info("Nyx.lua loaded successfully! Enjoy.")
+    log.info("SpyreX.lua v2.1 loaded successfully! Enjoy.")
 end
